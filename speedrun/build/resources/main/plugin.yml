@@ -1,0 +1,21 @@
+name: Speedrun
+version: '1.0.0'
+main: org.speedrun.speedrun.Speedrun
+api-version: '1.21'
+author: 'deymon28'
+description: A speedrun plugin with a timer, location tracking, and tasks.
+
+commands:
+  run:
+    description: Speedrun control (pause, reset).
+    usage: "/run <pause|reset>"
+    permission: speedrun.control
+    permission-message: You do not have permission to use this command.
+    aliases:
+      - speedrun
+      - sr
+
+permissions:
+  speedrun.control:
+    description: Allows you to use the /run command to control the speedrun.
+    default: op
