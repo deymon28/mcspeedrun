@@ -106,4 +106,4 @@ Pull requests are welcome!
 
 ---
 
-> Made with ❤️ by **deymon28**
+> Made with ❤️ by **deymon28** **and me**
