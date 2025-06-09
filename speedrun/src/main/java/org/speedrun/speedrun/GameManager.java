@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.logging.Level; // Import for logging levels
 import java.util.stream.Collectors;
 
 // =========================================================================================
@@ -26,11 +27,13 @@ class GameManager {
 
     public GameManager(Speedrun plugin) {
         this.plugin = plugin;
-        if (plugin.getConfigManager().isStartOnFirstJoin()) {
-            // The GameListener will call startRun()
-        } else {
+        // Logic modified to remove the empty if statement.
+        // The run should only start immediately if startOnFirstJoin is explicitly false.
+        if (!plugin.getConfigManager().isStartOnFirstJoin()) {
             startRun();
         }
+        // If plugin.getConfigManager().isStartOnFirstJoin() is true,
+        // the GameListener is responsible for calling startRun() later.
     }
 
     public void startRun() {
@@ -76,8 +79,14 @@ class GameManager {
 
     private void logAttempt(boolean completed) {
         File logFile = new File(plugin.getDataFolder(), "logs/speedrun-log.txt");
-        if (!logFile.getParentFile().exists()) {
-            logFile.getParentFile().mkdirs();
+        File parentDir = logFile.getParentFile();
+
+        // Check if directory creation was successful.
+        if (!parentDir.exists()) {
+            if (!parentDir.mkdirs()) {
+                plugin.getLogger().warning("Failed to create log directory: " + parentDir.getAbsolutePath());
+                return; // Exit if directory creation failed.
+            }
         }
 
         try (FileWriter fw = new FileWriter(logFile, true);
@@ -99,8 +108,8 @@ class GameManager {
             pw.println("------------------------\n");
 
         } catch (IOException e) {
-            plugin.getLogger().severe("Could not write to speedrun log file!");
-            e.printStackTrace();
+            // Replaced printStackTrace() with proper logging.
+            plugin.getLogger().log(Level.SEVERE, "Could not write to speedrun log file!", e);
         }
     }
 
