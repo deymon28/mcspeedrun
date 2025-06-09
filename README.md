@@ -92,6 +92,7 @@ Currently, task requirements and timings are hardcoded.
 
 **In the future**:
 - Start timer when at least one player is on the server, not from the start of the server
+- add a resource dynamics parameter separately for each task, depending on its value, either the total amount of resources for the entire time or the total amount of resources at the moment will be taken into account
 - Separation of task display depending on the world where the player is located
 - Moving most entities to the configuration file for easy configuration
 - Translation of the project into Ukrainian
