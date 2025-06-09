@@ -82,26 +82,28 @@ Currently, task requirements and timings are hardcoded.
 
 ---
 
-## 🏗️ Updates tasks and 🛠️ Future changes
+## 🏗️ Upcoming Tasks and 🔮 Future Plans
 
-**Soon**:
-- Refactoring the project
-- Fixing known bugs
-- Explicit display of the pause
-- move the timer to search for a village in the village coordinate field (with colour highlighting), format it to a compact view, the rest of the behaviour is preserved
+### Coming Soon:
+- Codebase refactoring and cleanup
+- Fix known bugs
+- Add explicit "paused" indicator on the scoreboard
+- Move village search timer into the village coordinate field with color highlighting and compact formatting
 
-**In the future**:
-- Start timer when at least one player is on the server, not from the start of the server
-- add a resource dynamics parameter separately for each task, depending on its value, either the total amount of resources for the entire time or the total amount of resources at the moment will be taken into account
-- Separation of task display depending on the world where the player is located
-- Moving most entities to the configuration file for easy configuration
-- Translation of the project into Ukrainian
-- Creating a logical and detailed sequence of tasks to complete
-- Progression of the number of resources required for the task, depending on the number of players
-- Detailed logging of each speedrun attempt
-- Rewards (not affecting fair play) for players for completing tasks and finding locations
-- New commands that will expand the interaction with the plugin without leaving the game
-- Change the way the Nether portal coordinates are obtained for the lower world (and possibly for the upper world), so that they are obtained without the fact of entering the portal.
+### Planned Features:
+- Start the timer when the first player joins, not on server start
+- Add a per-task resource tracking mode:
+    - Total collected over time
+    - Only current inventory amount
+- Display tasks dynamically based on the player's current world (Overworld, Nether, etc.)
+- Move most plugin settings to `config.yml` for easier customization
+- Add localization support, starting with a full Ukrainian translation
+- Introduce a structured task progression path
+- Dynamically scale required resources based on player count
+- Log each speedrun attempt with detailed data
+- Add optional rewards (cosmetic only) for task and milestone completion
+- Expand in-game commands to enhance interaction
+- Revise Nether portal coordinate detection to work without requiring player entry
 
 ---
 
