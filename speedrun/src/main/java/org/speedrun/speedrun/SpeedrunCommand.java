@@ -14,6 +14,8 @@ import java.util.List;
 // Command Handler
 // Handles the registration and execution of speedrun-related commands.
 // =========================================================================================
+
+@SuppressWarnings("UnstableApiUsage")
 class SpeedrunCommand {
     private final Speedrun plugin;
 
