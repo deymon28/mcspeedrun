@@ -2,7 +2,6 @@ package org.speedrun.speedrun;
 
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.ApiStatus; // Import for ApiStatus.Experimental or UnstableApiUsage suppression
 
 // =========================================================================================
 // Main Plugin Class
