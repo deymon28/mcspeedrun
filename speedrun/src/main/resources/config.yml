@@ -1,0 +1,80 @@
+# ----------------------------------------------------------------
+# SpeedrunRefactored Plugin Configuration
+# ----------------------------------------------------------------
+
+settings:
+  # The language file to use from the 'lang' folder (e.g., 'en', 'uk').
+  language: "en"
+  # Timer will start automatically when the first player joins the server.
+  start-on-first-join: true
+  # Time in seconds to find the village before the task is removed. 600 = 10 minutes.
+  village-search-timeout: 600
+  # How to track player resources for tasks.
+  # INVENTORY: Only counts items currently in players' inventories.
+  # CUMULATIVE: Counts all items ever picked up or crafted by players during the run. (More demanding on the server)
+  task-tracking-mode: "INVENTORY"
+  # Dynamically scale required resource amounts based on the number of players online.
+  scale-resources-by-playercount:
+    enabled: true
+    # Formula: base_amount * (1 + (player_count - 1) * multiplier)
+    # A value of 0.5 means each additional player adds 50% of the base requirement.
+    multiplier: 0.5
+  # Log details of each speedrun attempt to 'logs/speedrun-log.txt'.
+  log-attempts: true
+
+# ----------------------------------------------------------------
+# Task Progression
+# Define the stages and the tasks within each stage.
+# The plugin will progress from one stage to the next as all tasks are completed.
+# ----------------------------------------------------------------
+progression:
+  # Stage 1: Basic setup
+  1_GETTING_STARTED:
+    world: "NORMAL" # Tasks are displayed when the player is in this world.
+    tasks:
+      # Use any log type as the key; the plugin aggregates all wood types. OAK_LOG is recommended.
+      OAK_LOG: { amount: 64, display-name: "Wood" }
+      COBBLESTONE: { amount: 64, display-name: "Cobblestone" }
+  # Stage 2: Advancing to Iron Age
+  2_IRON_AGE:
+    world: "NORMAL"
+    tasks:
+      IRON_INGOT: { amount: 7, display-name: "Iron Ingots" }
+      # Use BREAD as a key for all cooked foods. The plugin will aggregate them.
+      BREAD: { amount: 64, display-name: "Cooked Food" }
+  # Stage 3: Preparing for the Nether
+  3_NETHER_PREP:
+    world: "NORMAL"
+    tasks:
+      # Players need to find a village to get beds, or for other reasons.
+      # This is a special task type that completes when the structure is found.
+      STRUCTURE_VILLAGE: { display-name: "Find a Village" }
+      # This task completes when a Nether portal is successfully lit in the Overworld.
+      STRUCTURE_NETHER_PORTAL_OVERWORLD: { display-name: "Light Nether Portal" }
+  # Stage 4: Nether Exploration
+  4_NETHER_EXPLORATION:
+    world: "NETHER"
+    tasks:
+      ENDER_PEARL: { amount: 16, display-name: "Ender Pearls" }
+      BLAZE_ROD: { amount: 8, display-name: "Blaze Rods" }
+  # Stage 5: The End
+  5_THE_END:
+    world: "THE_END" # Or can be NETHER/OVERWORLD depending on where you want it to show
+    tasks:
+      # This task completes upon finding the stronghold End Portal room.
+      STRUCTURE_END_PORTAL: { display-name: "Find the Stronghold" }
+
+# ----------------------------------------------------------------
+# Optional cosmetic rewards for completing tasks or stages.
+# ----------------------------------------------------------------
+rewards:
+  enabled: false
+  # Command to run from the console when a single task is completed.
+  # Placeholders: %player%
+  on-task-complete:
+    - "particle minecraft:totem_of_undying ~ ~1 ~ 1 1 1 0.1 50 normal %player%"
+    - "playsound minecraft:entity.player.levelup master %player% ~ ~ ~ 1 1.5"
+  # Command to run when all tasks in a stage are completed.
+  on-stage-complete:
+    - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"
+    - "particle minecraft:firework ~ ~1 ~ 1 1 1 0.1 100 normal @a"

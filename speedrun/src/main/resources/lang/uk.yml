@@ -1,0 +1,47 @@
+# Ukrainian Language File
+prefix: "&e[Speedrun] &r"
+
+commands:
+  no-permission: "&cУ вас немає дозволу на використання цієї команди."
+  player-only: "&cЦю команду може виконати лише гравець."
+  reloaded: "&aФайли конфігурації та мови перезавантажено."
+  timer-paused: "&eТаймер спідрану призупинено."
+  timer-resumed: "&eТаймер спідрану відновлено."
+  run-reset: "&cСпідран було скинуто."
+  stage-skipped: "&eПерехід до наступного етапу."
+  status:
+    header: "&6--------- &eСтатус спідрану &6---------"
+    time: "&fЧас: &e%time%"
+    running: "&fСтатус: &aЗапущено"
+    paused: "&fСтатус: &cНа паузі"
+    stage: "&fПоточний етап: &d%stage%"
+    players: "&fГравці: &b%players%"
+    footer: "&6-----------------------------------"
+  tasks:
+    header: "&6--------- &eПоточні завдання &6---------"
+    no-tasks: "&7У вас немає активних завдань у цьому світі."
+    task-line: "&7- %task_name%: &f%progress%&7/&f%required%"
+    footer: "&6-----------------------------------"
+
+scoreboard:
+  title: "&e&lСПІДРАН"
+  time: "&fЧас:"
+  paused: "&c&lПАУЗА"
+  locations-header: "&bЛокації:"
+  location-found: "&7%name%: &a%coords%"
+  location-pending: "&7%name%: &c???"
+  village-timer: "&e[%time%]"
+  overworld-tasks-header: "&aВерхній світ:"
+  nether-tasks-header: "&cНижній світ:"
+  end-tasks-header: "&5Край:"
+  task-line: "&7- %name%: &f%progress%&7/&f%required%"
+  task-complete: "&a✔ &m%name%"
+
+messages:
+  run-started: "&aСпідран розпочато!"
+  village-timeout: "&cЧас на пошук села вичерпано! Завдання видалено."
+  structure-found: "&b%player% &fзнайшов &6%structure% &fна &b%coords%&f!"
+  portal-lit: "&b%player% &fвідкрив портал до &5Нижнього світу&f!"
+  dragon-slain: "&a&lДракона Краю переможено! Спідран завершено!"
+  final-time: "&a&lФінальний час: %time%"
+  stage-complete: "&d&lЕтап завершено! &fПерехід до наступного етапу."
