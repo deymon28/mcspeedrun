@@ -82,7 +82,7 @@ Currently, task requirements and timings are hardcoded.
 
 ---
 
-## 🏗️ Updates and 🛠️ Future changes
+## 🏗️ Updates tasks and 🛠️ Future changes
 
 **Soon**:
 - Refactoring the project
@@ -99,6 +99,7 @@ Currently, task requirements and timings are hardcoded.
 - Detailed logging of each speedrun attempt
 - Rewards (not affecting fair play) for players for completing tasks and finding locations
 - New commands that will expand the interaction with the plugin without leaving the game
+- Change the way the Nether portal coordinates are obtained for the lower world (and possibly for the upper world), so that they are obtained without the fact of entering the portal.
 
 ---
 
