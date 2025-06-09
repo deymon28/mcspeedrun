@@ -43,14 +43,14 @@ progression:
       # Use BREAD as a key for all cooked foods. The plugin will aggregate them.
       BREAD: { amount: 64, display-name: "Cooked Food" }
   # Stage 3: Preparing for the Nether
-#  3_NETHER_PREP: # don't need
-#    world: "NORMAL"
-#    tasks:
-#      # Players need to find a village to get beds, or for other reasons.
-#      # This is a special task type that completes when the structure is found.
-#      STRUCTURE_VILLAGE: { display-name: "Find a Village" }
-#      # This task completes when a Nether portal is successfully lit in the Overworld.
-#      STRUCTURE_NETHER_PORTAL_OVERWORLD: { display-name: "Light Nether Portal" }
+  3_NETHER_PREP:
+    world: "NORMAL"
+    tasks:
+      # Players need to find a village to get beds, or for other reasons.
+      # This is a special task type that completes when the structure is found.
+      STRUCTURE_VILLAGE: { display-name: "Find a Village" }
+      # This task completes when a Nether portal is successfully lit in the Overworld.
+      STRUCTURE_NETHER_PORTAL_OVERWORLD: { display-name: "Light Nether Portal" }
   # Stage 4: Nether Exploration
   4_NETHER_EXPLORATION:
     world: "NETHER"
