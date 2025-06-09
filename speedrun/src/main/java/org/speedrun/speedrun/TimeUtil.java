@@ -11,4 +11,12 @@ final class TimeUtil {
         long s = totalSeconds % 60;
         return String.format("%02d:%02d:%02d", h, m, s);
     }
+
+    public static String formatMinutesSeconds(long totalSeconds) {
+        if (totalSeconds < 0) totalSeconds = 0;
+        long m = totalSeconds / 60;
+        long s = totalSeconds % 60;
+        return String.format("%02d:%02d", m, s);
+    }
+
 }
