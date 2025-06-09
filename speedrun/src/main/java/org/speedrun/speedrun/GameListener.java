@@ -33,6 +33,10 @@ class GameListener implements Listener {
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
 
+    // Define a constant for the fixed radius used in the nether portal block check.
+    // This makes the intent clearer and avoids the 'parameter is always X' warning.
+    private static final int NETHER_PORTAL_CHECK_RADIUS = 2;
+
     public GameListener(Speedrun plugin) {
         this.plugin = plugin;
     }
@@ -137,7 +141,8 @@ class GameListener implements Listener {
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        for(Block nearby : getNearbyBlocks(clickedBlock, 2)) {
+                        // Use the defined constant for clarity.
+                        for(Block nearby : getNearbyBlocks(clickedBlock)) {
                             if(nearby.getType() == Material.NETHER_PORTAL) {
                                 plugin.getStructureManager().portalLit(event.getPlayer(), clickedBlock.getLocation());
                                 cancel();
@@ -150,11 +155,18 @@ class GameListener implements Listener {
         }
     }
 
-    private List<Block> getNearbyBlocks(Block start, int radius) {
+    /**
+     * Retrieves a list of blocks within a predefined radius of a starting block.
+     * This helper method is specifically tailored for checking for nearby Nether Portal blocks.
+     * @param start The central block from which to search.
+     * @return A List of Block objects within the {@code NETHER_PORTAL_CHECK_RADIUS}.
+     */
+    private List<Block> getNearbyBlocks(Block start) {
         List<Block> blocks = new ArrayList<>();
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
+        // Iterate within the fixed radius defined by NETHER_PORTAL_CHECK_RADIUS.
+        for (int x = -NETHER_PORTAL_CHECK_RADIUS; x <= NETHER_PORTAL_CHECK_RADIUS; x++) {
+            for (int y = -NETHER_PORTAL_CHECK_RADIUS; y <= NETHER_PORTAL_CHECK_RADIUS; y++) {
+                for (int z = -NETHER_PORTAL_CHECK_RADIUS; z <= NETHER_PORTAL_CHECK_RADIUS; z++) {
                     blocks.add(start.getRelative(x, y, z));
                 }
             }
