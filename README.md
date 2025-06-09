@@ -91,6 +91,7 @@ Currently, task requirements and timings are hardcoded.
 - move the timer to search for a village in the village coordinate field (with colour highlighting), format it to a compact view, the rest of the behaviour is preserved
 
 **In the future**:
+- Start timer when at least one player is on the server, not from the start of the server
 - Separation of task display depending on the world where the player is located
 - Moving most entities to the configuration file for easy configuration
 - Translation of the project into Ukrainian
