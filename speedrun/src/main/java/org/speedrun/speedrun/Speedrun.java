@@ -2,13 +2,18 @@ package org.speedrun.speedrun;
 
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
-
+import org.jetbrains.annotations.ApiStatus; // Import for ApiStatus.Experimental or UnstableApiUsage suppression
 
 // =========================================================================================
 // Main Plugin Class
 // =========================================================================================
+// Suppress warnings related to experimental API usage from PaperMC's Lifecycle commands.
+// This is done because the user explicitly uses the Lifecycle API, which is marked as experimental.
+@SuppressWarnings("UnstableApiUsage")
 public final class Speedrun extends JavaPlugin {
 
+    // Making manager classes public as they are exposed through public getter methods
+    // and thus need to be accessible outside their package.
     private ConfigManager configManager;
     private GameManager gameManager;
     private TaskManager taskManager;
@@ -40,23 +45,16 @@ public final class Speedrun extends JavaPlugin {
     }
 
     private void registerBrigadierCommands() {
-        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
-            new SpeedrunCommand(this, commands.registrar());
-        });
+        // Changed statement lambda to expression lambda for conciseness.
+        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands ->
+                new SpeedrunCommand(this, commands.registrar())
+        );
     }
 
-    // Manager Getters
+    // Manager Getters - These classes are now public to match their exposure via public getters.
     public ConfigManager getConfigManager() { return configManager; }
     public GameManager getGameManager() { return gameManager; }
     public TaskManager getTaskManager() { return taskManager; }
     public StructureManager getStructureManager() { return structureManager; }
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
 }
-
-
-
-
-
-
-
-
