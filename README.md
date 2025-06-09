@@ -44,6 +44,8 @@ Once all Overworld tasks are completed, the "Overworld" task group is removed fr
 ### 🎮 Player-Friendly Interactions
 Intuitive commands for control and an interactive way to mark milestones.
 
+Automatic timer stop after killing Ender Dragon.
+
 ---
 
 ## 🛠️ Installation
@@ -51,6 +53,8 @@ Intuitive commands for control and an interactive way to mark milestones.
 1. Download the latest `.jar` file from the [Releases](../../releases) page.
 2. Place the `Speedrun-1.0-SNAPSHOT.jar` file into your server’s `plugins/` directory.
 3. Start or restart your Minecraft server.
+
+*Tested only on Paper server for Minecraft 1.21.5*
 
 ---
 
@@ -84,6 +88,7 @@ Currently, task requirements and timings are hardcoded.
 - Refactoring the project
 - Fixing known bugs
 - Explicit display of the pause
+- move the timer to search for a village in the village coordinate field (with colour highlighting), format it to a compact view, the rest of the behaviour is preserved
 
 **In the future**:
 - Separation of task display depending on the world where the player is located
@@ -106,4 +111,4 @@ Pull requests are welcome!
 
 ---
 
-> Made with ❤️ by **deymon28** **and me**
+> Made with ❤️ by **deymon28** **and Nikita**
