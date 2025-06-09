@@ -148,12 +148,15 @@ class TaskManager {
      * @return The index of the next incomplete stage, or the current index if no further incomplete stages are found.
      */
     private int findNextIncompleteStage(int startIndex) {
-        // Get the distinct worlds that represent different stages, maintaining order.
+        // Get the distinct worlds that represent different stages, maintaining insertion order.
+        // Collecting to a LinkedHashSet then converting to an ArrayList is necessary here
+        // to ensure unique stages are processed in the order they first appear,
+        // and to allow indexed access for stage progression.
         Set<World.Environment> distinctStages = allTasks.stream()
                 .map(t -> t.world)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-
         List<World.Environment> stageOrder = new ArrayList<>(distinctStages);
+
         if(startIndex >= stageOrder.size()) return startIndex; // Already at the end of stages.
 
         World.Environment currentStageWorld = stageOrder.get(startIndex);
@@ -175,6 +178,10 @@ class TaskManager {
      * @return A list of Task objects for the current stage.
      */
     public List<Task> getTasksForCurrentStage() {
+        // Get the distinct worlds that represent different stages, maintaining insertion order.
+        // Collecting to a LinkedHashSet then converting to an ArrayList is necessary here
+        // to ensure unique stages are processed in the order they first appear,
+        // and to allow indexed access for stage progression.
         Set<World.Environment> distinctStages = allTasks.stream()
                 .map(t -> t.world)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -206,7 +213,7 @@ class TaskManager {
 
     /**
      * Updates item task progress by summing items found in all online players' inventories.
-     * This method resets task progress before summing, suitable for INVENTORY tracking.
+     * This method resets task progress before recounting from inventories, suitable for INVENTORY tracking.
      */
     private void updateTasksFromInventory() {
         // Reset progress for ITEM tasks before recounting from inventories.
@@ -239,11 +246,10 @@ class TaskManager {
                     return;
                 }
 
-                // Sum contributions for this material from all players.
-                int total = cumulativePlayerContributions.values().stream()
+                // Sum contributions for this material from all players and directly assign to progress.
+                task.progress = cumulativePlayerContributions.values().stream()
                         .mapToInt(playerMap -> playerMap.getOrDefault(taskMaterial, 0))
                         .sum();
-                task.progress = total;
             }
         });
     }
