@@ -86,7 +86,7 @@ class ScoreboardManager {
                 // If the structure is not yet found.
                 if (entry.getKey().equals("Village") && plugin.getStructureManager().isVillageSearchActive()) {
                     // Special handling for Village search with a timer.
-                    String timer = plugin.getConfigManager().getFormattedText("scoreboard.village-timer", "%time%", TimeUtil.format(plugin.getGameManager().getVillageTimeRemaining()));
+                    String timer = plugin.getConfigManager().getFormattedText("scoreboard.village-timer", "%time%", TimeUtil.formatMinutesSeconds(plugin.getGameManager().getVillageTimeRemaining()));
                     line = plugin.getConfigManager().getFormattedText("scoreboard.location-pending", "%name%", entry.getKey()) + " " + timer;
                 } else {
                     // General pending location status.
