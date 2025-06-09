@@ -48,17 +48,20 @@ public class ConfigManager {
     public Component getFormatted(String key, String... replacements) {
         // Get the raw message from the language file.
         String message = getMessage(key);
-        // Prepend the prefix and translate legacy color codes.
-        // Replaced deprecated ChatColor.translateAlternateColorCodes with Adventure's LegacyComponentSerializer.
+        // Prepend the prefix and translate legacy color codes using '&' character.
         Component formattedComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(getMessage("prefix") + message);
 
-        // Apply replacements. For Adventure components, this is usually done by finding and replacing text,
-        // or by building the component more directly. For simplicity with legacy strings, we'll keep string replacement.
-        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(formattedComponent); // Serialize back to string for replacement
+        // Apply replacements *after* deserializing to Component.
+        // It's generally better to manipulate Components directly rather than string parsing,
+        // but given the %placeholder% format, direct string replacement is simpler here.
+        // However, replacements should ideally happen on the Component object itself for full Adventure benefits.
+        // For now, we'll keep the string replacement for consistency with the original logic.
+        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(formattedComponent); // Temporarily serialize to string for replacements
         for (int i = 0; i < replacements.length; i += 2) {
             processedMessage = processedMessage.replace(replacements[i], replacements[i+1]);
         }
-        return LegacyComponentSerializer.legacyAmpersand().deserialize(processedMessage); // Convert back to Component
+        // Then deserialize back to Component, which is what getFormatted is expected to return.
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(processedMessage);
     }
 
     public Component getFormatted(String key) {
@@ -67,12 +70,21 @@ public class ConfigManager {
 
     public String getFormattedText(String key, String... replacements) {
         String message = getMessage(key);
-        // Replaced deprecated ChatColor.translateAlternateColorCodes with Adventure's LegacyComponentSerializer.
-        message = LegacyComponentSerializer.legacyAmpersand().serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
+        // Step 1: Deserialize the message (which uses '&' color codes) into an Adventure Component.
+        Component component = LegacyComponentSerializer.legacyAmpersand().deserialize(message);
+
+        // Step 2: Apply replacements to the string representation of the component.
+        // This is a pragmatic choice for simple %placeholder% replacements.
+        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(component); // Temporarily serialize to string for replacements
         for (int i = 0; i < replacements.length; i += 2) {
-            message = message.replace(replacements[i], replacements[i+1]);
+            processedMessage = processedMessage.replace(replacements[i], replacements[i+1]);
         }
-        return message;
+
+        // Step 3: Deserialize the processed string back into a Component,
+        // THEN serialize it using LegacyComponentSerializer.legacySection()
+        // to ensure it uses '§' (section sign) color codes.
+        // This is the crucial change for scoreboard compatibility.
+        return LegacyComponentSerializer.legacySection().serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(processedMessage));
     }
 
     public void executeRewardCommands(String key, @Nullable Player player) {
