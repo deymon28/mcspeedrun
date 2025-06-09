@@ -57,12 +57,12 @@ progression:
     tasks:
       ENDER_PEARL: { amount: 16, display-name: "Ender Pearls" }
       BLAZE_ROD: { amount: 8, display-name: "Blaze Rods" }
-  # Stage 5: The End
-  5_THE_END:
-    world: "THE_END" # Or can be NETHER/OVERWORLD depending on where you want it to show
-    tasks:
-      # This task completes upon finding the stronghold End Portal room.
-      STRUCTURE_END_PORTAL: { display-name: "Find the Stronghold" }
+  # Stage 5: The End NEED REFRACTOR AND TRANSLATION
+#  5_THE_END:
+#    world: "THE_END" # Or can be NETHER/OVERWORLD depending on where you want it to show
+#    tasks:
+#      # This task completes upon finding the stronghold End Portal room.
+#      STRUCTURE_END_PORTAL: { display-name: "Kill dragon" }
 
 # ----------------------------------------------------------------
 # Optional cosmetic rewards for completing tasks or stages.
