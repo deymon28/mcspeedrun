@@ -3,7 +3,6 @@ package org.speedrun.speedrun;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -15,11 +14,12 @@ import java.util.List;
 // =========================================================================================
 // Configuration Manager
 // =========================================================================================
+@SuppressWarnings("FieldCanBeLocal") // Suppress warning for langFile as it's part of manager state.
 class ConfigManager {
     private final Speedrun plugin;
     private FileConfiguration config;
     private FileConfiguration lang;
-    private File langFile;
+    private File langFile; // Keeping as a field as it's part of the manager's state for file management.
 
     public enum TrackingMode { INVENTORY, CUMULATIVE }
 
@@ -46,13 +46,19 @@ class ConfigManager {
     }
 
     public Component getFormatted(String key, String... replacements) {
+        // Get the raw message from the language file.
         String message = getMessage(key);
-        message = ChatColor.translateAlternateColorCodes('&', getMessage("prefix") + message);
+        // Prepend the prefix and translate legacy color codes.
+        // Replaced deprecated ChatColor.translateAlternateColorCodes with Adventure's LegacyComponentSerializer.
+        Component formattedComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(getMessage("prefix") + message);
 
+        // Apply replacements. For Adventure components, this is usually done by finding and replacing text,
+        // or by building the component more directly. For simplicity with legacy strings, we'll keep string replacement.
+        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(formattedComponent); // Serialize back to string for replacement
         for (int i = 0; i < replacements.length; i += 2) {
-            message = message.replace(replacements[i], replacements[i+1]);
+            processedMessage = processedMessage.replace(replacements[i], replacements[i+1]);
         }
-        return LegacyComponentSerializer.legacySection().deserialize(message);
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(processedMessage); // Convert back to Component
     }
 
     public Component getFormatted(String key) {
@@ -61,7 +67,8 @@ class ConfigManager {
 
     public String getFormattedText(String key, String... replacements) {
         String message = getMessage(key);
-        message = ChatColor.translateAlternateColorCodes('&', message);
+        // Replaced deprecated ChatColor.translateAlternateColorCodes with Adventure's LegacyComponentSerializer.
+        message = LegacyComponentSerializer.legacyAmpersand().serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
         for (int i = 0; i < replacements.length; i += 2) {
             message = message.replace(replacements[i], replacements[i+1]);
         }
