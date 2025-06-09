@@ -12,7 +12,7 @@ import java.util.Map;
 // Manages the tracking and detection of specific in-game structures.
 // It keeps track of which key structures have been found and notifies the game manager.
 // =========================================================================================
-class StructureManager {
+public class StructureManager {
     private final Speedrun plugin;
     // Stores locations of found structures, keyed by a canonical name (e.g., "Village").
     // Uses LinkedHashMap to maintain insertion order for display purposes (e.g., scoreboard).

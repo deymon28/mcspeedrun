@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 // =========================================================================================
 // Game Logic Manager
 // =========================================================================================
-class GameManager {
+public class GameManager {
     private final Speedrun plugin;
     private long totalSeconds = 0;
     private boolean isRunning = false;

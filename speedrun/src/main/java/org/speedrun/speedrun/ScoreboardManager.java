@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 // Scoreboard Manager
 // Manages the creation and updating of player scoreboards in the speedrun plugin.
 // =========================================================================================
-class ScoreboardManager {
+public class ScoreboardManager {
     private final Speedrun plugin;
     // Stores a scoreboard for each player, keyed by their UUID.
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<>();

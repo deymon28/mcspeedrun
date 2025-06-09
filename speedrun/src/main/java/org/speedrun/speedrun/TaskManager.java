@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 // Manages all tasks and stages for the speedrun, including loading tasks from config,
 // tracking player progress, and checking for stage completion.
 // =========================================================================================
-class TaskManager {
+public class TaskManager {
     private final Speedrun plugin;
     private final List<Task> allTasks = new ArrayList<>();
     private final Set<Material> allLogMaterials = new HashSet<>();

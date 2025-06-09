@@ -15,7 +15,7 @@ import java.util.List;
 // Configuration Manager
 // =========================================================================================
 @SuppressWarnings("FieldCanBeLocal") // Suppress warning for langFile as it's part of manager state.
-class ConfigManager {
+public class ConfigManager {
     private final Speedrun plugin;
     private FileConfiguration config;
     private FileConfiguration lang;
