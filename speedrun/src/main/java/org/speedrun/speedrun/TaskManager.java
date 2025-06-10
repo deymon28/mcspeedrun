@@ -18,16 +18,22 @@ import java.util.stream.Collectors;
 // =========================================================================================
 public class TaskManager {
     private final Speedrun plugin;
+    // allTasks now holds ALL tasks loaded from the config, regardless of their stage.
     private final List<Task> allTasks = new ArrayList<>();
+    // tasksByStage and orderedStageKeys are kept to manage the *progression* of named stages
+    // and trigger stage-specific rewards, but not for displaying tasks.
+    private final Map<String, List<Task>> tasksByStage = new LinkedHashMap<>();
+    private final List<String> orderedStageKeys = new ArrayList<>();
+
     private final Set<Material> allLogMaterials = new HashSet<>();
     private final Set<Material> allCookedFoodMaterials = new HashSet<>();
-    private int currentStageIndex = 0;
+    private int currentStageIndex = 0; // Tracks the index of the current *progression* stage.
 
-// For CUMULATIVE mode: Tracks contributions of items from individual players.
+    // For CUMULATIVE mode: Tracks contributions of items from individual players.
     private final Map<UUID, Map<Material, Integer>> cumulativePlayerContributions = new ConcurrentHashMap<>();
 
     /**
-     * Constructor for TaskManager.*
+     * Constructor for TaskManager.
      * @param plugin The main Speedrun plugin instance.
      */
     public TaskManager(Speedrun plugin) {
@@ -37,11 +43,13 @@ public class TaskManager {
     }
 
     /**
-     * Clears existing tasks and reloads them from the plugin's configuration.* <p>
+     * Clears existing tasks and reloads them from the plugin's configuration.
      * This method is called during plugin initialization and upon command reload.
      */
     public void reloadTasks() {
-        allTasks.clear();
+        allTasks.clear(); // Clear all tasks
+        tasksByStage.clear(); // Clear stage-grouped tasks
+        orderedStageKeys.clear(); // Clear stage order
         cumulativePlayerContributions.clear();
         currentStageIndex = 0;
 
@@ -51,7 +59,7 @@ public class TaskManager {
             return;
         }
 
-// Sort keys numerically to ensure stages are processed in correct order (e.g., "1", "2", "10").
+        // Sort keys numerically to ensure stages are processed in correct order (e.g., "1", "2", "10").
         List<String> sortedStageKeys = new ArrayList<>(progressionSection.getKeys(false));
         sortedStageKeys.sort(Comparator.naturalOrder());
 
@@ -63,14 +71,12 @@ public class TaskManager {
             }
 
             World.Environment world;
-            String worldString = stageSection.getString("world", "NORMAL").toUpperCase(); // Changed default to "NORMAL"
+            String worldString = stageSection.getString("world", "NORMAL").toUpperCase();
             try {
-                // Attempt to get the World.Environment enum from the config string.
-                // Using "NORMAL" as the default for the Overworld, as "OVERWORLD" is not a direct enum constant.
                 world = World.Environment.valueOf(worldString);
             } catch (IllegalArgumentException e) {
                 plugin.getLogger().severe("Invalid world environment '" + worldString + "' specified in stage " + stageKey + ". Skipping this stage.");
-                continue; // Skip this stage if the world environment is invalid.
+                continue;
             }
 
             ConfigurationSection tasksSection = stageSection.getConfigurationSection("tasks");
@@ -79,6 +85,7 @@ public class TaskManager {
                 continue;
             }
 
+            List<Task> currentStageTasks = new ArrayList<>();
             for (String taskKey : tasksSection.getKeys(false)) {
                 ConfigurationSection taskInfo = tasksSection.getConfigurationSection(taskKey);
                 if (taskInfo == null) {
@@ -87,8 +94,11 @@ public class TaskManager {
                 }
 
                 Task task = new Task(taskKey, taskInfo, world);
-                allTasks.add(task);
+                allTasks.add(task); // Add to the flat list of all tasks
+                currentStageTasks.add(task); // Add to the stage-specific list
             }
+            tasksByStage.put(stageKey, currentStageTasks); // Store tasks grouped by stage key
+            orderedStageKeys.add(stageKey); // Maintain the order of stage keys
         }
     }
 
@@ -96,15 +106,13 @@ public class TaskManager {
      * Skips the current stage, marking all its tasks as complete and advancing to the next stage.
      */
     public void skipStage() {
-        if (!isCurrentStageComplete()) {
-// Mark all tasks in current stage as complete to trigger progression.
-            getTasksForCurrentStage().forEach(task -> task.completed = true);
-        }
+        // Mark all tasks in the current *progression* stage as complete to trigger progression.
+        getTasksForCurrentProgressionStage().forEach(task -> task.completed = true);
         checkForStageCompletion(); // This will now advance the stage if all are complete.
     }
 
     /**
-     * Updates the progress of item-related tasks based on the configured tracking mode.* <p>
+     * Updates the progress of item-related tasks based on the configured tracking mode.
      * This method is called periodically (e.g., via a repeating task or event listener).
      */
     public void updateItemTasks() {
@@ -117,113 +125,81 @@ public class TaskManager {
             updateTasksFromCumulative(); // Sum up cumulative player contributions.
         }
 
-// After updating progress, ensure all tasks' completion statuses are accurate.
+        // After updating progress, ensure all tasks' completion statuses are accurate.
+        // Iterate over ALL tasks, as they are all "active" for progress tracking.
         for (Task task : allTasks) {
             task.updateCompletionStatus(plugin);
         }
 
-        checkForStageCompletion(); // Check if the current stage has been completed.
+        checkForStageCompletion(); // Check if the current *progression* stage has been completed.
     }
 
     /**
-     * Checks if the current stage is complete and, if so, advances to the next incomplete stage.* <p>
+     * Checks if the current *progression* stage is complete and, if so, advances to the next incomplete stage.
      * Broadcasts messages and executes commands on stage completion.
      */
     private void checkForStageCompletion() {
-        if (isCurrentStageComplete()) {
-// Find the index of the next incomplete stage.
-            int nextStage = findNextIncompleteStage(currentStageIndex);
-            if (nextStage != currentStageIndex) {
-                currentStageIndex = nextStage; // Advance to the new stage.
+        if (isCurrentProgressionStageComplete()) {
+            int nextStageIndex = currentStageIndex + 1; // Try to advance to the next index.
+
+            if (nextStageIndex < orderedStageKeys.size()) {
+                currentStageIndex = nextStageIndex; // Advance to the new *progression* stage.
                 Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.stage-complete"));
-// Execute reward commands configured for stage completion.
-                plugin.getConfigManager().executeRewardCommands("on-stage-complete", null);
+                plugin.getConfigManager().executeRewardCommands("on-stage-complete", null); // null for player, implies @a or similar
+            } else {
+                plugin.getLogger().info("All progression stages completed!");
+                // Optionally, trigger game end here or a specific "all stages complete" event.
             }
         }
     }
 
     /**
-     * Finds the index of the next incomplete stage, starting from a given index.*
-     * @param startIndex The index to start checking from.
-     * @return The index of the next incomplete stage, or the current index if no further incomplete stages are found.
+     * Retrieves a list of tasks belonging to the current active *progression* stage.
+     * This method is used internally for stage completion checks and advancement logic,
+     * not for displaying tasks to the player based on their world.
+     * @return A list of Task objects for the current *progression* stage.
      */
-    private int findNextIncompleteStage(int startIndex) {
-        // Get the distinct worlds that represent different stages, maintaining insertion order.
-        // Collecting to a LinkedHashSet then converting to an ArrayList is necessary here
-        // to ensure unique stages are processed in the order they first appear,
-        // and to allow indexed access for stage progression.
-        Set<World.Environment> distinctStages = allTasks.stream()
-                .map(t -> t.world)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        List<World.Environment> stageOrder = new ArrayList<>(distinctStages);
-
-        if (startIndex >= stageOrder.size()) return startIndex; // Already at the end of stages.
-
-        World.Environment currentStageWorld = stageOrder.get(startIndex);
-
-// Check if all tasks for the current world stage are complete.
-        boolean allComplete = allTasks.stream()
-                .filter(t -> t.world == currentStageWorld)
-                .allMatch(Task::isCompleted);
-
-        if (allComplete && startIndex + 1 < stageOrder.size()) {
-            return startIndex + 1; // If current stage is complete, move to the next stage.
+    private List<Task> getTasksForCurrentProgressionStage() {
+        if (currentStageIndex >= orderedStageKeys.size()) {
+            return Collections.emptyList(); // No more stages.
         }
-
-        return startIndex; // Stay on current stage if not complete or no next stage.
+        String currentStageKey = orderedStageKeys.get(currentStageIndex);
+        return tasksByStage.getOrDefault(currentStageKey, Collections.emptyList());
     }
 
     /**
-     * Retrieves a list of tasks belonging to the current active stage.*
-     * @return A list of Task objects for the current stage.
-     */
-    public List<Task> getTasksForCurrentStage() {
-        // Get the distinct worlds that represent different stages, maintaining insertion order.
-        // Collecting to a LinkedHashSet then converting to an ArrayList is necessary here
-        // to ensure unique stages are processed in the order they first appear,
-        // and to allow indexed access for stage progression.
-        Set<World.Environment> distinctStages = allTasks.stream()
-                .map(t -> t.world)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        List<World.Environment> stageOrder = new ArrayList<>(distinctStages);
-
-        if (currentStageIndex >= stageOrder.size()) return Collections.emptyList(); // No more stages.
-
-        World.Environment currentWorld = stageOrder.get(currentStageIndex);
-        return allTasks.stream().filter(t -> t.world == currentWorld).collect(Collectors.toList());
-    }
-
-    /**
-     * Gets the display name of the current stage.*
-     * @return An Optional containing the current stage name (e.g., "NORMAL", "NETHER"), or empty if no tasks are loaded.
+     * Gets the display name of the current *progression* stage.
+     * @return An Optional containing the current stage name (e.g., "1_GETTING_STARTED"), or empty if no tasks are loaded.
      */
     public Optional<String> getCurrentStageName() {
-        return getTasksForCurrentStage().stream()
-                .findFirst()
-                .map(task -> task.world.name()); // Returns the enum name (e.g., "NORMAL", "NETHER").
+        if (currentStageIndex >= orderedStageKeys.size()) {
+            return Optional.empty(); // No more stages.
+        }
+        String currentStageKey = orderedStageKeys.get(currentStageIndex);
+        return Optional.of(currentStageKey);
     }
 
     /**
-     * Checks if all tasks in the current stage are completed.*
-     * @return true if all tasks are completed, false otherwise.
+     * Checks if all tasks in the current *progression* stage are completed.
+     * @return true if all tasks in the current *progression* stage are completed, false otherwise.
      */
-    public boolean isCurrentStageComplete() {
-        return getTasksForCurrentStage().stream().allMatch(Task::isCompleted);
+    public boolean isCurrentProgressionStageComplete() {
+        return getTasksForCurrentProgressionStage().stream().allMatch(Task::isCompleted);
     }
 
     /**
-     * Updates item task progress by summing items found in all online players' inventories.* <p>
+     * Updates item task progress by summing items found in all online players' inventories.
      * This method resets task progress before recounting from inventories, suitable for INVENTORY tracking.
      */
     private void updateTasksFromInventory() {
-// Reset progress for ITEM tasks before recounting from inventories.
+        // Reset progress for ITEM tasks across ALL tasks before recounting from inventories.
         allTasks.forEach(task -> {
             if (task.taskType == Task.Type.ITEM) {
                 task.progress = 0;
             }
         });
 
-// Sum items from all online players' inventories.
+        // Sum items from all online players' inventories.
         for (Player player : Bukkit.getOnlinePlayers()) {
             for (ItemStack item : player.getInventory().getContents()) {
                 if (item == null) continue;
@@ -233,10 +209,11 @@ public class TaskManager {
     }
 
     /**
-     * Updates item task progress by summing cumulative contributions from all players.* <p>
+     * Updates item task progress by summing cumulative contributions from all players.
      * This method resets task progress before summing, suitable for CUMULATIVE tracking.
      */
     private void updateTasksFromCumulative() {
+        // Reset progress for ITEM tasks across ALL tasks before summing.
         allTasks.forEach(task -> {
             if (task.taskType == Task.Type.ITEM) {
                 task.progress = 0; // Reset before summing.
@@ -246,7 +223,7 @@ public class TaskManager {
                     return;
                 }
 
-// Sum contributions for this material from all players and directly assign to progress.
+                // Sum contributions for this material from all players and directly assign to progress.
                 task.progress = cumulativePlayerContributions.values().stream()
                         .mapToInt(playerMap -> playerMap.getOrDefault(taskMaterial, 0))
                         .sum();
@@ -255,42 +232,43 @@ public class TaskManager {
     }
 
     /**
-     * Tracks an item pickup event for cumulative tracking mode.*
+     * Tracks an item pickup event for cumulative tracking mode.
      * @param player The player who picked up the item.
      * @param item   The ItemStack that was picked up.
      */
     public void trackItemPickup(Player player, ItemStack item) {
         if (plugin.getConfigManager().getTrackingMode() != ConfigManager.TrackingMode.CUMULATIVE) return;
 
-// Merge the new amount into the player's cumulative contributions for this material.
+        // Merge the new amount into the player's cumulative contributions for this material.
         cumulativePlayerContributions.computeIfAbsent(player.getUniqueId(), k -> new HashMap<>())
                 .merge(item.getType(), item.getAmount(), Integer::sum);
     }
 
     /**
-     * Tracks an item craft event for cumulative tracking mode.*
+     * Tracks an item craft event for cumulative tracking mode.
      * @param player The player who crafted the item.
      * @param item   The ItemStack that was crafted.
      */
     public void trackItemCraft(Player player, ItemStack item) {
         if (plugin.getConfigManager().getTrackingMode() != ConfigManager.TrackingMode.CUMULATIVE) return;
 
-// Merge the new amount into the player's cumulative contributions for this material.
+        // Merge the new amount into the player's cumulative contributions for this material.
         cumulativePlayerContributions.computeIfAbsent(player.getUniqueId(), k -> new HashMap<>())
                 .merge(item.getType(), item.getAmount(), Integer::sum);
     }
 
     /**
-     * Updates the progress for a specific item material.* <p>
-     * This is used internally by `updateTasksFromInventory` and `updateTasksFromCumulative`.*
+     * Updates the progress for a specific item material.
+     * This is used internally by `updateTasksFromInventory` and `updateTasksFromCumulative`.
      * @param material The Material of the item.
      * @param amount   The amount of the item.
      */
     private void updateProgressForItem(Material material, int amount) {
+        // Update progress for ALL item tasks that match.
         for (Task task : allTasks) {
             if (task.taskType != Task.Type.ITEM) continue;
 
-// Handle special cases for 'OAK_LOG' (any log) and 'BREAD' (any cooked food).
+            // Handle special cases for 'OAK_LOG' (any log) and 'BREAD' (any cooked food).
             if (task.key.equals("OAK_LOG") && allLogMaterials.contains(material)) {
                 task.progress += amount;
             } else if (task.key.equals("BREAD") && allCookedFoodMaterials.contains(material)) {
@@ -302,38 +280,40 @@ public class TaskManager {
     }
 
     /**
-     * Handles the event when a specific structure is found.* <p>
-     * Marks the corresponding task as complete and checks for stage completion.*
+     * Handles the event when a specific structure is found.
+     * Marks the corresponding task as complete and checks for stage completion.
      * @param structureKey The key of the structure found (e.g., "VILLAGE", "END_PORTAL").
      */
     public void onStructureFound(String structureKey) {
+        // Update any matching structure task across ALL tasks.
         allTasks.stream()
                 .filter(t -> t.taskType == Task.Type.STRUCTURE && t.key.equalsIgnoreCase(structureKey))
                 .findFirst()
                 .ifPresent(task -> {
                     task.progress = 1; // Mark as complete (1 for structure tasks).
                     task.updateCompletionStatus(plugin); // Update its status.
+                    plugin.getConfigManager().executeRewardCommands("on-task-complete", null); // Trigger task complete rewards
                 });
-        checkForStageCompletion(); // Check if this completion advanced the stage.
+        checkForStageCompletion(); // Check if this completion advanced the *progression* stage.
     }
 
     /**
-     * Returns a list of all tasks loaded into the manager.*
+     * Returns a list of all tasks loaded into the manager.
      * @return A List of all Task objects.
      */
-
     public List<Task> getAllTasks() {
         return allTasks;
     }
 
-
     /**
-     * Returns a list of tasks specifically for a given world environment from the current stage.*
+     * Returns a list of tasks specifically for a given world environment.
+     * This method is intended to be used for DISPLAYING tasks to the player,
+     * showing all relevant tasks for their current world regardless of progression stage.
      * @param world The World.Environment to filter tasks by.
-     * @return A List of Task objects relevant to the specified world in the current stage.
+     * @return A List of Task objects relevant to the specified world.
      */
     public List<Task> getTasksForWorld(World.Environment world) {
-        return getTasksForCurrentStage().stream()
+        return allTasks.stream()
                 .filter(task -> task.world == world)
                 .collect(Collectors.toList());
     }
@@ -342,77 +322,37 @@ public class TaskManager {
      * Populates the sets of materials used for generic item tasks (e.g., all logs, all cooked foods).
      */
     private void populateMaterialSets() {
-// Add all Minecraft log materials.
+        // Add all Minecraft log materials.
         allLogMaterials.addAll(Arrays.asList(
-                Material.OAK_LOG,
-                Material.BIRCH_LOG,
-                Material.SPRUCE_LOG,
-                Material.JUNGLE_LOG,
-                Material.ACACIA_LOG,
-                Material.DARK_OAK_LOG,
-                Material.MANGROVE_LOG,
-                Material.CHERRY_LOG,
+                Material.OAK_LOG, Material.BIRCH_LOG, Material.SPRUCE_LOG, Material.JUNGLE_LOG,
+                Material.ACACIA_LOG, Material.DARK_OAK_LOG, Material.MANGROVE_LOG, Material.CHERRY_LOG,
                 Material.BAMBOO_BLOCK,
 
                 // Stripped logs
-                Material.STRIPPED_OAK_LOG,
-                Material.STRIPPED_BIRCH_LOG,
-                Material.STRIPPED_SPRUCE_LOG,
-                Material.STRIPPED_JUNGLE_LOG,
-                Material.STRIPPED_ACACIA_LOG,
-                Material.STRIPPED_DARK_OAK_LOG,
-                Material.STRIPPED_MANGROVE_LOG,
-                Material.STRIPPED_CHERRY_LOG,
-                Material.STRIPPED_BAMBOO_BLOCK,
+                Material.STRIPPED_OAK_LOG, Material.STRIPPED_BIRCH_LOG, Material.STRIPPED_SPRUCE_LOG,
+                Material.STRIPPED_JUNGLE_LOG, Material.STRIPPED_ACACIA_LOG, Material.STRIPPED_DARK_OAK_LOG,
+                Material.STRIPPED_MANGROVE_LOG, Material.STRIPPED_CHERRY_LOG, Material.STRIPPED_BAMBOO_BLOCK,
 
                 // Wood blocks
-                Material.OAK_WOOD,
-                Material.BIRCH_WOOD,
-                Material.SPRUCE_WOOD,
-                Material.JUNGLE_WOOD,
-                Material.ACACIA_WOOD,
-                Material.DARK_OAK_WOOD,
-                Material.MANGROVE_WOOD,
-                Material.CHERRY_WOOD,
+                Material.OAK_WOOD, Material.BIRCH_WOOD, Material.SPRUCE_WOOD, Material.JUNGLE_WOOD,
+                Material.ACACIA_WOOD, Material.DARK_OAK_WOOD, Material.MANGROVE_WOOD, Material.CHERRY_WOOD,
 
                 // Stripped wood blocks
-                Material.STRIPPED_OAK_WOOD,
-                Material.STRIPPED_BIRCH_WOOD,
-                Material.STRIPPED_SPRUCE_WOOD,
-                Material.STRIPPED_JUNGLE_WOOD,
-                Material.STRIPPED_ACACIA_WOOD,
-                Material.STRIPPED_DARK_OAK_WOOD,
-                Material.STRIPPED_MANGROVE_WOOD,
-                Material.STRIPPED_CHERRY_WOOD,
+                Material.STRIPPED_OAK_WOOD, Material.STRIPPED_BIRCH_WOOD, Material.STRIPPED_SPRUCE_WOOD,
+                Material.STRIPPED_JUNGLE_WOOD, Material.STRIPPED_ACACIA_WOOD, Material.STRIPPED_DARK_OAK_WOOD,
+                Material.STRIPPED_MANGROVE_WOOD, Material.STRIPPED_CHERRY_WOOD,
 
                 // Nether logs
-                Material.CRIMSON_STEM,
-                Material.WARPED_STEM,
-                Material.CRIMSON_HYPHAE,
-                Material.WARPED_HYPHAE,
-                Material.STRIPPED_CRIMSON_STEM,
-                Material.STRIPPED_WARPED_STEM,
-                Material.STRIPPED_CRIMSON_HYPHAE,
+                Material.CRIMSON_STEM, Material.WARPED_STEM, Material.CRIMSON_HYPHAE, Material.WARPED_HYPHAE,
+                Material.STRIPPED_CRIMSON_STEM, Material.STRIPPED_WARPED_STEM, Material.STRIPPED_CRIMSON_HYPHAE,
                 Material.STRIPPED_WARPED_HYPHAE
         ));
-// Add all Minecraft cooked food materials.
+        // Add all Minecraft cooked food materials.
         allCookedFoodMaterials.addAll(Arrays.asList(
-                Material.COOKED_BEEF,
-                Material.COOKED_PORKCHOP,
-                Material.COOKED_CHICKEN,
-                Material.COOKED_SALMON,
-                Material.COOKED_COD,
-                Material.BAKED_POTATO,
-                Material.RABBIT_STEW,
-                Material.MUSHROOM_STEW,
-                Material.BEETROOT_SOUP,
-                Material.PUMPKIN_PIE,
-                Material.DRIED_KELP,
-                Material.COOKED_MUTTON,
-                Material.COOKED_RABBIT,
-                Material.BREAD,
-                Material.SUSPICIOUS_STEW,
-                Material.SWEET_BERRIES,
+                Material.COOKED_BEEF, Material.COOKED_PORKCHOP, Material.COOKED_CHICKEN, Material.COOKED_SALMON,
+                Material.COOKED_COD, Material.BAKED_POTATO, Material.RABBIT_STEW, Material.MUSHROOM_STEW,
+                Material.BEETROOT_SOUP, Material.PUMPKIN_PIE, Material.DRIED_KELP, Material.COOKED_MUTTON,
+                Material.COOKED_RABBIT, Material.BREAD, Material.SUSPICIOUS_STEW, Material.SWEET_BERRIES,
                 Material.GLOW_BERRIES
         ));
     }
