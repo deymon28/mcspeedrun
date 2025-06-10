@@ -139,6 +139,12 @@ public class TaskManager {
      * Broadcasts messages and executes commands on stage completion.
      */
     private void checkForStageCompletion() {
+        // IMPORTANT: Prevent spamming "All progression stages completed!"
+        // if we are already past the last stage.
+        if (currentStageIndex >= orderedStageKeys.size()) {
+            return;
+        }
+
         if (isCurrentProgressionStageComplete()) {
             int nextStageIndex = currentStageIndex + 1; // Try to advance to the next index.
 
