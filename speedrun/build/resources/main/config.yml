@@ -73,10 +73,12 @@ rewards:
   # Command to run from the console when a single task is completed.
   # Use @p (closest player) or @a (all players) instead of %player% for console commands if specific player context isn't passed.
   on-task-complete:
-    - "particle minecraft:totem_of_undying %player% ~ ~1 ~ 1 1 1 0.1 50 normal"    # Target closest player
-    - "playsound minecraft:entity.player.levelup master %player% ~ ~ ~ 1 1.5" # Target closest player
+    # Corrected particle command syntax and target to @a
+    - "particle minecraft:totem_of_undying @a ~ ~1 ~ 1 1 1 0.1 50"
+    # Corrected playsound target to @a
+    - "playsound minecraft:entity.player.levelup master @a ~ ~ ~ 1 1.5"
   # Command to run when all tasks in a stage are completed.
   # These are usually for all players, so @a is appropriate.
   on-stage-complete:
     - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"
-    - "particle minecraft:firework @a ~ ~1 ~ 1 1 1 0.1 100 normal"
+    - "particle minecraft:firework @a ~ ~1 ~ 1 1 1 0.1 100 normal" # 'normal' is fine here
