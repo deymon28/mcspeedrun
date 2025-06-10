@@ -6,8 +6,10 @@ import org.bukkit.configuration.ConfigurationSection;
 // =========================================================================================
 // Task Data Class
 // =========================================================================================
-class Task {
-    enum Type { ITEM, STRUCTURE }
+
+public class Task {
+
+    enum Type {ITEM, STRUCTURE}
 
     final String key;
     final Type taskType;
@@ -34,7 +36,7 @@ class Task {
     }
 
     public void scale(int playerCount, double multiplier) {
-        if(playerCount <= 1) {
+        if (playerCount <= 1) {
             this.requiredAmount = this.baseRequiredAmount;
             return;
         }
@@ -44,10 +46,10 @@ class Task {
     public void updateCompletionStatus(Speedrun plugin) {
         if (completed) return;
 
-        if(progress >= requiredAmount) {
+        if (progress >= requiredAmount) {
             completed = true;
             progress = requiredAmount; // Cap progress display
-            // Fire reward
+// Fire reward
             plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
         }
     }

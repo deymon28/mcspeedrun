@@ -1,12 +1,13 @@
 # English Language File
-prefix: "&e[Speedrun] &r"
+#prefix: "&e[Speedrun] &r"
+prefix: "&e&r"
 
 commands:
   no-permission: "&cYou do not have permission to use this command."
   player-only: "&cThis command can only be run by a player."
   reloaded: "&aConfiguration and language files have been reloaded."
   timer-paused: "&eThe speedrun timer has been paused."
-  timer-resumed: "&eThe speedrun timer has been resumed."
+  timer-resumed: "&aThe speedrun timer has been resumed."
   run-reset: "&cThe speedrun has been reset."
   stage-skipped: "&eSkipped to the next stage."
   status:
@@ -23,16 +24,15 @@ commands:
     task-line: "&7- %task_name%: &f%progress%&7/&f%required%"
     footer: "&6-----------------------------------"
 
-
 scoreboard:
   title: "&e&lSPEEDRUN"
   time: "&fTime:"
   paused: "&c&lPAUSED"
+  s-end: "&c&lSPEEDRUN ENDED"
   locations-header: "&bLocations:"
   location-found: "&7%name%: &a%coords%"
   location-pending: "&7%name%: &c???"
   village-timer: "&e[%time%]"
-#  overworld-tasks-header: "&aOverworld:"
   normal-tasks-header: "&aOverworld:"
   nether-tasks-header: "&cNether:"
   end-tasks-header: "&5The End:"
@@ -41,10 +41,9 @@ scoreboard:
 
 messages:
   run-started: "&aThe speedrun has begun!"
-  village-timeout: "&cTime's up to find the village! The task has been removed."
+  village-timeout: "&cTime's up for the Village! The task has been removed."
   structure-found: "&b%player% &ffound a &6%structure% &fat &b%coords%&f!"
   portal-lit: "&b%player% &fhas opened a gateway to the &5Nether&f!"
   dragon-slain: "&a&lThe Ender Dragon has been slain! Speedrun complete!"
   final-time: "&a&lFinal Time: %time%"
   stage-complete: "&d&lStage Complete! &fMoving to the next stage."
-

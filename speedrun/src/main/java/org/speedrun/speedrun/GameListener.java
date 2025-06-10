@@ -2,6 +2,7 @@ package org.speedrun.speedrun;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
@@ -13,10 +14,7 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.player.PlayerAdvancementDoneEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
@@ -25,16 +23,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-// =========================================================================================
-// Event Listener
-// =========================================================================================
 class GameListener implements Listener {
     private final Speedrun plugin;
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
-
-    // Define a constant for the fixed radius used in the nether portal block check.
-    // This makes the intent clearer and avoids the 'parameter is always X' warning.
     private static final int NETHER_PORTAL_CHECK_RADIUS = 2;
 
     public GameListener(Speedrun plugin) {
@@ -50,21 +42,18 @@ class GameListener implements Listener {
             }
         }
 
-        // Scale tasks if needed
-        if(plugin.getConfigManager().isPlayerScalingEnabled()) {
+        if (plugin.getConfigManager().isPlayerScalingEnabled()) {
             int playerCount = Bukkit.getOnlinePlayers().size();
             double multiplier = plugin.getConfigManager().getPlayerScalingMultiplier();
             plugin.getTaskManager().getAllTasks().forEach(task -> task.scale(playerCount, multiplier));
         }
-
         plugin.getScoreboardManager().updateScoreboard(event.getPlayer());
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // Rescale tasks if needed (1 less player now)
-        if(plugin.getConfigManager().isPlayerScalingEnabled()) {
-            int playerCount = Math.max(1, Bukkit.getOnlinePlayers().size() - 1); // Avoid 0 players
+        if (plugin.getConfigManager().isPlayerScalingEnabled()) {
+            int playerCount = Math.max(1, Bukkit.getOnlinePlayers().size() - 1);
             double multiplier = plugin.getConfigManager().getPlayerScalingMultiplier();
             plugin.getTaskManager().getAllTasks().forEach(task -> task.scale(playerCount, multiplier));
         }
@@ -88,7 +77,7 @@ class GameListener implements Listener {
     @EventHandler
     public void onPlayerPickupItem(EntityPickupItemEvent event) {
         if (!(event.getEntity() instanceof Player)) return;
-        if(plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
+        if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
             plugin.getTaskManager().trackItemPickup((Player) event.getEntity(), event.getItem().getItemStack());
             plugin.getTaskManager().updateItemTasks();
         }
@@ -119,9 +108,23 @@ class GameListener implements Listener {
         }
     }
 
+    /**
+     * Handles detecting the Nether-side of a portal after a player travels through it.
+     */
+    @EventHandler
+    public void onPlayerPortal(PlayerPortalEvent event) {
+        // We only care about the first time someone enters the Nether via a constructed portal
+        if (plugin.getStructureManager().getNetherPortalExitLocation() == null &&
+                event.getTo().getWorld().getEnvironment() == World.Environment.NETHER &&
+                plugin.getStructureManager().isNetherPortalLit()) {
+
+            plugin.getStructureManager().setNetherPortalExitLocation(event.getTo());
+        }
+    }
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        // Village Bell
+        // Village Bell (Manual click)
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.BELL) {
             Player player = event.getPlayer();
             long now = System.currentTimeMillis();
@@ -137,13 +140,11 @@ class GameListener implements Listener {
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getItem() != null && event.getItem().getType() == Material.FLINT_AND_STEEL) {
             Block clickedBlock = event.getClickedBlock();
             if (clickedBlock != null && clickedBlock.getType() == Material.OBSIDIAN) {
-                // Check in the next tick if a portal block has appeared
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        // Use the defined constant for clarity.
-                        for(Block nearby : getNearbyBlocks(clickedBlock)) {
-                            if(nearby.getType() == Material.NETHER_PORTAL) {
+                        for (Block nearby : getNearbyBlocks(clickedBlock)) {
+                            if (nearby.getType() == Material.NETHER_PORTAL) {
                                 plugin.getStructureManager().portalLit(event.getPlayer(), clickedBlock.getLocation());
                                 cancel();
                                 return;
@@ -155,15 +156,8 @@ class GameListener implements Listener {
         }
     }
 
-    /**
-     * Retrieves a list of blocks within a predefined radius of a starting block.
-     * This helper method is specifically tailored for checking for nearby Nether Portal blocks.
-     * @param start The central block from which to search.
-     * @return A List of Block objects within the {@code NETHER_PORTAL_CHECK_RADIUS}.
-     */
     private List<Block> getNearbyBlocks(Block start) {
         List<Block> blocks = new ArrayList<>();
-        // Iterate within the fixed radius defined by NETHER_PORTAL_CHECK_RADIUS.
         for (int x = -NETHER_PORTAL_CHECK_RADIUS; x <= NETHER_PORTAL_CHECK_RADIUS; x++) {
             for (int y = -NETHER_PORTAL_CHECK_RADIUS; y <= NETHER_PORTAL_CHECK_RADIUS; y++) {
                 for (int z = -NETHER_PORTAL_CHECK_RADIUS; z <= NETHER_PORTAL_CHECK_RADIUS; z++) {

@@ -11,17 +11,13 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.util.List;
 
-// =========================================================================================
-// Configuration Manager
-// =========================================================================================
-@SuppressWarnings("FieldCanBeLocal") // Suppress warning for langFile as it's part of manager state.
 public class ConfigManager {
     private final Speedrun plugin;
     private FileConfiguration config;
     private FileConfiguration lang;
-    private File langFile; // Keeping as a field as it's part of the manager's state for file management.
+    private File langFile;
 
-    public enum TrackingMode { INVENTORY, CUMULATIVE }
+    public enum TrackingMode {INVENTORY, CUMULATIVE}
 
     public ConfigManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -46,21 +42,12 @@ public class ConfigManager {
     }
 
     public Component getFormatted(String key, String... replacements) {
-        // Get the raw message from the language file.
         String message = getMessage(key);
-        // Prepend the prefix and translate legacy color codes using '&' character.
         Component formattedComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(getMessage("prefix") + message);
-
-        // Apply replacements *after* deserializing to Component.
-        // It's generally better to manipulate Components directly rather than string parsing,
-        // but given the %placeholder% format, direct string replacement is simpler here.
-        // However, replacements should ideally happen on the Component object itself for full Adventure benefits.
-        // For now, we'll keep the string replacement for consistency with the original logic.
-        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(formattedComponent); // Temporarily serialize to string for replacements
+        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(formattedComponent);
         for (int i = 0; i < replacements.length; i += 2) {
-            processedMessage = processedMessage.replace(replacements[i], replacements[i+1]);
+            processedMessage = processedMessage.replace(replacements[i], replacements[i + 1]);
         }
-        // Then deserialize back to Component, which is what getFormatted is expected to return.
         return LegacyComponentSerializer.legacyAmpersand().deserialize(processedMessage);
     }
 
@@ -70,32 +57,45 @@ public class ConfigManager {
 
     public String getFormattedText(String key, String... replacements) {
         String message = getMessage(key);
-        // Step 1: Deserialize the message (which uses '&' color codes) into an Adventure Component.
         Component component = LegacyComponentSerializer.legacyAmpersand().deserialize(message);
-
-        // Step 2: Apply replacements to the string representation of the component.
-        // This is a pragmatic choice for simple %placeholder% replacements.
-        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(component); // Temporarily serialize to string for replacements
+        String processedMessage = LegacyComponentSerializer.legacyAmpersand().serialize(component);
         for (int i = 0; i < replacements.length; i += 2) {
-            processedMessage = processedMessage.replace(replacements[i], replacements[i+1]);
+            processedMessage = processedMessage.replace(replacements[i], replacements[i + 1]);
         }
-
-        // Step 3: Deserialize the processed string back into a Component,
-        // THEN serialize it using LegacyComponentSerializer.legacySection()
-        // to ensure it uses '§' (section sign) color codes.
-        // This is the crucial change for scoreboard compatibility.
         return LegacyComponentSerializer.legacySection().serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(processedMessage));
     }
 
+    /**
+     * Executes reward commands from the config.
+     * - If the command uses vanilla selectors (@p, @a), it's run from the console.
+     * - If the command has %player% and a player is provided, it's replaced and run.
+     * - If the command has %player% but no player is provided (e.g., team task completion),
+     * the command is run for ALL online players.
+     * @param key The config key for the commands (e.g., "on-task-complete").
+     * @param player The specific player who triggered the reward, or null if context is unknown.
+     */
     public void executeRewardCommands(String key, @Nullable Player player) {
         if (!config.getBoolean("rewards.enabled", false)) return;
         List<String> commands = config.getStringList("rewards." + key);
+
         for (String cmd : commands) {
-            String processedCmd = cmd;
-            if (player != null) {
-                processedCmd = processedCmd.replace("%player%", player.getName());
+            // Case 1: Command has %player% placeholder
+            if (cmd.contains("%player%")) {
+                if (player != null) {
+                    // Specific player is known, replace and dispatch.
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("%player%", player.getName()));
+                } else {
+                    // No specific player, so execute for every player online.
+                    // This handles collective achievements.
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("%player%", p.getName()));
+                    }
+                }
+            } else {
+                // Case 2: Command does not have %player% (e.g., uses @a, @p, or is general)
+                // Dispatch from console as is.
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
             }
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), processedCmd);
         }
     }
 

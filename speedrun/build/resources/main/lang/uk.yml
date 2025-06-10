@@ -1,5 +1,6 @@
 # Ukrainian Language File
-prefix: "&e[Speedrun] &r"
+#prefix: "&e[Speedrun] &r"
+prefix: "&e&r"
 
 commands:
   no-permission: "&cУ вас немає дозволу на використання цієї команди."
@@ -27,11 +28,12 @@ scoreboard:
   title: "&e&lСПІДРАН"
   time: "&fЧас:"
   paused: "&c&lПАУЗА"
+  s-end: "&c&lСПІДРАН ЗАВЕРШЕНО"
   locations-header: "&bЛокації:"
   location-found: "&7%name%: &a%coords%"
   location-pending: "&7%name%: &c???"
   village-timer: "&e[%time%]"
-#  overworld-tasks-header: "&aВерхній світ:"
+  #  overworld-tasks-header: "&aВерхній світ:"
   normal-tasks-header: "&aВерхній світ:"
   nether-tasks-header: "&cНижній світ:"
   end-tasks-header: "&5Край:"

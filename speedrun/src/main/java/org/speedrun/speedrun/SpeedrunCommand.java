@@ -20,8 +20,8 @@ class SpeedrunCommand {
     private final Speedrun plugin;
 
     /**
-     * Constructor for SpeedrunCommand.
-     * @param plugin The main Speedrun plugin instance.
+     * Constructor for SpeedrunCommand.*
+     * @param plugin    The main Speedrun plugin instance.
      * @param registrar The Brigader Commands registrar to register commands with.
      */
     public SpeedrunCommand(Speedrun plugin, Commands registrar) {
@@ -30,40 +30,40 @@ class SpeedrunCommand {
     }
 
     /**
-     * Registers all speedrun commands using the Brigadier command API.
-     * Commands include 'run' (status), 'run pause', 'run reset', 'run reload',
+     * Registers all speedrun commands using the Brigadier command API.* <p>
+     * Commands include 'run' (status), 'run pause', 'run reset', 'run reload',* <p>
      * 'run skipstage', 'run status', and 'run tasks'.
      *
      * @param registrar The Commands registrar from PaperMC to register the commands.
      */
     public void register(Commands registrar) {
-        // Define the base 'run' command.
+// Define the base 'run' command.
         final LiteralArgumentBuilder<CommandSourceStack> runCommand = Commands.literal("run")
-                // Only players with 'speedrun.player' permission can use this command.
+// Only players with 'speedrun.player' permission can use this command.
                 .requires(source -> source.getSender().hasPermission("speedrun.player"))
                 .executes(ctx -> {
-                    // Default execution for 'run' command shows the status.
+// Default execution for 'run' command shows the status.
                     return showStatus(ctx.getSource().getSender());
                 })
-                // Subcommand for 'run pause'.
+// Subcommand for 'run pause'.
                 .then(Commands.literal("pause")
-                        // Only players with 'speedrun.admin' permission can pause.
+// Only players with 'speedrun.admin' permission can pause.
                         .requires(source -> source.getSender().hasPermission("speedrun.admin"))
                         .executes(ctx -> {
                             plugin.getGameManager().togglePause(); // Toggles game pause.
                             return Command.SINGLE_SUCCESS;
                         }))
-                // Subcommand for 'run reset'.
+// Subcommand for 'run reset'.
                 .then(Commands.literal("reset")
-                        // Only players with 'speedrun.admin' permission can reset.
+// Only players with 'speedrun.admin' permission can reset.
                         .requires(source -> source.getSender().hasPermission("speedrun.admin"))
                         .executes(ctx -> {
                             plugin.getGameManager().resetRun(); // Resets the speedrun.
                             return Command.SINGLE_SUCCESS;
                         }))
-                // Subcommand for 'run reload'.
+// Subcommand for 'run reload'.
                 .then(Commands.literal("reload")
-                        // Only players with 'speedrun.admin' permission can reload.
+// Only players with 'speedrun.admin' permission can reload.
                         .requires(source -> source.getSender().hasPermission("speedrun.admin"))
                         .executes(ctx -> {
                             plugin.getConfigManager().reload(); // Reloads plugin configuration.
@@ -71,22 +71,22 @@ class SpeedrunCommand {
                             ctx.getSource().getSender().sendMessage(plugin.getConfigManager().getFormatted("commands.reloaded"));
                             return Command.SINGLE_SUCCESS;
                         }))
-                // Subcommand for 'run skipstage'.
+// Subcommand for 'run skipstage'.
                 .then(Commands.literal("skipstage")
-                        // Only players with 'speedrun.admin' permission can skip stages.
+// Only players with 'speedrun.admin' permission can skip stages.
                         .requires(source -> source.getSender().hasPermission("speedrun.admin"))
                         .executes(ctx -> {
                             plugin.getTaskManager().skipStage(); // Skips to the next stage.
                             ctx.getSource().getSender().sendMessage(plugin.getConfigManager().getFormatted("commands.stage-skipped"));
                             return Command.SINGLE_SUCCESS;
                         }))
-                // Subcommand for 'run status'.
+// Subcommand for 'run status'.
                 .then(Commands.literal("status")
                         .executes(ctx -> showStatus(ctx.getSource().getSender()))) // Shows game status.
-                // Subcommand for 'run tasks'.
+// Subcommand for 'run tasks'.
                 .then(Commands.literal("tasks")
                         .executes(ctx -> {
-                            // Ensure the sender is a player for this command.
+// Ensure the sender is a player for this command.
                             if (!(ctx.getSource().getSender() instanceof Player)) {
                                 ctx.getSource().getSender().sendMessage(plugin.getConfigManager().getFormatted("commands.player-only"));
                                 return 0;
@@ -94,12 +94,12 @@ class SpeedrunCommand {
                             return showTasks((Player) ctx.getSource().getSender()); // Shows tasks for the player's current world.
                         }));
 
-        // Build and register the command.
+// Build and register the command.
         registrar.register(runCommand.build());
     }
 
     /**
-     * Displays the current speedrun status to the command sender.
+     * Displays the current speedrun status to the command sender.* <p>
      * Includes game time, pause status, current stage, and online players.
      *
      * @param sender The sender of the command (Player or Console).
@@ -136,12 +136,12 @@ class SpeedrunCommand {
 
         List<Task> tasksForWorld = tm.getTasksForWorld(currentWorld);
 
-        if(tasksForWorld.isEmpty()) {
+        if (tasksForWorld.isEmpty()) {
             player.sendMessage(cm.getFormatted("commands.tasks.no-tasks"));
         } else {
-            for(Task task : tasksForWorld) {
-                if(!task.isCompleted()) {
-                    // Corrected varargs usage for getFormatted
+            for (Task task : tasksForWorld) {
+                if (!task.isCompleted()) {
+// Corrected varargs usage for getFormatted
                     player.sendMessage(cm.getFormatted("commands.tasks.task-line",
                             "%task_name%", task.displayName,
                             "%progress%", String.valueOf(task.progress),

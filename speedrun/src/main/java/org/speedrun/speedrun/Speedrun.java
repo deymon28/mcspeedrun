@@ -11,8 +11,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 @SuppressWarnings("UnstableApiUsage")
 public final class Speedrun extends JavaPlugin {
 
-    // Making manager classes public as they are exposed through public getter methods
-    // and thus need to be accessible outside their package.
+// Making manager classes public as they are exposed through public getter methods
+// and thus need to be accessible outside their package.
     private ConfigManager configManager;
     private GameManager gameManager;
     private TaskManager taskManager;
@@ -21,17 +21,17 @@ public final class Speedrun extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // Initialize managers
+// Initialize managers
         configManager = new ConfigManager(this);
         taskManager = new TaskManager(this);
         structureManager = new StructureManager(this);
         scoreboardManager = new ScoreboardManager(this);
         gameManager = new GameManager(this); // GameManager is last to have access to others
 
-        // Register Listeners
+// Register Listeners
         getServer().getPluginManager().registerEvents(new GameListener(this), this);
 
-        // Register Commands
+// Register Commands
         registerBrigadierCommands();
 
         getLogger().info("SpeedrunRefactored has been enabled.");
@@ -44,16 +44,32 @@ public final class Speedrun extends JavaPlugin {
     }
 
     private void registerBrigadierCommands() {
-        // Changed statement lambda to expression lambda for conciseness.
+// Changed statement lambda to expression lambda for conciseness.
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands ->
                 new SpeedrunCommand(this, commands.registrar())
         );
     }
 
-    // Manager Getters - These classes are now public to match their exposure via public getters.
-    public ConfigManager getConfigManager() { return configManager; }
-    public GameManager getGameManager() { return gameManager; }
-    public TaskManager getTaskManager() { return taskManager; }
-    public StructureManager getStructureManager() { return structureManager; }
-    public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
+// Manager Getters - These classes are now public to match their exposure via public getters.
+
+    public ConfigManager getConfigManager() {
+        return configManager;
+    }
+
+    public GameManager getGameManager() {
+        return gameManager;
+    }
+
+    public TaskManager getTaskManager() {
+        return taskManager;
+    }
+
+    public StructureManager getStructureManager() {
+        return structureManager;
+    }
+
+    public ScoreboardManager getScoreboardManager() {
+        return scoreboardManager;
+    }
+
 }

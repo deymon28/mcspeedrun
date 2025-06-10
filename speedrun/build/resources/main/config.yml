@@ -43,38 +43,40 @@ progression:
       # Use BREAD as a key for all cooked foods. The plugin will aggregate them.
       BREAD: { amount: 64, display-name: "Cooked Food" }
   # Stage 3: Preparing for the Nether
-#  3_NETHER_PREP: # don't need
-#    world: "NORMAL"
-#    tasks:
-#      # Players need to find a village to get beds, or for other reasons.
-#      # This is a special task type that completes when the structure is found.
-#      STRUCTURE_VILLAGE: { display-name: "Find a Village" }
-#      # This task completes when a Nether portal is successfully lit in the Overworld.
-#      STRUCTURE_NETHER_PORTAL_OVERWORLD: { display-name: "Light Nether Portal" }
+  #  3_NETHER_PREP:
+  #    world: "NORMAL"
+  #    tasks:
+  #      # Players need to find a village to get beds, or for other reasons.
+  #      # This is a special task type that completes when the structure is found (via Bell or proximity).
+  #      STRUCTURE_VILLAGE: { display-name: "Find a Village" }
+  #      # This task completes when a Nether portal is successfully lit in the Overworld.
+  #      STRUCTURE_NETHER_PORTAL_OVERWORLD: { display-name: "Light Nether Portal" }
   # Stage 4: Nether Exploration
   4_NETHER_EXPLORATION:
     world: "NETHER"
     tasks:
       ENDER_PEARL: { amount: 16, display-name: "Ender Pearls" }
       BLAZE_ROD: { amount: 8, display-name: "Blaze Rods" }
-  # Stage 5: The End
-  5_THE_END:
-    world: "THE_END" # Or can be NETHER/OVERWORLD depending on where you want it to show
-    tasks:
-      # This task completes upon finding the stronghold End Portal room.
-      STRUCTURE_END_PORTAL: { display-name: "Find the Stronghold" }
+#  # Stage 5: The End
+#  5_THE_END:
+#    world: "THE_END"
+#    tasks:
+#      STRUCTURE_END_PORTAL: { display-name: "Find End Portal Room" } # Now distinct from killing dragon
+#      # Consider adding a specific task for killing the dragon here if you want it tracked as a task.
+#      # For now, it's just the end condition.
 
 # ----------------------------------------------------------------
 # Optional cosmetic rewards for completing tasks or stages.
 # ----------------------------------------------------------------
 rewards:
-  enabled: false
+  enabled: true # Set to true to enable rewards
   # Command to run from the console when a single task is completed.
-  # Placeholders: %player%
+  # Use @p (closest player) or @a (all players) instead of %player% for console commands if specific player context isn't passed.
   on-task-complete:
-    - "particle minecraft:totem_of_undying ~ ~1 ~ 1 1 1 0.1 50 normal %player%"
-    - "playsound minecraft:entity.player.levelup master %player% ~ ~ ~ 1 1.5"
+    - "particle minecraft:totem_of_undying %player% ~ ~1 ~ 1 1 1 0.1 50 normal"    # Target closest player
+    - "playsound minecraft:entity.player.levelup master %player% ~ ~ ~ 1 1.5" # Target closest player
   # Command to run when all tasks in a stage are completed.
+  # These are usually for all players, so @a is appropriate.
   on-stage-complete:
     - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"
-    - "particle minecraft:firework ~ ~1 ~ 1 1 1 0.1 100 normal @a"
+    - "particle minecraft:firework @a ~ ~1 ~ 1 1 1 0.1 100 normal"
