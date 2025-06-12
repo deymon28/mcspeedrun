@@ -27,7 +27,7 @@ class GameListener implements Listener {
     private final Speedrun plugin;
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
-    private static final int NETHER_PORTAL_CHECK_RADIUS = 2;
+    private static final int NETHER_PORTAL_CHECK_RADIUS = 3;
 
     public GameListener(Speedrun plugin) {
         this.plugin = plugin;
@@ -100,11 +100,11 @@ class GameListener implements Listener {
         Player player = event.getPlayer();
 
         if (key.equalsIgnoreCase("nether/find_fortress")) {
-            plugin.getStructureManager().structureFound(player, "Fortress", "Fortress", player.getLocation());
+            plugin.getStructureManager().structureFound(player, "Fortress", player.getLocation());
         } else if (key.equalsIgnoreCase("nether/find_bastion")) {
-            plugin.getStructureManager().structureFound(player, "Bastion", "Bastion", player.getLocation());
+            plugin.getStructureManager().structureFound(player, "Bastion", player.getLocation());
         } else if (key.equalsIgnoreCase("story/follow_ender_eye")) {
-            plugin.getStructureManager().structureFound(player, "End Portal", "End Portal", player.getLocation());
+            plugin.getStructureManager().structureFound(player, "End Portal", player.getLocation());
         }
     }
 
@@ -131,7 +131,7 @@ class GameListener implements Listener {
             if (lastBellInteract.getOrDefault(player.getUniqueId(), 0L) + BELL_COOLDOWN > now) return;
 
             if (plugin.getStructureManager().isVillageSearchActive()) {
-                plugin.getStructureManager().structureFound(player, "Village", "Village", event.getClickedBlock().getLocation());
+                plugin.getStructureManager().structureFound(player, "Village", event.getClickedBlock().getLocation());
                 lastBellInteract.put(player.getUniqueId(), now);
             }
         }

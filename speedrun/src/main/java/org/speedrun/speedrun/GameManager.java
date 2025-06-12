@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -25,9 +24,9 @@ public class GameManager {
     private boolean isRunning = false;
     private boolean isPaused = false;
     private BukkitTask mainTimerTask;
-    private BukkitTask proximityScannerTask; // New task for scanning
+    private BukkitTask proximityScannerTask;
     private long villageTimeElapsed = 0;
-    private boolean dragonKilledEnd = false; // Changed to private
+    private boolean dragonKilledEnd = false;
 
     public GameManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -42,13 +41,13 @@ public class GameManager {
         isPaused = false;
         totalSeconds = 0;
         villageTimeElapsed = 0;
-        dragonKilledEnd = false; // FIX: Ensure end state is reset
+        dragonKilledEnd = false;
 
         plugin.getTaskManager().reloadTasks();
         plugin.getStructureManager().reset();
 
         startTimer();
-        startProximityScanner(); // Start the new scanner
+        startProximityScanner();
         Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.run-started"));
     }
 
@@ -59,60 +58,45 @@ public class GameManager {
     }
 
     public void stopRun(boolean dragonKilled) {
-        if (!isRunning) return;
-
-        if (mainTimerTask != null) {
-            mainTimerTask.cancel();
-            mainTimerTask = null;
-        }
-        if (proximityScannerTask != null) {
-            proximityScannerTask.cancel();
-            proximityScannerTask = null;
-        }
+        if (!isRunning && !dragonKilled) return;
+        if (mainTimerTask != null) mainTimerTask.cancel();
+        if (proximityScannerTask != null) proximityScannerTask.cancel();
 
         if (dragonKilled) {
-            isPaused = true; // Pause the timer visually
-            dragonKilledEnd = true; // Set the final end state
+            isPaused = true;
+            dragonKilledEnd = true;
             Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.dragon-slain"));
             Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.final-time", "%time%", getFormattedTime()));
-            Bukkit.getOnlinePlayers().forEach(player -> plugin.getScoreboardManager().updateScoreboard(player));
         }
-
-        if (plugin.getConfigManager().isLogAttemptsEnabled()) {
-            logAttempt(dragonKilled);
-        }
-        isRunning = false; // Set to false after logging so getFormattedTime is correct
+        if (plugin.getConfigManager().isLogAttemptsEnabled()) logAttempt(dragonKilled);
+        isRunning = false;
     }
 
     private void logAttempt(boolean completed) {
         File logFile = new File(plugin.getDataFolder(), "logs/speedrun-log.txt");
         File parentDir = logFile.getParentFile();
         if (!parentDir.exists() && !parentDir.mkdirs()) {
-            plugin.getLogger().warning("Failed to create log directory: " + parentDir.getAbsolutePath());
+            plugin.getLogger().warning("Failed to create log directory.");
             return;
         }
         try (FileWriter fw = new FileWriter(logFile, true); PrintWriter pw = new PrintWriter(fw)) {
             pw.println("--- Speedrun Attempt ---");
             pw.println("Timestamp: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-            pw.println("Outcome: " + (completed ? "Completed (Dragon Slain)" : "Ended/Reset"));
+            pw.println("Outcome: " + (completed ? "Completed" : "Ended/Reset"));
             pw.println("Final Time: " + getFormattedTime());
             pw.println("Players (" + Bukkit.getOnlinePlayers().size() + "): " + Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.joining(", ")));
             pw.println("Completed Tasks:");
-            plugin.getTaskManager().getAllTasks().stream()
-                    .filter(Task::isCompleted)
-                    .forEach(task -> pw.println(" - " + task.displayName + " (" + task.taskType + ":" + task.key + ")"));
+            plugin.getTaskManager().getAllTasks().stream().filter(Task::isCompleted).forEach(task -> pw.println(" - " + task.displayName));
             pw.println("Found Structures:");
-            plugin.getStructureManager().getFoundStructures().forEach((name, loc) -> {
-                pw.println(" - " + name + ": " + LocationUtil.format(loc));
-            });
+            plugin.getStructureManager().getFoundStructures().forEach((name, loc) -> pw.println(" - " + name + ": " + LocationUtil.format(loc)));
             pw.println("------------------------\n");
         } catch (IOException e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not write to speedrun log file!", e);
+            plugin.getLogger().log(Level.SEVERE, "Could not write to log file!", e);
         }
     }
 
     public void togglePause() {
-        if (!isRunning || dragonKilledEnd) return; // Can't pause/unpause after run ends
+        if (!isRunning || dragonKilledEnd) return;
         isPaused = !isPaused;
         Bukkit.broadcast(plugin.getConfigManager().getFormatted(isPaused ? "commands.timer-paused" : "commands.timer-resumed"));
     }
@@ -122,81 +106,61 @@ public class GameManager {
         mainTimerTask = new BukkitRunnable() {
             @Override
             public void run() {
-                if (!isRunning && !dragonKilledEnd) { // Keep updating scoreboard even if run stopped but not ended
+                if (!isRunning && !dragonKilledEnd) {
                     cancel();
                     return;
                 }
                 if (!isPaused) {
                     totalSeconds++;
-                    if (plugin.getStructureManager().isVillageSearchActive()) {
-                        villageTimeElapsed++;
-                    }
+                    if (plugin.getStructureManager().isVillageSearchActive()) villageTimeElapsed++;
                 }
                 plugin.getTaskManager().updateItemTasks();
                 plugin.getStructureManager().checkVillageTimeout();
-                Bukkit.getOnlinePlayers().forEach(player -> plugin.getScoreboardManager().updateScoreboard(player));
+                Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
             }
         }.runTaskTimer(plugin, 20L, 20L);
     }
 
-    /**
-     * NEW: Starts a repeating task to scan for structures near players.
-     * This is more performant than using PlayerMoveEvent.
-     */
     private void startProximityScanner() {
         if (proximityScannerTask != null) proximityScannerTask.cancel();
         proximityScannerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (isPaused || !isRunning) return;
-
-                boolean villageSearch = plugin.getStructureManager().isVillageSearchActive();
-                boolean lavaSearch = plugin.getStructureManager().isLavaPoolSearchActive();
-
-                if (!villageSearch && !lavaSearch) return; // No need to scan
+                boolean needsVillage = plugin.getStructureManager().isVillageSearchActive();
+                boolean needsLava = plugin.getStructureManager().isLavaPoolSearchActive();
+                if (!needsVillage && !needsLava) return;
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (villageSearch) findNearbyBell(player);
-                    if (lavaSearch) findNearbyLavaPool(player);
+                    if (needsVillage) findNearbyBell(player);
+                    if (needsLava) findNearbyLavaPool(player);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 60L); // Scan every 3 seconds after an initial 5s delay
+        }.runTaskTimer(plugin, 100L, 60L);
     }
 
     private void findNearbyBell(Player player) {
-        final int radius = 32;
-        Location playerLoc = player.getLocation();
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    Block block = playerLoc.clone().add(x, y, z).getBlock();
-                    if (block.getType() == Material.BELL) {
-                        plugin.getStructureManager().structureFound(player, "Village", "Village", block.getLocation());
-                        return; // Found, no need to check further
-                    }
-                }
-            }
-        }
+        // Use configurable radius
+        final int radius = plugin.getConfigManager().getVillageBellRadius();
+        scanForBlock(player, radius, Material.BELL, "VILLAGE");
     }
 
     private void findNearbyLavaPool(Player player) {
-        final int radius = 16; // Smaller radius for lava
-        final int requiredSourceBlocks = 12; // e.g., require at least 10 lava sources
+        // Use configurable radius and source count
+        final int radius = plugin.getConfigManager().getLavaPoolRadius();
+        final int requiredSources = plugin.getConfigManager().getLavaPoolRequiredSources();
         int lavaCount = 0;
         Location playerLoc = player.getLocation();
         for (int x = -radius; x <= radius; x++) {
-            for (int y = -4; y <= 4; y++) { // Check only a few blocks vertically
+            for (int y = -4; y <= 4; y++) {
                 for (int z = -radius; z <= radius; z++) {
                     Block block = playerLoc.clone().add(x, y, z).getBlock();
                     if (block.getType() == Material.LAVA) {
-                        BlockData data = block.getBlockData();
-                        if (data instanceof Levelled level) {
-                            if (level.getLevel() == 0) { // Только source-блоки имеют уровень 0
-                                lavaCount++;
-                                if (lavaCount >= requiredSourceBlocks) {
-                                    plugin.getStructureManager().structureFound(player, "Lava Pool", "Lava Pool", block.getLocation());
-                                    return;
-                                }
+                        if (block.getBlockData() instanceof Levelled level && level.getLevel() == 0) {
+                            lavaCount++;
+                            if (lavaCount >= requiredSources) {
+                                plugin.getStructureManager().structureFound(player, "LAVA_POOL", block.getLocation());
+                                return;
                             }
                         }
                     }
@@ -205,10 +169,24 @@ public class GameManager {
         }
     }
 
+    private void scanForBlock(Player player, int radius, Material material, String structureKey) {
+        Location playerLoc = player.getLocation();
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    Block block = playerLoc.clone().add(x, y, z).getBlock();
+                    if (block.getType() == material) {
+                        plugin.getStructureManager().structureFound(player, structureKey, block.getLocation());
+                        return;
+                    }
+                }
+            }
+        }
+    }
 
     public String getFormattedTime() { return TimeUtil.format(totalSeconds); }
     public long getVillageTimeRemaining() { return plugin.getConfigManager().getVillageTimeout() - villageTimeElapsed; }
     public boolean isRunning() { return isRunning; }
     public boolean isPaused() { return isPaused; }
-    public boolean isDragonKilledEnd() { return dragonKilledEnd; } // Public getter for scoreboard
+    public boolean isDragonKilledEnd() { return dragonKilledEnd; }
 }
