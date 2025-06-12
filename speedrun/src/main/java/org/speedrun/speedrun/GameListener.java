@@ -100,11 +100,11 @@ class GameListener implements Listener {
         Player player = event.getPlayer();
 
         if (key.equalsIgnoreCase("nether/find_fortress")) {
-            plugin.getStructureManager().structureFound(player, "Fortress", player.getLocation());
+            plugin.getStructureManager().structureFound(player, "FORTRESS", player.getLocation());
         } else if (key.equalsIgnoreCase("nether/find_bastion")) {
-            plugin.getStructureManager().structureFound(player, "Bastion", player.getLocation());
+            plugin.getStructureManager().structureFound(player, "BASTION", player.getLocation());
         } else if (key.equalsIgnoreCase("story/follow_ender_eye")) {
-            plugin.getStructureManager().structureFound(player, "End Portal", player.getLocation());
+            plugin.getStructureManager().structureFound(player, "END_PORTAL", player.getLocation());
         }
     }
 

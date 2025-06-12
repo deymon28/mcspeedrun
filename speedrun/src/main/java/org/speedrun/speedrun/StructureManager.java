@@ -35,6 +35,8 @@ public class StructureManager {
         foundLocations.put(key, loc);
         plugin.getTaskManager().onStructureFound(key, player);
 
+        plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
+
         // FIX: Get localized display name for broadcast message
         String langKey = "structures." + key;
         String displayName = plugin.getConfigManager().getLangString(langKey, key);
@@ -50,6 +52,7 @@ public class StructureManager {
         foundLocations.put("NETHER_PORTAL", loc);
         plugin.getTaskManager().onStructureFound("NETHER_PORTAL_OVERWORLD", player);
         Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.portal-lit", "%player%", player.getName()));
+        plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
     }
 
     public String getLocalizedStructureName(String key) {

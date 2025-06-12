@@ -67,6 +67,8 @@ public class GameManager {
             dragonKilledEnd = true;
             Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.dragon-slain"));
             Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.final-time", "%time%", getFormattedTime()));
+
+            Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
         }
         if (plugin.getConfigManager().isLogAttemptsEnabled()) logAttempt(dragonKilled);
         isRunning = false;
