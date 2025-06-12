@@ -47,3 +47,23 @@ messages:
   dragon-slain: "&a&lThe Ender Dragon has been slain! Speedrun complete!"
   final-time: "&a&lFinal Time: %time%"
   stage-complete: "&d&lStage Complete! &fMoving to the next stage."
+
+# ...
+tasks:
+  OAK_LOG: "Wood"
+  COBBLESTONE: "Cobblestone"
+  IRON_INGOT: "Iron Ingots"
+  BREAD: "Cooked Food"
+
+  ENDER_PEARL: "Ender Pearls"
+  BLAZE_ROD: "Blaze Rods"
+structures:
+  LAVA_POOL: "Lava Pool"
+  VILLAGE: "Village"
+  NETHER_PORTAL: "Nether Portal"
+
+  FORTRESS: "Fortress"
+  BASTION: "Bastion"
+
+  END_PORTAL: "End Portal"
+# ...

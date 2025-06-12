@@ -48,3 +48,23 @@ messages:
   dragon-slain: "&a&lДракона Краю переможено! Спідран завершено!"
   final-time: "&a&lФінальний час: %time%"
   stage-complete: "&d&lЕтап завершено! &fПерехід до наступного етапу."
+
+# ...
+tasks:
+  OAK_LOG: "Дерево"
+  COBBLESTONE: "Кругляк"
+  IRON_INGOT: "Залізо"
+  BREAD: "Їжа"
+
+  ENDER_PEARL: "Перлини Енду"
+  BLAZE_ROD: "Стрижні пломеня"
+structures:
+  LAVA_POOL: "Lava Pool"
+  VILLAGE: "Село"
+  NETHER_PORTAL: "Портал в Пекло"
+
+  FORTRESS: "Фортеця"
+  BASTION: "Бастіон"
+
+  END_PORTAL: "Портал в Кінець"
+# ...
