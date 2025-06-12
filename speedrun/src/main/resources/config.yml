@@ -33,15 +33,15 @@ progression:
     world: "NORMAL" # Tasks are displayed when the player is in this world.
     tasks:
       # Use any log type as the key; the plugin aggregates all wood types. OAK_LOG is recommended.
-      OAK_LOG: { amount: 64, display-name: "Wood" }
-      COBBLESTONE: { amount: 64, display-name: "Cobblestone" }
+      OAK_LOG: { amount: 16, display-name: "Wood" }
+      COBBLESTONE: { amount: 16, display-name: "Cobblestone" }
   # Stage 2: Advancing to Iron Age
   2_IRON_AGE:
     world: "NORMAL"
     tasks:
       IRON_INGOT: { amount: 7, display-name: "Iron Ingots" }
       # Use BREAD as a key for all cooked foods. The plugin will aggregate them.
-      BREAD: { amount: 64, display-name: "Cooked Food" }
+      BREAD: { amount: 16, display-name: "Cooked Food" }
   # Stage 3: Preparing for the Nether
   #  3_NETHER_PREP:
   #    world: "NORMAL"
@@ -69,7 +69,7 @@ progression:
 # Optional cosmetic rewards for completing tasks or stages.
 # ----------------------------------------------------------------
 rewards:
-  enabled: true # Set to true to enable rewards
+  enabled: false # Set to true to enable rewards
   # Command to run from the console when a single task is completed.
   # Use @p (closest player) or @a (all players) instead of %player% for console commands if specific player context isn't passed.
   on-task-complete:
@@ -81,4 +81,4 @@ rewards:
   # These are usually for all players, so @a is appropriate.
   on-stage-complete:
     - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"
-    - "particle minecraft:firework @a ~ ~1 ~ 1 1 1 0.1 100 normal" # 'normal' is fine here
+    - "particle minecraft:firework @a ~ ~1 ~ 1 1 1 0.1 100 normal"

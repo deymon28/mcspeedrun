@@ -51,20 +51,20 @@ messages:
 
 # ...
 tasks:
-  OAK_LOG: "Дерево"
-  COBBLESTONE: "Кругляк"
-  IRON_INGOT: "Залізо"
-  BREAD: "Їжа"
+  OAK_LOG: "Колода"
+  COBBLESTONE: "Бруківка"
+  IRON_INGOT: "Метал"
+  BREAD: "Хавка"
 
-  ENDER_PEARL: "Перлини Енду"
+  ENDER_PEARL: "Перлини Кінця"
   BLAZE_ROD: "Стрижні пломеня"
 structures:
-  LAVA_POOL: "Lava Pool"
+  LAVA_POOL: "Лавовий басейн"
   VILLAGE: "Село"
   NETHER_PORTAL: "Портал в Пекло"
 
-  FORTRESS: "Фортеця"
-  BASTION: "Бастіон"
+  FORTRESS: "Цитадель"
+  BASTION: "Оплот"
 
-  END_PORTAL: "Портал в Кінець"
+  END_PORTAL: "Кінець порталу"
 # ...
