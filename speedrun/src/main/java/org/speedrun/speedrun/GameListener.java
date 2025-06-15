@@ -131,7 +131,7 @@ class GameListener implements Listener {
             if (lastBellInteract.getOrDefault(player.getUniqueId(), 0L) + BELL_COOLDOWN > now) return;
 
             if (plugin.getStructureManager().isVillageSearchActive()) {
-                plugin.getStructureManager().structureFound(player, "Village", event.getClickedBlock().getLocation());
+                plugin.getStructureManager().structureFound(player, "VILLAGE", event.getClickedBlock().getLocation());
                 lastBellInteract.put(player.getUniqueId(), now);
             }
         }

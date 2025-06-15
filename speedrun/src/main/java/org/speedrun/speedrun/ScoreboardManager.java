@@ -61,6 +61,17 @@ public class ScoreboardManager {
             String displayName = plugin.getStructureManager().getLocalizedStructureName(key);
 
             String line;
+
+            if (key.equals("END_PORTAL") && displayLoc == null) {
+                Location predictedLoc = plugin.getStructureManager().getPredictedEndPortalLocation();
+                if (predictedLoc != null) {
+                    // Show predicted location in a different color (e.g., yellow)
+                    line = "§e" + displayName + ": §6" + LocationUtil.format(predictedLoc) + " §e(?)";
+                    objective.getScore(line).setScore(score.getAndDecrement());
+                    continue; // Skip the normal "???" line for the end portal
+                }
+            }
+
             if (displayLoc != null) {
                 line = cm.getFormattedText("scoreboard.location-found", "%name%", displayName, "%coords%", LocationUtil.format(displayLoc));
             } else {

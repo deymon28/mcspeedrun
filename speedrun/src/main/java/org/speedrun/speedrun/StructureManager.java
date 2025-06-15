@@ -73,4 +73,29 @@ public class StructureManager {
     public Map<String, Location> getFoundStructures() { return foundLocations; }
     public Location getNetherPortalExitLocation() { return netherPortalExitLocation; }
     public void setNetherPortalExitLocation(Location netherPortalExitLocation) { this.netherPortalExitLocation = netherPortalExitLocation; }
+
+    //
+    // Це не працює коректно, не оновлює координати. Поламало автоматичні координати незер портала!!!!!
+    //
+    public boolean updateStructureLocation(String key, Location newLocation, Player player) {
+        String upperKey = key.toUpperCase();
+        // Check if it's a valid structure key we are tracking
+        if (!foundLocations.containsKey(upperKey)) {
+            return false;
+        }
+        // Use the existing structureFound logic to ensure tasks/rewards are triggered
+        structureFound(player, upperKey, newLocation);
+        return true;
+    }
+
+    private Location predictedEndPortalLocation;
+
+    public void setPredictedEndPortalLocation(Location location) {
+        this.predictedEndPortalLocation = location;
+    }
+
+    public Location getPredictedEndPortalLocation() {
+        return predictedEndPortalLocation;
+    }
+
 }

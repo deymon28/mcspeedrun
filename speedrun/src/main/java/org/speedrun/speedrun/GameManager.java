@@ -27,6 +27,7 @@ public class GameManager {
     private BukkitTask proximityScannerTask;
     private long villageTimeElapsed = 0;
     private boolean dragonKilledEnd = false;
+    private LogFileHandler logFileHandler;
 
     public GameManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -46,6 +47,26 @@ public class GameManager {
         plugin.getTaskManager().reloadTasks();
         plugin.getStructureManager().reset();
 
+        if (plugin.getConfigManager().isLogAttemptsEnabled()) {
+            try {
+                File logFile = new File(plugin.getDataFolder(), "logs/speedrun-log.txt");
+
+//                File parentDir = logFile.getParentFile();
+//                if (!parentDir.exists() && !parentDir.mkdirs()) {
+//                    plugin.getLogger().severe("Failed to create log directory: " + parentDir.getAbsolutePath());
+//                    return;
+//                }
+//                logFileHandler = new LogFileHandler(logFile.getAbsolutePath());
+//                plugin.getLogger().addHandler(logFileHandler);
+
+                logFile.getParentFile().mkdirs(); // Ensure directory exists
+                logFileHandler = new LogFileHandler(logFile.getAbsolutePath());
+                plugin.getLogger().addHandler(logFileHandler);
+            } catch (IOException e) {
+                plugin.getLogger().log(Level.SEVERE, "Failed to start console logging for speedrun.", e);
+            }
+        }
+
         startTimer();
         startProximityScanner();
         Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.run-started"));
@@ -61,6 +82,13 @@ public class GameManager {
         if (!isRunning && !dragonKilled) return;
         if (mainTimerTask != null) mainTimerTask.cancel();
         if (proximityScannerTask != null) proximityScannerTask.cancel();
+
+        if (logFileHandler != null) {
+            logFileHandler.flush();
+            logFileHandler.close();
+            plugin.getLogger().removeHandler(logFileHandler);
+            logFileHandler = null;
+        }
 
         if (dragonKilled) {
             isPaused = true;
