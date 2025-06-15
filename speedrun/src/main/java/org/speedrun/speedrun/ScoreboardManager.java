@@ -44,8 +44,6 @@ public class ScoreboardManager {
                 : getWhitespace();
         objective.getScore(statusLine).setScore(score.getAndDecrement());
 
-        // --- Locations ---
-        // objective.getScore(getWhitespace()).setScore(score.getAndDecrement());
         objective.getScore(cm.getFormattedText("scoreboard.locations-header")).setScore(score.getAndDecrement());
 
         for (Map.Entry<String, Location> entry : plugin.getStructureManager().getFoundStructures().entrySet()) {
@@ -57,19 +55,21 @@ public class ScoreboardManager {
                 displayLoc = plugin.getStructureManager().getNetherPortalExitLocation();
             }
 
-            // Get localized name for display
             String displayName = plugin.getStructureManager().getLocalizedStructureName(key);
-
             String line;
 
             if (key.equals("END_PORTAL") && displayLoc == null) {
                 Location predictedLoc = plugin.getStructureManager().getPredictedEndPortalLocation();
                 if (predictedLoc != null) {
-                    // Show predicted location in a different color (e.g., yellow)
-                    line = "§e" + displayName + ": §6" + LocationUtil.format(predictedLoc) + " §e(?)";
-                    objective.getScore(line).setScore(score.getAndDecrement());
-                    continue; // Skip the normal "???" line for the end portal
+                    int netherX = predictedLoc.getBlockX() / 8;
+                    int netherZ = predictedLoc.getBlockZ() / 8;
+                    //line = "§e" + displayName + ": §6" + LocationUtil.format(predictedLoc.) + " §7(§c" + netherX + ", " + netherZ + "§7)";
+                    line = "§e" + displayName + ": §6" + predictedLoc.getBlockX() + ", " + predictedLoc.getBlockZ() + " §7(§c" + netherX + ", " + netherZ + "§7)";
+                } else {
+                    line = cm.getFormattedText("scoreboard.location-pending", "%name%", displayName);
                 }
+                objective.getScore(line).setScore(score.getAndDecrement());
+                continue;
             }
 
             if (displayLoc != null) {
@@ -85,7 +85,6 @@ public class ScoreboardManager {
             objective.getScore(line).setScore(score.getAndDecrement());
         }
 
-        // --- Tasks ---
         World.Environment playerWorld = player.getWorld().getEnvironment();
         List<Task> tasks = plugin.getTaskManager().getTasksForWorld(playerWorld);
         if (!tasks.isEmpty()) {

@@ -196,6 +196,8 @@ public class ConfigManager {
     public double getPlayerScalingMultiplier() { return config.getDouble("settings.scale-resources-by-playercount.multiplier", 0.5); }
     public boolean isLogAttemptsEnabled() { return config.getBoolean("settings.log-attempts", true); }
 
+    public boolean isReassigningLocations() { return config.getBoolean("settings.reassigning-all-locations", true); }
+
     // --- NEW: Getters for configurable proximity scanner ---
     public int getLavaPoolRadius() { return config.getInt("settings.proximity-scanner.lava-pool.radius", 16); }
     public int getLavaPoolRequiredSources() { return config.getInt("settings.proximity-scanner.lava-pool.required-source-blocks", 12); }

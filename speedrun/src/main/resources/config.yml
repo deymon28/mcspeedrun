@@ -7,6 +7,8 @@ settings:
   language: "en"
   # Timer will start automatically when the first player joins the server.
   start-on-first-join: true
+  # The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
+  reassigning-all-locations: true
   # Time in seconds to find the village before the task is removed. 600 = 10 minutes.
   village-search-timeout: 600
   # How to track player resources for tasks.
