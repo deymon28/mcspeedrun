@@ -2,8 +2,8 @@ package org.speedrun.speedrun;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -31,18 +31,13 @@ public class StructureManager {
     }
 
     public void structureFound(Player player, String key, Location loc) {
-        // Prevent re-registration, unless it is a portal update.
-        if (foundLocations.containsKey(key) && foundLocations.get(key) != null && !key.equals("NETHER_PORTAL") && !plugin.getConfigManager().isReassigningLocations()) {
-            return;
-        }
-
         foundLocations.put(key, loc);
+        plugin.getGameManager().getLogger().info("Structure '" + key + "' found/updated by " + player.getName() + " at " + LocationUtil.format(loc));
         plugin.getTaskManager().onStructureFound(key, player);
         plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
 
         String langKey = "structures." + key;
         String displayName = plugin.getConfigManager().getLangString(langKey, key);
-
         Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.structure-found",
                 "%player%", player.getName(),
                 "%structure%", displayName,
@@ -50,52 +45,56 @@ public class StructureManager {
     }
 
     public void portalLit(Player player, Location loc) {
-        if (isNetherPortalLit()) return;
+        // Only called when ignited in the Overworld
+        if (isNetherPortalLit() && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
+            player.sendMessage("§cRe-assigning the Nether Portal is disabled in the config.");
+            return;
+        }
 
         foundLocations.put("NETHER_PORTAL", loc);
+        this.netherPortalExitLocation = null; // reset the output because created a new portal.
+        plugin.getGameManager().getLogger().info("Nether Portal lit by " + player.getName() + " at " + LocationUtil.format(loc));
         plugin.getTaskManager().onStructureFound("NETHER_PORTAL_OVERWORLD", player);
         Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.portal-lit", "%player%", player.getName()));
         plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
     }
 
-    /**
-     * FIXED: Correctly updates the coordinates of an existing structure.
-     * @param naturalName The name of the structure as entered by the player (e.g., ‘Nether Portal’).
-     * @param newLocation New coordinates.
-     * @param player The player who executed the command.
-     * @return true if the structure is found and updated.
-     */
     public boolean updateStructureLocation(String naturalName, Location newLocation, Player player) {
-        // Convert ‘Nether Portal’ to ‘NETHER_PORTAL’ for internal use
         String key = naturalName.replace(' ', '_').toUpperCase();
-
         if (!foundLocations.containsKey(key)) {
+            player.sendMessage("§cUnknown structure name: " + naturalName);
             return false;
         }
 
-        // Special logic for the portal in Nezer
-        if (key.equals("NETHER_PORTAL")) {
-            // Reset the exit coordinates in Nezere so that they are redefined
-            // when passing through the new portal for the first time.
-            this.netherPortalExitLocation = null;
+        boolean isAlreadyFound = foundLocations.get(key) != null;
+
+        //Checking whether coordinates can be changed
+        if (isAlreadyFound && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
+            player.sendMessage("§cRe-assigning locations is disabled in the config.");
+            return false;
         }
 
-        // Use the standard method to update coordinates and call events.
+        // Correct processing of the portal depending on the world
+        if (key.equals("NETHER_PORTAL")) {
+            if (player.getWorld().getEnvironment() == World.Environment.NETHER) {
+                // Player in Nether -> only update exit coordinates
+                setNetherPortalExitLocation(newLocation);
+                plugin.getGameManager().getLogger().info("Nether Portal (Nether side) location updated via command by " + player.getName() + " to " + LocationUtil.format(newLocation));
+                Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
+                player.sendMessage("§aNether-side portal location updated.");
+                return true;
+            } else {
+                // Player in Overworld -> reset output
+                this.netherPortalExitLocation = null;
+            }
+        }
+
         structureFound(player, key, newLocation);
         return true;
     }
 
-    public String getLocalizedStructureName(String key) {
-        return plugin.getConfigManager().getLangString("structures." + key, key);
-    }
-
-    public void checkVillageTimeout() {
-        if (isVillageSearchActive() && plugin.getGameManager().getVillageTimeRemaining() <= 0) {
-            foundLocations.remove("VILLAGE");
-            Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout"));
-        }
-    }
-
+    public String getLocalizedStructureName(String key) { return plugin.getConfigManager().getLangString("structures." + key, key); }
+    public void checkVillageTimeout() { if (isVillageSearchActive() && plugin.getGameManager().getVillageTimeRemaining() <= 0) { foundLocations.remove("VILLAGE"); Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout")); } }
     public boolean isVillageSearchActive() { return foundLocations.containsKey("VILLAGE") && foundLocations.get("VILLAGE") == null; }
     public boolean isLavaPoolSearchActive() { return foundLocations.containsKey("LAVA_POOL") && foundLocations.get("LAVA_POOL") == null && !isNetherPortalLit(); }
     public boolean isNetherPortalLit() { return foundLocations.get("NETHER_PORTAL") != null; }
