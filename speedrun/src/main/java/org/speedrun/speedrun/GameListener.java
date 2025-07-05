@@ -1,6 +1,7 @@
 package org.speedrun.speedrun;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.advancement.Advancement;
@@ -109,16 +110,33 @@ class GameListener implements Listener {
     }
 
     /**
-     * Handles detecting the Nether-side of a portal after a player travels through it.
+     * ИЗМЕНЕНО: Обрабатывает телепортацию в обе стороны для определения координат выхода.
      */
     @EventHandler
     public void onPlayerPortal(PlayerPortalEvent event) {
-        // We only care about the first time someone enters the Nether via a constructed portal
-        if (plugin.getStructureManager().getNetherPortalExitLocation() == null &&
-                event.getTo().getWorld().getEnvironment() == World.Environment.NETHER &&
-                plugin.getStructureManager().isNetherPortalLit()) {
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        World.Environment fromWorld = from.getWorld().getEnvironment();
+        World.Environment toWorld = to.getWorld().getEnvironment();
 
-            plugin.getStructureManager().setNetherPortalExitLocation(event.getTo());
+        // Если портал еще не был найден, не делаем ничего
+        if (!plugin.getStructureManager().isPortalPartiallyFound()) {
+            return;
+        }
+
+        // Из Верхнего в Нижний
+        if (fromWorld == World.Environment.NORMAL && toWorld == World.Environment.NETHER) {
+            // Если координаты в Нижнем мире еще не известны, записываем их
+            if (plugin.getStructureManager().getNetherPortalLocation() == null) {
+                plugin.getStructureManager().portalExitFound(to);
+            }
+        }
+        // Из Нижнего в Верхний
+        else if (fromWorld == World.Environment.NETHER && toWorld == World.Environment.NORMAL) {
+            // Если координаты в Верхнем мире еще не известны, записываем их
+            if (plugin.getStructureManager().getOverworldPortalLocation() == null) {
+                plugin.getStructureManager().portalExitFound(to);
+            }
         }
     }
 
@@ -136,22 +154,24 @@ class GameListener implements Listener {
             }
         }
 
-        // Nether Portal Lighting
+        // ИЗМЕНЕНО: Логика зажигания портала теперь вызывает новый метод в StructureManager
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getItem() != null && event.getItem().getType() == Material.FLINT_AND_STEEL) {
             Block clickedBlock = event.getClickedBlock();
             if (clickedBlock != null && clickedBlock.getType() == Material.OBSIDIAN) {
+                // Небольшая задержка, чтобы портал успел физически появиться в мире
                 new BukkitRunnable() {
                     @Override
                     public void run() {
                         for (Block nearby : getNearbyBlocks(clickedBlock)) {
                             if (nearby.getType() == Material.NETHER_PORTAL) {
-                                plugin.getStructureManager().portalLit(event.getPlayer(), clickedBlock.getLocation());
+                                // Вызываем новый унифицированный метод
+                                plugin.getStructureManager().portalLit(event.getPlayer(), nearby.getLocation());
                                 cancel();
                                 return;
                             }
                         }
                     }
-                }.runTaskLater(plugin, 1L);
+                }.runTaskLater(plugin, 2L); // 2 тика для надежности
             }
         }
     }

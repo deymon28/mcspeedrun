@@ -4,13 +4,20 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class StructureManager {
     private final Speedrun plugin;
     private final Map<String, Location> foundLocations = new LinkedHashMap<>();
-    private Location netherPortalExitLocation;
+
+    // --- НОВАЯ ЛОГИКА ДЛЯ ПОРТАЛОВ ---
+    // Раздельное хранение координат для каждого мира
+    private Location overworldPortalLocation;
+    private Location netherPortalLocation;
+    // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
     private Location predictedEndPortalLocation;
 
     public StructureManager(Speedrun plugin) {
@@ -20,10 +27,16 @@ public class StructureManager {
 
     public void reset() {
         foundLocations.clear();
-        netherPortalExitLocation = null;
         predictedEndPortalLocation = null;
+        // Сбрасываем порталы
+        overworldPortalLocation = null;
+        netherPortalLocation = null;
+
+        // Инициализируем остальные структуры
         foundLocations.put("LAVA_POOL", null);
         foundLocations.put("VILLAGE", null);
+        // Ключ "NETHER_PORTAL" больше не используется для хранения координат напрямую,
+        // но оставляем его для совместимости и отображения в общем списке
         foundLocations.put("NETHER_PORTAL", null);
         foundLocations.put("FORTRESS", null);
         foundLocations.put("BASTION", null);
@@ -31,6 +44,11 @@ public class StructureManager {
     }
 
     public void structureFound(Player player, String key, Location loc) {
+        // Игнорируем прямое обновление портала через этот метод
+        if (key.equals("NETHER_PORTAL")) {
+            return;
+        }
+
         foundLocations.put(key, loc);
         plugin.getGameManager().getLogger().info("Structure '" + key + "' found/updated by " + player.getName() + " at " + LocationUtil.format(loc));
         plugin.getTaskManager().onStructureFound(key, player);
@@ -44,63 +62,149 @@ public class StructureManager {
                 "%coords%", LocationUtil.format(loc)));
     }
 
+    // --- НОВЫЕ И ПЕРЕРАБОТАННЫЕ МЕТОДЫ ДЛЯ ПОРТАЛОВ ---
+
+    /**
+     * Регистрирует зажжённый портал.
+     * Вызывается, когда игрок зажигает портал в любом из миров.
+     */
     public void portalLit(Player player, Location loc) {
-        // Only called when ignited in the Overworld
-        if (isNetherPortalLit() && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
-            player.sendMessage("§cRe-assigning the Nether Portal is disabled in the config.");
+        // 1. Проверяем, можно ли переназначать портал, если он уже существует
+        if (isPortalFullyFound() && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
+            player.sendMessage("§cПереназначение портала отключено в конфиге.");
             return;
         }
 
+        World.Environment world = player.getWorld().getEnvironment();
+
+        // 2. Сбрасываем ОБА местоположения, так как создается новый "основной" портал
+        this.overworldPortalLocation = null;
+        this.netherPortalLocation = null;
+
+        // 3. Устанавливаем координаты для текущего мира
+        if (world == World.Environment.NORMAL) {
+            this.overworldPortalLocation = loc;
+        } else if (world == World.Environment.NETHER) {
+            this.netherPortalLocation = loc;
+        } else {
+            // Не обрабатываем порталы в других мирах (например, The End)
+            return;
+        }
+
+        // Обновляем "виртуальную" запись в foundLocations, чтобы скорборд знал, что портал есть
         foundLocations.put("NETHER_PORTAL", loc);
-        this.netherPortalExitLocation = null; // reset the output because created a new portal.
-        plugin.getGameManager().getLogger().info("Nether Portal lit by " + player.getName() + " at " + LocationUtil.format(loc));
-        plugin.getTaskManager().onStructureFound("NETHER_PORTAL_OVERWORLD", player);
+
+        plugin.getGameManager().getLogger().info("Nether Portal lit by " + player.getName() + " in " + world.name() + " at " + LocationUtil.format(loc));
+        // Сообщаем о событии для выполнения задач
+        plugin.getTaskManager().onStructureFound("NETHER_PORTAL_OVERWORLD", player); // Используем старый ключ для совместимости с задачами
         Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.portal-lit", "%player%", player.getName()));
         plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
+
+        // Обновляем скорборд для всех
+        Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
     }
 
-    public boolean updateStructureLocation(String naturalName, Location newLocation, Player player) {
-        String key = naturalName.replace(' ', '_').toUpperCase();
-        if (!foundLocations.containsKey(key)) {
-            player.sendMessage("§cUnknown structure name: " + naturalName);
+    /**
+     * Регистрирует выход из портала после телепортации.
+     */
+    public void portalExitFound(Location exitLoc) {
+        World.Environment exitWorld = exitLoc.getWorld().getEnvironment();
+        if (exitWorld == World.Environment.NETHER && this.netherPortalLocation == null) {
+            this.netherPortalLocation = exitLoc;
+            plugin.getGameManager().getLogger().info("Nether Portal exit (Nether-side) found at " + LocationUtil.format(exitLoc));
+        } else if (exitWorld == World.Environment.NORMAL && this.overworldPortalLocation == null) {
+            this.overworldPortalLocation = exitLoc;
+            plugin.getGameManager().getLogger().info("Nether Portal exit (Overworld-side) found at " + LocationUtil.format(exitLoc));
+        }
+        // Обновляем скорборд для всех
+        Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
+    }
+
+    /**
+     * Обрабатывает команду /run new Nether Portal.
+     */
+    public boolean reassignNetherPortal(Player player) {
+        // Команда работает только если переназначение включено в конфиге
+        if (!plugin.getConfigManager().isReassigningLocationsEnabled()) {
+            player.sendMessage("§cПереназначение локаций отключено в конфиге.");
             return false;
         }
 
-        boolean isAlreadyFound = foundLocations.get(key) != null;
-
-        //Checking whether coordinates can be changed
-        if (isAlreadyFound && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
-            player.sendMessage("§cRe-assigning locations is disabled in the config.");
-            return false;
-        }
-
-        // Correct processing of the portal depending on the world
-        if (key.equals("NETHER_PORTAL")) {
-            if (player.getWorld().getEnvironment() == World.Environment.NETHER) {
-                // Player in Nether -> only update exit coordinates
-                setNetherPortalExitLocation(newLocation);
-                plugin.getGameManager().getLogger().info("Nether Portal (Nether side) location updated via command by " + player.getName() + " to " + LocationUtil.format(newLocation));
-                Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
-                player.sendMessage("§aNether-side portal location updated.");
-                return true;
-            } else {
-                // Player in Overworld -> reset output
-                this.netherPortalExitLocation = null;
-            }
-        }
-
-        structureFound(player, key, newLocation);
+        // Используем существующий метод portalLit, который теперь содержит всю нужную логику
+        // (сброс старых координат и установка новых)
+        portalLit(player, player.getLocation());
+        player.sendMessage("§aКоординаты портала были сброшены и установлены на ваше текущее местоположение.");
         return true;
     }
 
-    public String getLocalizedStructureName(String key) { return plugin.getConfigManager().getLangString("structures." + key, key); }
-    public void checkVillageTimeout() { if (isVillageSearchActive() && plugin.getGameManager().getVillageTimeRemaining() <= 0) { foundLocations.remove("VILLAGE"); Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout")); } }
-    public boolean isVillageSearchActive() { return foundLocations.containsKey("VILLAGE") && foundLocations.get("VILLAGE") == null; }
-    public boolean isLavaPoolSearchActive() { return foundLocations.containsKey("LAVA_POOL") && foundLocations.get("LAVA_POOL") == null && !isNetherPortalLit(); }
-    public boolean isNetherPortalLit() { return foundLocations.get("NETHER_PORTAL") != null; }
-    public Map<String, Location> getFoundStructures() { return foundLocations; }
-    public Location getNetherPortalExitLocation() { return netherPortalExitLocation; }
-    public void setNetherPortalExitLocation(Location netherPortalExitLocation) { this.netherPortalExitLocation = netherPortalExitLocation; }
-    public Location getPredictedEndPortalLocation() { return predictedEndPortalLocation; }
-    public void setPredictedEndPortalLocation(Location location) { this.predictedEndPortalLocation = location; }
+    // --- GETTERS & HELPERS ---
+
+    public Location getOverworldPortalLocation() {
+        return overworldPortalLocation;
+    }
+
+    public Location getNetherPortalLocation() {
+        return netherPortalLocation;
+    }
+
+    /**
+     * Возвращает координаты портала для мира, в котором находится игрок.
+     * Используется для отображения в скорборде.
+     */
+    public Location getPortalLocationForWorld(World.Environment world) {
+        if (world == World.Environment.NORMAL) {
+            return overworldPortalLocation;
+        }
+        if (world == World.Environment.NETHER) {
+            return netherPortalLocation;
+        }
+        return null;
+    }
+
+    /**
+     * Проверяет, найден ли портал хотя бы с одной стороны.
+     */
+    public boolean isPortalPartiallyFound() {
+        return overworldPortalLocation != null || netherPortalLocation != null;
+    }
+
+    /**
+     * Проверяет, найден ли портал с обеих сторон.
+     */
+    public boolean isPortalFullyFound() {
+        return overworldPortalLocation != null && netherPortalLocation != null;
+    }
+
+    // --- Остальные методы без изменений ---
+
+    public String getLocalizedStructureName(String key) {
+        return plugin.getConfigManager().getLangString("structures." + key, key);
+    }
+
+    public void checkVillageTimeout() {
+        if (isVillageSearchActive() && plugin.getGameManager().getVillageTimeRemaining() <= 0) {
+            foundLocations.remove("VILLAGE");
+            Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout"));
+        }
+    }
+
+    public boolean isVillageSearchActive() {
+        return foundLocations.containsKey("VILLAGE") && foundLocations.get("VILLAGE") == null;
+    }
+
+    public boolean isLavaPoolSearchActive() {
+        return foundLocations.containsKey("LAVA_POOL") && foundLocations.get("LAVA_POOL") == null && !isPortalPartiallyFound();
+    }
+
+    public Map<String, Location> getFoundStructures() {
+        return foundLocations;
+    }
+
+    public Location getPredictedEndPortalLocation() {
+        return predictedEndPortalLocation;
+    }
+
+    public void setPredictedEndPortalLocation(Location location) {
+        this.predictedEndPortalLocation = location;
+    }
 }

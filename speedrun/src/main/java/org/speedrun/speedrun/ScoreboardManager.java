@@ -36,6 +36,7 @@ public class ScoreboardManager {
 
         AtomicInteger score = new AtomicInteger(15);
         ConfigManager cm = plugin.getConfigManager();
+        StructureManager sm = plugin.getStructureManager(); // Получаем StructureManager
 
         objective.getScore(cm.getFormattedText("scoreboard.time") + " §e" + plugin.getGameManager().getFormattedTime()).setScore(score.getAndDecrement());
 
@@ -46,24 +47,30 @@ public class ScoreboardManager {
 
         objective.getScore(cm.getFormattedText("scoreboard.locations-header")).setScore(score.getAndDecrement());
 
-        for (Map.Entry<String, Location> entry : plugin.getStructureManager().getFoundStructures().entrySet()) {
+        // Проходим по списку структур как и раньше
+        for (Map.Entry<String, Location> entry : sm.getFoundStructures().entrySet()) {
             String key = entry.getKey();
-            if (key.equals("LAVA_POOL") && plugin.getStructureManager().isNetherPortalLit()) continue;
+            if (key.equals("LAVA_POOL") && sm.isPortalPartiallyFound()) continue;
 
-            Location displayLoc = entry.getValue();
-            if (key.equals("NETHER_PORTAL") && player.getWorld().getEnvironment() == World.Environment.NETHER) {
-                displayLoc = plugin.getStructureManager().getNetherPortalExitLocation();
-            }
-
-            String displayName = plugin.getStructureManager().getLocalizedStructureName(key);
+            String displayName = sm.getLocalizedStructureName(key);
             String line;
+            Location displayLoc;
 
+            // --- ИЗМЕНЕНО: Специальная логика для портала ---
+            if (key.equals("NETHER_PORTAL")) {
+                // Получаем координаты для текущего мира игрока
+                displayLoc = sm.getPortalLocationForWorld(player.getWorld().getEnvironment());
+            } else {
+                displayLoc = entry.getValue();
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЙ ДЛЯ ПОРТАЛА ---
+
+            // Логика для портала Края остается прежней
             if (key.equals("END_PORTAL") && displayLoc == null) {
-                Location predictedLoc = plugin.getStructureManager().getPredictedEndPortalLocation();
+                Location predictedLoc = sm.getPredictedEndPortalLocation();
                 if (predictedLoc != null) {
                     int netherX = predictedLoc.getBlockX() / 8;
                     int netherZ = predictedLoc.getBlockZ() / 8;
-                    //line = "§e" + displayName + ": §6" + LocationUtil.format(predictedLoc.) + " §7(§c" + netherX + ", " + netherZ + "§7)";
                     line = "§e" + displayName + ": §6" + predictedLoc.getBlockX() + ", " + predictedLoc.getBlockZ() + " §7(§c" + netherX + ", " + netherZ + "§7)";
                 } else {
                     line = cm.getFormattedText("scoreboard.location-pending", "%name%", displayName);
@@ -72,10 +79,11 @@ public class ScoreboardManager {
                 continue;
             }
 
+            // Общая логика отображения
             if (displayLoc != null) {
                 line = cm.getFormattedText("scoreboard.location-found", "%name%", displayName, "%coords%", LocationUtil.format(displayLoc));
             } else {
-                if (key.equals("VILLAGE") && plugin.getStructureManager().isVillageSearchActive()) {
+                if (key.equals("VILLAGE") && sm.isVillageSearchActive()) {
                     String timer = cm.getFormattedText("scoreboard.village-timer", "%time%", TimeUtil.formatMinutesSeconds(plugin.getGameManager().getVillageTimeRemaining()));
                     line = cm.getFormattedText("scoreboard.location-pending", "%name%", displayName) + " " + timer;
                 } else {
