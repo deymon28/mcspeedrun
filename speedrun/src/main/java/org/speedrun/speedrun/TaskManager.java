@@ -59,13 +59,23 @@ public class TaskManager {
             for (String taskKey : tasksSection.getKeys(false)) {
                 ConfigurationSection taskInfo = tasksSection.getConfigurationSection(taskKey);
                 if (taskInfo == null) continue;
-                // FIX: Pass the plugin instance to the Task constructor for localization
                 Task task = new Task(taskKey, taskInfo, world, plugin);
                 allTasks.add(task);
                 currentStageTasks.add(task);
             }
             tasksByStage.put(stageKey, currentStageTasks);
             orderedStageKeys.add(stageKey);
+        }
+        // Применить начальное масштабирование после загрузки всех задач
+        if (plugin.getConfigManager().isPlayerScalingEnabled()) {
+            int playerCount = Math.max(1, Bukkit.getOnlinePlayers().size());
+            double multiplier = plugin.getConfigManager().getPlayerScalingMultiplier();
+            allTasks.forEach(task -> {
+                // ИСПРАВЛЕНИЕ: Вызов isSrbpEnabled() перед масштабированием
+                if (task.isSrbpEnabled()) { // Используем метод isSrbpEnabled()
+                    task.scale(playerCount, multiplier);
+                }
+            });
         }
     }
 
@@ -78,7 +88,7 @@ public class TaskManager {
         if (plugin.getGameManager().isPaused()) return;
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.INVENTORY) {
             updateTasksFromInventory();
-        } else {
+        } else { // CUMULATIVE
             updateTasksFromCumulative();
         }
         for (Task task : allTasks) {
@@ -90,24 +100,26 @@ public class TaskManager {
     private void checkForStageCompletion() {
         if (currentStageIndex >= orderedStageKeys.size()) return;
         if (isCurrentProgressionStageComplete()) {
-            currentStageIndex++; // Advance index
+            currentStageIndex++; // Переход к следующему индексу
             if (currentStageIndex < orderedStageKeys.size()) {
                 Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.stage-complete"));
                 plugin.getConfigManager().executeRewardCommands("on-stage-complete", null);
             } else {
                 plugin.getLogger().info("All progression stages completed!");
+                // Опционально остановить выполнение, если все этапы завершены и дракон не убит (если это условие)
+                // plugin.getGameManager().stopRun(true); // Пример: если завершение всех этапов означает победу
             }
         }
     }
 
-    // Getter for tasks in the current stage
+    // Геттер для задач на текущем этапе прогрессии
     private List<Task> getTasksForCurrentProgressionStage() {
         if (currentStageIndex >= orderedStageKeys.size()) return Collections.emptyList();
         String currentStageKey = orderedStageKeys.get(currentStageIndex);
         return tasksByStage.getOrDefault(currentStageKey, Collections.emptyList());
     }
 
-    // IMPROVEMENT: Renamed for clarity
+    // УЛУЧШЕНИЕ: Переименовано для ясности
     public Optional<String> getCurrentStageName() {
         if (currentStageIndex >= orderedStageKeys.size()) return Optional.empty();
         return Optional.of(orderedStageKeys.get(currentStageIndex));
@@ -117,10 +129,10 @@ public class TaskManager {
         return getTasksForCurrentProgressionStage().stream().allMatch(Task::isCompleted);
     }
 
-    // Updates tasks from player inventories
+    // Обновляет задачи из инвентарей игроков
     private void updateTasksFromInventory() {
         allTasks.forEach(task -> {
-            if (task.taskType == Task.Type.ITEM) task.progress = 0;
+            if (task.getTaskType() == Task.Type.ITEM) task.progress = 0; // Сбросить прогресс для режима инвентаря
         });
         for (Player player : Bukkit.getOnlinePlayers()) {
             for (ItemStack item : player.getInventory().getContents()) {
@@ -129,16 +141,13 @@ public class TaskManager {
         }
     }
 
-    // Cumulative task updates
+    // Кумулятивные обновления задач
     private void updateTasksFromCumulative() {
         allTasks.forEach(task -> {
-            if (task.taskType == Task.Type.ITEM) {
-                task.progress = 0;
-                Material taskMaterial = Material.getMaterial(task.key);
-                if (taskMaterial != null) {
-                    task.progress = cumulativePlayerContributions.values().stream()
-                            .mapToInt(playerMap -> playerMap.getOrDefault(taskMaterial, 0)).sum();
-                }
+            if (task.getTaskType() == Task.Type.ITEM) {
+                // Суммировать вклады всех игроков для этого типа предмета
+                task.progress = cumulativePlayerContributions.values().stream()
+                        .mapToInt(playerMap -> playerMap.getOrDefault(Material.getMaterial(task.getKey()), 0)).sum();
             }
         });
     }
@@ -155,26 +164,26 @@ public class TaskManager {
 
     private void updateProgressForItem(Material material, int amount) {
         for (Task task : allTasks) {
-            if (task.taskType != Task.Type.ITEM) continue;
-            if ((task.key.equals("OAK_LOG") && allLogMaterials.contains(material)) ||
-                    (task.key.equals("BREAD") && allCookedFoodMaterials.contains(material)) ||
-                    task.key.equals(material.name())) {
+            if (task.getTaskType() != Task.Type.ITEM) continue;
+            // Проверить, соответствует ли материал ключу задачи или группе (бревна, приготовленная еда)
+            if ((task.getKey().equals("OAK_LOG") && allLogMaterials.contains(material)) ||
+                    (task.getKey().equals("BREAD") && allCookedFoodMaterials.contains(material)) ||
+                    task.getKey().equals(material.name())) {
                 task.progress += amount;
             }
         }
     }
 
     public void onStructureFound(String structureKey, Player player) {
+        // Найти задачи, которые соответствуют ключу структуры (например, "STRUCTURE_FORTRESS")
         allTasks.stream()
-                .filter(t -> t.taskType == Task.Type.STRUCTURE && t.key.equalsIgnoreCase("STRUCTURE_" + structureKey))
+                .filter(t -> t.getTaskType() == Task.Type.STRUCTURE && t.getKey().equalsIgnoreCase("STRUCTURE_" + structureKey))
                 .findFirst()
                 .ifPresent(task -> {
                     if (!task.isCompleted()) {
-                        task.progress = 1;
+                        task.progress = 1; // Задачи структуры обычно выполняются один раз
                         task.updateCompletionStatus(plugin);
-                        //Test sounds on player
-                        player.playSound(player.getLocation(), Sound.MUSIC_DISC_13, 1.0f, 1.0f);
-
+                        player.playSound(player.getLocation(), Sound.MUSIC_DISC_13, 1.0f, 1.0f); // Пример звука
                     }
                 });
         checkForStageCompletion();
@@ -183,7 +192,7 @@ public class TaskManager {
     public List<Task> getAllTasks() { return allTasks; }
 
     public List<Task> getTasksForWorld(World.Environment world) {
-        return allTasks.stream().filter(task -> task.world == world).collect(Collectors.toList());
+        return allTasks.stream().filter(task -> task.getWorld() == world).collect(Collectors.toList());
     }
 
     private void populateMaterialSets() {

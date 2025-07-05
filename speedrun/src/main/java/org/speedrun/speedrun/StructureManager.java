@@ -106,20 +106,36 @@ public class StructureManager {
 
     public boolean updateStructureLocation(String naturalName, Location newLocation, Player player) {
         String key = naturalName.replace(' ', '_').toUpperCase();
-        if (!foundLocations.containsKey(key)) {
-            player.sendMessage("§cUnknown structure name: " + naturalName);
+
+        // ИСПРАВЛЕНИЕ: Использование локализованного сообщения для неизвестного имени структуры
+        if (!foundLocations.containsKey(key) && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
+            player.sendMessage(plugin.getConfigManager().getFormattedText("messages.unknown-structure-name", "%name%", naturalName));
             return false;
         }
 
         boolean isAlreadyFound = foundLocations.get(key) != null;
 
-        //Checking whether coordinates can be changed
         if (isAlreadyFound && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
-            player.sendMessage("§cRe-assigning locations is disabled in the config.");
+            player.sendMessage("§cПереназначение локаций отключено в конфиге.");
             return false;
         }
 
-        structureFound(player, key, newLocation);
+        if (key.equals("NETHER_PORTAL")) {
+            player.sendMessage("§cИспользуйте /run new nether portal для переназначения портала.");
+            return false;
+        }
+
+        foundLocations.put(key, newLocation);
+        plugin.getGameManager().getLogger().info("Structure '" + key + "' updated by " + player.getName() + " at " + LocationUtil.format(newLocation));
+        plugin.getTaskManager().onStructureFound(key, player);
+        plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
+
+        String langKey = "structures." + key;
+        String displayName = plugin.getConfigManager().getLangString(langKey, key);
+        Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.structure-found",
+                "%player%", player.getName(),
+                "%structure%", displayName,
+                "%coords%", LocationUtil.format(newLocation)));
         return true;
     }
 

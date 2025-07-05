@@ -87,7 +87,6 @@ Currently, task requirements and timings are hardcoded.
 ### Coming Soon:
 - Bug fixes
 - Localisation of system notifications
-- Simplified coordinate search system for the End portal
 - Game modes:
   - Normal - what is currently implemented
   - Casual - for honing skills, where you don't need to waste time searching for locations (the coordinates of all locations are known from the start), as well as highlighting gold blocks in the Bastion
@@ -97,8 +96,8 @@ Currently, task requirements and timings are hardcoded.
 - Log each speedrun attempt with detailed data
 
 ### Done Features:
+- Simplified coordinate search system for the End portal
 - Codebase refactoring and cleanup
-- Fix known bugs
 - Add explicit "paused" indicator on the scoreboard
 - Move village search timer into the village coordinate field with color highlighting and compact formatting
 - Start the timer when the first player joins, not on server start

@@ -47,6 +47,7 @@ messages:
   dragon-slain: "&a&lThe Ender Dragon has been slain! Speedrun complete!"
   final-time: "&a&lFinal Time: %time%"
   stage-complete: "&d&lStage Complete! &fMoving to the next stage."
+  unknown-structure-name: "&cUnknown structure name or arbitrary location reassignment disabled: %name%"
 
 # ...
 tasks:

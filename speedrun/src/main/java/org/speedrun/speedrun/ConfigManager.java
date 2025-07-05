@@ -114,14 +114,14 @@ public class ConfigManager {
     public boolean isStartOnFirstJoin() { return config.getBoolean("settings.start-on-first-join", true); }
     public long getVillageTimeout() { return config.getLong("settings.village-search-timeout", 600); }
     public TrackingMode getTrackingMode() { return TrackingMode.valueOf(config.getString("settings.task-tracking-mode", "INVENTORY").toUpperCase()); }
+    // Этот метод теперь отражает под-ключ 'enabled'
     public boolean isPlayerScalingEnabled() { return config.getBoolean("settings.scale-resources-by-playercount.enabled", true); }
     public double getPlayerScalingMultiplier() { return config.getDouble("settings.scale-resources-by-playercount.multiplier", 0.5); }
     public boolean isLogAttemptsEnabled() { return config.getBoolean("settings.log-attempts", true); }
     public int getLavaPoolRadius() { return config.getInt("settings.proximity-scanner.lava-pool.radius", 16); }
     public int getLavaPoolRequiredSources() { return config.getInt("settings.proximity-scanner.lava-pool.required-source-blocks", 12); }
     public int getVillageBellRadius() { return config.getInt("settings.proximity-scanner.village.radius", 32); }
-    public boolean isReassigningLocationsEnabled() { return config.getBoolean("settings.reassigning-all-locations", true); }
-
+    public boolean isReassigningLocationsEnabled() { return config.getBoolean("settings.allow-reassigning-locations", true); }
     public int getNetherPortalCheckRadius() { return config.getInt("settings.proximity-scanner.nether-portal.check-radius", 4); }
-    public int getTeleportPortalSearchRadius() { return config.getInt("settings.proximity-scanner.nether-portal.search-radius", 30); }
+    public int getTeleportPortalSearchRadius() { return config.getInt("settings.proximity-scanner.nether-portal.search-radius", 90); }
 }
