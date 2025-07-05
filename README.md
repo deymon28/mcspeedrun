@@ -85,25 +85,33 @@ Currently, task requirements and timings are hardcoded.
 ## 🏗️ Upcoming Tasks and 🔮 Future Plans
 
 ### Coming Soon:
-- ~~Codebase refactoring and cleanup~~
-- ~~Fix known bugs~~
-- ~~Add explicit "paused" indicator on the scoreboard~~
-- ~~Move village search timer into the village coordinate field with color highlighting and compact formatting~~
+- Bug fixes
+- Localisation of system notifications
+- Simplified coordinate search system for the End portal
+- Game modes:
+- Normal - what is currently implemented
+- Casual - for honing skills, where you don't need to waste time searching for locations (the coordinates of all locations are known from the start), as well as highlighting gold blocks in the Bastion
 
 ### Planned Features:
-- ~~Start the timer when the first player joins, not on server start~~
-- ~~Add a per-task resource tracking mode~~:
-    - ~~Total collected over time~~
-    - ~~Only current inventory amount~~
-- ~~Display tasks dynamically based on the player's current world (Overworld, Nether, etc.)~~
-- ~~Move most plugin settings to `config.yml` for easier customization~~
-- ~~Add localization support, starting with a full Ukrainian translation~~
 - Introduce a structured task progression path
-- ~~Dynamically scale required resources based on player count~~
 - Log each speedrun attempt with detailed data
-- ~~Add optional rewards (cosmetic only) for task and milestone completion~~
-- ~~Expand in-game commands to enhance interaction~~
-- ~~Revise Nether portal coordinate detection to work without requiring player entry~~
+
+### Done Features:
+- Codebase refactoring and cleanup
+- Fix known bugs
+- Add explicit "paused" indicator on the scoreboard
+- Move village search timer into the village coordinate field with color highlighting and compact formatting
+- Start the timer when the first player joins, not on server start
+- Add a per-task resource tracking mode:
+  - Total collected over time
+  - Only current inventory amount
+- Display tasks dynamically based on the player's current world (Overworld, Nether, etc.)
+- Move most plugin settings to `config.yml` for easier customization
+- Add localization support, starting with a full Ukrainian translation
+- Dynamically scale required resources based on player count
+- Add optional rewards (cosmetic only) for task and milestone completion
+- Expand in-game commands to enhance interaction
+- Revise Nether portal coordinate detection to work without requiring player entry
 
 ---
 
