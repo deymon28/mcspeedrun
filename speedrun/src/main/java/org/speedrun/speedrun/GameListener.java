@@ -28,7 +28,7 @@ class GameListener implements Listener {
     private final Speedrun plugin;
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
-    private static final int NETHER_PORTAL_CHECK_RADIUS = 3;
+    private static final int NETHER_PORTAL_CHECK_RADIUS = 3; // Radius for checking nearby blocks for portals
 
     public GameListener(Speedrun plugin) {
         this.plugin = plugin;
@@ -111,6 +111,7 @@ class GameListener implements Listener {
 
     /**
      * ИЗМЕНЕНО: Обрабатывает телепортацию в обе стороны для определения координат выхода.
+     * Теперь пытается найти точный блок портала в месте назначения.
      */
     @EventHandler
     public void onPlayerPortal(PlayerPortalEvent event) {
@@ -124,18 +125,25 @@ class GameListener implements Listener {
             return;
         }
 
+        // Поиск ближайшего блока NETHER_PORTAL в месте назначения
+        Location preciseExitLoc = findNearestNetherPortalBlock(to);
+        if (preciseExitLoc == null) {
+            // Если точный блок портала не найден, используем исходное место назначения
+            preciseExitLoc = to;
+        }
+
         // Из Верхнего в Нижний
         if (fromWorld == World.Environment.NORMAL && toWorld == World.Environment.NETHER) {
             // Если координаты в Нижнем мире еще не известны, записываем их
             if (plugin.getStructureManager().getNetherPortalLocation() == null) {
-                plugin.getStructureManager().portalExitFound(to);
+                plugin.getStructureManager().portalExitFound(preciseExitLoc);
             }
         }
         // Из Нижнего в Верхний
         else if (fromWorld == World.Environment.NETHER && toWorld == World.Environment.NORMAL) {
             // Если координаты в Верхнем мире еще не известны, записываем их
             if (plugin.getStructureManager().getOverworldPortalLocation() == null) {
-                plugin.getStructureManager().portalExitFound(to);
+                plugin.getStructureManager().portalExitFound(preciseExitLoc);
             }
         }
     }
@@ -162,7 +170,7 @@ class GameListener implements Listener {
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        for (Block nearby : getNearbyBlocks(clickedBlock)) {
+                        for (Block nearby : getNearbyBlocks(clickedBlock, NETHER_PORTAL_CHECK_RADIUS)) {
                             if (nearby.getType() == Material.NETHER_PORTAL) {
                                 // Вызываем новый унифицированный метод
                                 plugin.getStructureManager().portalLit(event.getPlayer(), nearby.getLocation());
@@ -176,15 +184,45 @@ class GameListener implements Listener {
         }
     }
 
-    private List<Block> getNearbyBlocks(Block start) {
+    /**
+     * Вспомогательный метод для получения блоков в заданном радиусе вокруг начального блока.
+     * @param start Начальный блок.
+     * @param radius Радиус поиска.
+     * @return Список блоков в радиусе.
+     */
+    private List<Block> getNearbyBlocks(Block start, int radius) {
         List<Block> blocks = new ArrayList<>();
-        for (int x = -NETHER_PORTAL_CHECK_RADIUS; x <= NETHER_PORTAL_CHECK_RADIUS; x++) {
-            for (int y = -NETHER_PORTAL_CHECK_RADIUS; y <= NETHER_PORTAL_CHECK_RADIUS; y++) {
-                for (int z = -NETHER_PORTAL_CHECK_RADIUS; z <= NETHER_PORTAL_CHECK_RADIUS; z++) {
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
                     blocks.add(start.getRelative(x, y, z));
                 }
             }
         }
         return blocks;
+    }
+
+    /**
+     * Ищет ближайший блок NETHER_PORTAL вокруг заданной локации.
+     * @param centerLoc Центральная локация для поиска.
+     * @return Локация ближайшего блока NETHER_PORTAL, или null если не найдено.
+     */
+    private Location findNearestNetherPortalBlock(Location centerLoc) {
+        if (centerLoc == null || centerLoc.getWorld() == null) {
+            return null;
+        }
+        // Увеличиваем радиус поиска, чтобы быть уверенными, что найдем портал
+        int searchRadius = NETHER_PORTAL_CHECK_RADIUS + 1; // +1 для большей надежности
+        for (int x = -searchRadius; x <= searchRadius; x++) {
+            for (int y = -searchRadius; y <= searchRadius; y++) {
+                for (int z = -searchRadius; z <= searchRadius; z++) {
+                    Block block = centerLoc.clone().add(x, y, z).getBlock();
+                    if (block.getType() == Material.NETHER_PORTAL) {
+                        return block.getLocation();
+                    }
+                }
+            }
+        }
+        return null;
     }
 }

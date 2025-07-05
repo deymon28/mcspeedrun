@@ -106,6 +106,7 @@ public class StructureManager {
 
     /**
      * Регистрирует выход из портала после телепортации.
+     * Принимает уже потенциально уточненную локацию портала.
      */
     public void portalExitFound(Location exitLoc) {
         World.Environment exitWorld = exitLoc.getWorld().getEnvironment();
