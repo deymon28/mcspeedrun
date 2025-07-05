@@ -89,8 +89,8 @@ Currently, task requirements and timings are hardcoded.
 - Localisation of system notifications
 - Simplified coordinate search system for the End portal
 - Game modes:
-- Normal - what is currently implemented
-- Casual - for honing skills, where you don't need to waste time searching for locations (the coordinates of all locations are known from the start), as well as highlighting gold blocks in the Bastion
+  - Normal - what is currently implemented
+  - Casual - for honing skills, where you don't need to waste time searching for locations (the coordinates of all locations are known from the start), as well as highlighting gold blocks in the Bastion
 
 ### Planned Features:
 - Introduce a structured task progression path
