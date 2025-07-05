@@ -121,4 +121,7 @@ public class ConfigManager {
     public int getLavaPoolRequiredSources() { return config.getInt("settings.proximity-scanner.lava-pool.required-source-blocks", 12); }
     public int getVillageBellRadius() { return config.getInt("settings.proximity-scanner.village.radius", 32); }
     public boolean isReassigningLocationsEnabled() { return config.getBoolean("settings.reassigning-all-locations", true); }
+
+    public int getNetherPortalCheckRadius() { return config.getInt("settings.proximity-scanner.nether-portal.check-radius", 4); }
+    public int getTeleportPortalSearchRadius() { return config.getInt("settings.proximity-scanner.nether-portal.search-radius", 30); }
 }

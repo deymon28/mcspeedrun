@@ -1,5 +1,5 @@
 name: Speedrun
-version: '1.21.5-2.1.10'
+version: '1.21.5-2.1.11'
 main: org.speedrun.speedrun.Speedrun
 api-version: '1.21'
 author: 'deymon28'

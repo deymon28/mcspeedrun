@@ -28,10 +28,14 @@ class GameListener implements Listener {
     private final Speedrun plugin;
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
-    private static final int NETHER_PORTAL_CHECK_RADIUS = 3; // Radius for checking nearby blocks for portals
+    private final int NETHER_PORTAL_CHECK_RADIUS; // Radius for checking nearby blocks for portals when lighting
+    private final int TELEPORT_PORTAL_SEARCH_RADIUS; // Increased radius for finding portal block after teleportation\
 
     public GameListener(Speedrun plugin) {
         this.plugin = plugin;
+
+        this.NETHER_PORTAL_CHECK_RADIUS = plugin.getConfigManager().getNetherPortalCheckRadius();
+        this.TELEPORT_PORTAL_SEARCH_RADIUS = plugin.getConfigManager().getTeleportPortalSearchRadius();
     }
 
     // --- Game State Events ---
@@ -111,7 +115,7 @@ class GameListener implements Listener {
 
     /**
      * ИЗМЕНЕНО: Обрабатывает телепортацию в обе стороны для определения координат выхода.
-     * Теперь пытается найти точный блок портала в месте назначения.
+     * Теперь пытается найти точный блок портала в месте назначения с увеличенным радиусом поиска.
      */
     @EventHandler
     public void onPlayerPortal(PlayerPortalEvent event) {
@@ -125,8 +129,8 @@ class GameListener implements Listener {
             return;
         }
 
-        // Поиск ближайшего блока NETHER_PORTAL в месте назначения
-        Location preciseExitLoc = findNearestNetherPortalBlock(to);
+        // Поиск ближайшего блока NETHER_PORTAL в месте назначения с увеличенным радиусом
+        Location preciseExitLoc = findNearestNetherPortalBlock(to, TELEPORT_PORTAL_SEARCH_RADIUS);
         if (preciseExitLoc == null) {
             // Если точный блок портала не найден, используем исходное место назначения
             preciseExitLoc = to;
@@ -205,14 +209,13 @@ class GameListener implements Listener {
     /**
      * Ищет ближайший блок NETHER_PORTAL вокруг заданной локации.
      * @param centerLoc Центральная локация для поиска.
+     * @param searchRadius Радиус поиска.
      * @return Локация ближайшего блока NETHER_PORTAL, или null если не найдено.
      */
-    private Location findNearestNetherPortalBlock(Location centerLoc) {
+    private Location findNearestNetherPortalBlock(Location centerLoc, int searchRadius) {
         if (centerLoc == null || centerLoc.getWorld() == null) {
             return null;
         }
-        // Увеличиваем радиус поиска, чтобы быть уверенными, что найдем портал
-        int searchRadius = NETHER_PORTAL_CHECK_RADIUS + 1; // +1 для большей надежности
         for (int x = -searchRadius; x <= searchRadius; x++) {
             for (int y = -searchRadius; y <= searchRadius; y++) {
                 for (int z = -searchRadius; z <= searchRadius; z++) {

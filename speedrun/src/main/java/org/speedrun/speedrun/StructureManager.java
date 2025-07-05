@@ -104,6 +104,25 @@ public class StructureManager {
         Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
     }
 
+    public boolean updateStructureLocation(String naturalName, Location newLocation, Player player) {
+        String key = naturalName.replace(' ', '_').toUpperCase();
+        if (!foundLocations.containsKey(key)) {
+            player.sendMessage("§cUnknown structure name: " + naturalName);
+            return false;
+        }
+
+        boolean isAlreadyFound = foundLocations.get(key) != null;
+
+        //Checking whether coordinates can be changed
+        if (isAlreadyFound && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
+            player.sendMessage("§cRe-assigning locations is disabled in the config.");
+            return false;
+        }
+
+        structureFound(player, key, newLocation);
+        return true;
+    }
+
     /**
      * Регистрирует выход из портала после телепортации.
      * Принимает уже потенциально уточненную локацию портала.

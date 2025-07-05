@@ -31,6 +31,9 @@ settings:
       required-source-blocks: 12
     village:
       radius: 32
+    nether-portal:
+      check-radius: 4
+      search-radius: 90
 
 # ----------------------------------------------------------------
 # Task Progression

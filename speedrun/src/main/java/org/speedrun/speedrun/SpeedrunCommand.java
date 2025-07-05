@@ -64,17 +64,12 @@ class SpeedrunCommand {
                             String locName = StringArgumentType.getString(ctx, "name");
                             String key = locName.replace(' ', '_').toUpperCase();
 
-                            // --- ИЗМЕНЕНО: Вызываем новый метод для переназначения портала ---
                             boolean success;
                             if (key.equals("NETHER_PORTAL")) {
                                 success = plugin.getStructureManager().reassignNetherPortal(player);
                             } else {
-                                // Старая логика для других структур (если она нужна)
-                                // В данном случае, просто показываем ошибку, так как команда в основном для портала
-                                player.sendMessage("§cЭта команда в данный момент предназначена только для 'Nether Portal'.");
-                                success = false;
+                                success = plugin.getStructureManager().updateStructureLocation(locName, player.getLocation(), player);
                             }
-                            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
                             if (!success && !key.equals("NETHER_PORTAL")) { // Не отправляем сообщение об ошибке дважды для портала
                                 player.sendMessage("§cНе удалось обновить локацию: " + locName);
