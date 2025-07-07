@@ -124,4 +124,5 @@ public class ConfigManager {
     public boolean isReassigningLocationsEnabled() { return config.getBoolean("settings.allow-reassigning-locations", true); }
     public int getNetherPortalCheckRadius() { return config.getInt("settings.proximity-scanner.nether-portal.check-radius", 4); }
     public int getTeleportPortalSearchRadius() { return config.getInt("settings.proximity-scanner.nether-portal.search-radius", 90); }
+    public boolean areWaypointsEnabled() { return config.getBoolean("structure_waypoints.enabled", true);}
 }

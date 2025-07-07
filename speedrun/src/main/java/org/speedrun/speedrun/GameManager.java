@@ -8,6 +8,9 @@ import org.bukkit.block.data.Levelled;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GameManager {
@@ -20,6 +23,7 @@ public class GameManager {
     private long villageTimeElapsed = 0;
     private boolean dragonKilledEnd = false;
     private final SpeedrunLogger logger;
+    private final Map<String, Integer> counters = new HashMap<>();
 
     public GameManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -36,6 +40,7 @@ public class GameManager {
         totalSeconds = 0;
         villageTimeElapsed = 0;
         dragonKilledEnd = false;
+        counters.clear();
 
         if (plugin.getConfigManager().isLogAttemptsEnabled()) {
             logger.start();
@@ -157,6 +162,13 @@ public class GameManager {
 
     public SpeedrunLogger getLogger() {
         return logger;
+    }
+    // log counters
+    public Map<String, Integer> getCounters() {
+        return counters;
+    }
+    public void incrementCounter(String key) {
+        counters.put(key, counters.getOrDefault(key, 0) + 1);
     }
 
     public String getFormattedTime() { return TimeUtil.format(totalSeconds); }

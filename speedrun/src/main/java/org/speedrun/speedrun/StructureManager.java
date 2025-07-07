@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.speedrun.speedrun.events.StructureFoundEvent;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,6 +52,10 @@ public class StructureManager {
 
         foundLocations.put(key, loc);
         plugin.getGameManager().getLogger().info("Structure '" + key + "' found/updated by " + player.getName() + " at " + LocationUtil.format(loc));
+        // new event for use and log in listeners
+        StructureFoundEvent event = new StructureFoundEvent(player, key, loc);
+        Bukkit.getPluginManager().callEvent(event);
+
         plugin.getTaskManager().onStructureFound(key, player);
         plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
 

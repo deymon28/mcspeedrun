@@ -97,3 +97,8 @@ rewards:
     - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"
     - "api:particle minecraft:flash 1 0 0 0 0"
     - "api:particle minecraft:explosion_emitter 1 0 0 0 0"
+# ----------------------------------------------------------------
+# Optional waypoints for navigating the world (no nether, no end).
+# ----------------------------------------------------------------
+structure_waypoints:
+  enabled: true

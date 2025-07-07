@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id("xyz.jpenilla.run-paper") version "2.3.1"
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'org.speedrun'
@@ -20,6 +21,13 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT")
+    implementation 'org.json:json:20240303'
+}
+
+shadowJar {
+    archiveBaseName.set('speedrun')
+    archiveClassifier.set('') // empty = final jar will be speedrun-1.21.5-2.2.1-BETA.jar
+    archiveVersion.set("1.21.5-2.2.1-BETA")
 }
 
 tasks {
