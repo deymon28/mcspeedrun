@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
@@ -15,10 +16,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -128,9 +126,11 @@ class GameListener implements Listener {
             // ПУТЬ ДЛЯ PAPER: Асинхронный и безопасный
             findPortalBlockAsync(to, TELEPORT_PORTAL_SEARCH_RADIUS)
                     .thenAccept(preciseExitLoc -> {
-                        // Этот код выполнится позже, когда поиск завершится
+                        // Этот код выполнится быстро, как только чанки для игрока сгенерируются
                         Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
-                        handlePortalLogic(event, finalLocation);
+
+                        // Используем Bukkit.getScheduler().runTask() для вызова вашей логики в основном потоке
+                        plugin.getServer().getScheduler().runTask(plugin, () -> handlePortalLogic(event, finalLocation));
                     });
         } else {
             // ПУТЬ ДЛЯ BUKKIT/SPIGOT: Синхронный, может вызвать лаг
@@ -176,7 +176,10 @@ class GameListener implements Listener {
         }
 
         // ИЗМЕНЕНО: Логика зажигания портала теперь вызывает новый метод в StructureManager
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getItem() != null && event.getItem().getType() == Material.FLINT_AND_STEEL) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK
+                && event.getItem() != null
+                && (event.getItem().getType() == Material.FLINT_AND_STEEL
+                || event.getItem().getType() == Material.FIRE_CHARGE)) {
             Block clickedBlock = event.getClickedBlock();
             if (clickedBlock != null) {
                 // Небольшая задержка, чтобы портал успел физически появиться в мире
@@ -194,6 +197,22 @@ class GameListener implements Listener {
                     }
                 }.runTaskLater(plugin, 2L); // 2 тика для надежности
             }
+        }
+    }
+
+    @EventHandler
+    public void onBlockIgnite(BlockIgniteEvent event) {
+        // Если огонь появился из-за распространения (не от игрока)
+        if (event.getCause() == BlockIgniteEvent.IgniteCause.SPREAD
+                || event.getCause() == BlockIgniteEvent.IgniteCause.LAVA) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                for (Block nearby : getNearbyBlocks(event.getBlock(), 3)) {
+                    if (nearby.getType() == Material.NETHER_PORTAL) {
+                        plugin.getStructureManager().portalLit(null, nearby.getLocation());
+                        break;
+                    }
+                }
+            }, 2L);
         }
     }
 
@@ -237,8 +256,13 @@ class GameListener implements Listener {
     }
 
     /**
-     * Асинхронно ищет блок портала с помощью Paper API.
-     * Безопасно для производительности.
+     * Оптимизированно и асинхронно ищет ближайший блок портала.
+     * Сначала загружает все необходимые чанки параллельно, а затем ищет блок.
+     * Требует Paper API.
+     *
+     * @param centerLoc      Центральная локация для поиска (из event.getTo()).
+     * @param searchRadius   Радиус поиска в блоках.
+     * @return CompletableFuture с локацией блока портала или null, если не найден.
      */
     public CompletableFuture<Location> findPortalBlockAsync(Location centerLoc, int searchRadius) {
         if (centerLoc == null || centerLoc.getWorld() == null) {
@@ -250,27 +274,34 @@ class GameListener implements Listener {
         int centerY = centerLoc.getBlockY();
         int centerZ = centerLoc.getBlockZ();
 
-        return CompletableFuture.supplyAsync(() -> {
-            for (int x = -searchRadius; x <= searchRadius; x++) {
-                for (int y = -searchRadius; y <= searchRadius; y++) {
-                    for (int z = -searchRadius; z <= searchRadius; z++) {
-                        int checkX = centerX + x;
-                        int checkY = centerY + y;
-                        int checkZ = centerZ + z;
+        // Шаг 1: Определить все уникальные чанки в радиусе поиска
+        Set<CompletableFuture<Chunk>> chunkFutures = new HashSet<>();
+        for (int x = centerX - searchRadius; x <= centerX + searchRadius; x++) {
+            for (int z = centerZ - searchRadius; z <= centerZ + searchRadius; z++) {
+                // Асинхронно запрашиваем чанк. Запрос добавляется в `Set` для уникальности.
+                chunkFutures.add(world.getChunkAtAsync(x >> 4, z >> 4));
+            }
+        }
 
-                        CompletableFuture<Chunk> chunkFuture = world.getChunkAtAsync(checkX >> 4, checkZ >> 4);
-                        Chunk chunk = chunkFuture.join();
+        // Шаг 2: Создать один CompletableFuture, который завершится, когда ВСЕ чанки будут загружены
+        return CompletableFuture.allOf(chunkFutures.toArray(new CompletableFuture[0]))
+                .thenApplyAsync(v -> {
+                    // Шаг 3: Теперь, когда все чанки загружены, безопасно и быстро ищем портал
+                    for (int x = -searchRadius; x <= searchRadius; x++) {
+                        for (int y = -searchRadius; y <= searchRadius; y++) {
+                            for (int z = -searchRadius; z <= searchRadius; z++) {
+                                int checkX = centerX + x;
+                                int checkY = centerY + y;
+                                int checkZ = centerZ + z;
 
-                        if (chunk != null) {
-                            Block block = world.getBlockAt(checkX, checkY, checkZ);
-                            if (block.getType() == Material.NETHER_PORTAL) {
-                                return block.getLocation();
+                                // Проверка getBlockAt теперь будет мгновенной, так как чанк уже в памяти
+                                if (world.getBlockAt(checkX, checkY, checkZ).getType() == Material.NETHER_PORTAL) {
+                                    return new Location(world, checkX, checkY, checkZ); // Найден!
+                                }
                             }
                         }
                     }
-                }
-            }
-            return null;
-        });
+                    return null; // Не найден
+                });
     }
 }

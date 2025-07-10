@@ -183,7 +183,13 @@ public class TaskManager {
                     if (!task.isCompleted()) {
                         task.progress = 1; // Задачи структуры обычно выполняются один раз
                         task.updateCompletionStatus(plugin);
-                        player.playSound(player.getLocation(), Sound.MUSIC_DISC_13, 1.0f, 1.0f); // Пример звука
+                        if (player != null) {
+                            player.playSound(player.getLocation(), Sound.MUSIC_DISC_13, 1.0f, 1.0f); // Пример звука
+                        } else {
+                            Bukkit.getOnlinePlayers().forEach(p ->
+                                    p.playSound(p.getLocation(), Sound.MUSIC_DISC_13, 1.0f, 1.0f)
+                            );
+                        }
                     }
                 });
         checkForStageCompletion();

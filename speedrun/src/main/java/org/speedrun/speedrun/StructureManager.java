@@ -1,5 +1,7 @@
 package org.speedrun.speedrun;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -71,11 +73,29 @@ public class StructureManager {
     public void portalLit(Player player, Location loc) {
         // 1. Проверяем, можно ли переназначать портал, если он уже существует
         if (isPortalFullyFound() && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
-            player.sendMessage("§cПереназначение портала отключено в конфиге.");
+            Component message = Component.text()
+                    .append(Component.text("Переназначение портала отключено в конфиге"))
+                    .color(NamedTextColor.RED)
+                    .build();
+
+            if (player == null) {
+                Bukkit.getServer().sendMessage(message);
+                plugin.getLogger().warning("Blocked portal reassignment: Reassigning is disabled in config.");
+            } else {
+                player.sendMessage(message);
+                plugin.getLogger().warning("Blocked portal reassignment by " + player.getName() + ": Reassigning is disabled in config.");
+            }
+
             return;
         }
 
-        World.Environment world = player.getWorld().getEnvironment();
+        World.Environment world;
+
+        if(player != null) {
+            world = player.getWorld().getEnvironment();
+        } else {
+            world = loc.getWorld().getEnvironment();
+        }
 
         // 2. Сбрасываем ОБА местоположения, так как создается новый "основной" портал
         this.overworldPortalLocation = null;
@@ -94,10 +114,12 @@ public class StructureManager {
         // Обновляем "виртуальную" запись в foundLocations, чтобы скорборд знал, что портал есть
         foundLocations.put("NETHER_PORTAL", loc);
 
-        plugin.getGameManager().getLogger().info("Nether Portal lit by " + player.getName() + " in " + world.name() + " at " + LocationUtil.format(loc));
+        String playerName = (player != null) ? player.getName() : "GAME_WORLD";
+
+        plugin.getGameManager().getLogger().info("Nether Portal lit by " + playerName + " in " + world.name() + " at " + LocationUtil.format(loc));
         // Сообщаем о событии для выполнения задач
         plugin.getTaskManager().onStructureFound("NETHER_PORTAL_OVERWORLD", player); // Используем старый ключ для совместимости с задачами
-        Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.portal-lit", "%player%", player.getName()));
+        Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.portal-lit", "%player%", playerName));
         plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
 
         // Обновляем скорборд для всех
