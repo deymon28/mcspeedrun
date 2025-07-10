@@ -3,18 +3,26 @@
 # ----------------------------------------------------------------
 
 settings:
+  # NORMAL or CASUAL - всі локації зі старту мають координати(і мають орієнтири). В Незері підсвічуються золоті блоки(в радіусі Х з конфіга).
+  gamemode: "NORMAL" # Don't work now
+
   # The language file to use from the 'lang' folder (e.g., 'en', 'uk').
   language: "en"
+
   # Timer will start automatically when the first player joins the server.
   start-on-first-join: true
+
   # The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
   allow-reassigning-locations: true
+
   # Time in seconds to find the village before the task is removed. 600 = 10 minutes.
   village-search-timeout: 600
+
   # How to track player resources for tasks.
   # INVENTORY: Only counts items currently in players' inventories.
   # CUMULATIVE: Counts all items ever picked up or crafted by players during the run. (More demanding on the server)
   task-tracking-mode: "INVENTORY"
+
   # Dynamically scale required resource amounts based on the number of players online.
   scale-resources-by-playercount:
     enabled: true
@@ -55,28 +63,12 @@ progression:
       IRON_INGOT: { amount: 7, display-name: "Iron Ingots", srbp: false}
       # Use BREAD as a key for all cooked foods. The plugin will aggregate them.
       BREAD: { amount: 16, display-name: "Cooked Food", srbp: true}
-  # Stage 3: Preparing for the Nether
-  #  3_NETHER_PREP:
-  #    world: "NORMAL"
-  #    tasks:
-  #      # Players need to find a village to get beds, or for other reasons.
-  #      # This is a special task type that completes when the structure is found (via Bell or proximity).
-  #      STRUCTURE_VILLAGE: { display-name: "Find a Village" }
-  #      # This task completes when a Nether portal is successfully lit in the Overworld.
-  #      STRUCTURE_NETHER_PORTAL_OVERWORLD: { display-name: "Light Nether Portal" }
-  # Stage 4: Nether Exploration
-  4_NETHER_EXPLORATION:
+  # Stage 3: Nether Exploration
+  3_NETHER_EXPLORATION:
     world: "NETHER"
     tasks:
       ENDER_PEARL: { amount: 16, display-name: "Ender Pearls", srbp: false}
       BLAZE_ROD: { amount: 8, display-name: "Blaze Rods", srbp: false}
-#  # Stage 5: The End
-#  5_THE_END:
-#    world: "THE_END"
-#    tasks:
-#      STRUCTURE_END_PORTAL: { display-name: "Find End Portal Room" } # Now distinct from killing dragon
-#      # Consider adding a specific task for killing the dragon here if you want it tracked as a task.
-#      # For now, it's just the end condition.
 
 # ----------------------------------------------------------------
 # Optional cosmetic rewards for completing tasks or stages.

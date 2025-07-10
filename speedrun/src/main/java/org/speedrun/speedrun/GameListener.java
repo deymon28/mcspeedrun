@@ -1,9 +1,6 @@
 package org.speedrun.speedrun;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
@@ -22,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 class GameListener implements Listener {
@@ -114,40 +112,51 @@ class GameListener implements Listener {
     }
 
     /**
-     * ИЗМЕНЕНО: Обрабатывает телепортацию в обе стороны для определения координат выхода.
-     * Теперь пытается найти точный блок портала в месте назначения с увеличенным радиусом поиска.
+     * Поиск блока портала в другом мире в радисе с конфига для точного позицуионирования координат
      */
     @EventHandler
     public void onPlayerPortal(PlayerPortalEvent event) {
-        Location from = event.getFrom();
-        Location to = event.getTo();
-        World.Environment fromWorld = from.getWorld().getEnvironment();
-        World.Environment toWorld = to.getWorld().getEnvironment();
-
-        // Если портал еще не был найден, не делаем ничего
         if (!plugin.getStructureManager().isPortalPartiallyFound()) {
             return;
         }
 
-        // Поиск ближайшего блока NETHER_PORTAL в месте назначения с увеличенным радиусом
-        Location preciseExitLoc = findNearestNetherPortalBlock(to, TELEPORT_PORTAL_SEARCH_RADIUS);
-        if (preciseExitLoc == null) {
-            // Если точный блок портала не найден, используем исходное место назначения
-            preciseExitLoc = to;
+        Location to = event.getTo();
+
+        boolean isPaper = PaperCheckUtil.getIsPaper();
+
+        if (isPaper) {
+            // ПУТЬ ДЛЯ PAPER: Асинхронный и безопасный
+            findPortalBlockAsync(to, TELEPORT_PORTAL_SEARCH_RADIUS)
+                    .thenAccept(preciseExitLoc -> {
+                        // Этот код выполнится позже, когда поиск завершится
+                        Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
+                        handlePortalLogic(event, finalLocation);
+                    });
+        } else {
+            // ПУТЬ ДЛЯ BUKKIT/SPIGOT: Синхронный, может вызвать лаг
+            Location preciseExitLoc = findPortalBlockSync(to, TELEPORT_PORTAL_SEARCH_RADIUS);
+            Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
+            handlePortalLogic(event, finalLocation);
         }
+    }
+
+    /**
+     * Вспомогательный метод, чтобы избежать дублирования кода
+     */
+    private void handlePortalLogic(PlayerPortalEvent event, Location finalLocation) {
+        World.Environment fromWorld = event.getFrom().getWorld().getEnvironment();
+        World.Environment toWorld = event.getTo().getWorld().getEnvironment();
 
         // Из Верхнего в Нижний
         if (fromWorld == World.Environment.NORMAL && toWorld == World.Environment.NETHER) {
-            // Если координаты в Нижнем мире еще не известны, записываем их
             if (plugin.getStructureManager().getNetherPortalLocation() == null) {
-                plugin.getStructureManager().portalExitFound(preciseExitLoc);
+                plugin.getStructureManager().portalExitFound(finalLocation);
             }
         }
         // Из Нижнего в Верхний
         else if (fromWorld == World.Environment.NETHER && toWorld == World.Environment.NORMAL) {
-            // Если координаты в Верхнем мире еще не известны, записываем их
             if (plugin.getStructureManager().getOverworldPortalLocation() == null) {
-                plugin.getStructureManager().portalExitFound(preciseExitLoc);
+                plugin.getStructureManager().portalExitFound(finalLocation);
             }
         }
     }
@@ -169,7 +178,7 @@ class GameListener implements Listener {
         // ИЗМЕНЕНО: Логика зажигания портала теперь вызывает новый метод в StructureManager
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getItem() != null && event.getItem().getType() == Material.FLINT_AND_STEEL) {
             Block clickedBlock = event.getClickedBlock();
-            if (clickedBlock != null && clickedBlock.getType() == Material.OBSIDIAN) {
+            if (clickedBlock != null) {
                 // Небольшая задержка, чтобы портал успел физически появиться в мире
                 new BukkitRunnable() {
                     @Override
@@ -207,12 +216,10 @@ class GameListener implements Listener {
     }
 
     /**
-     * Ищет ближайший блок NETHER_PORTAL вокруг заданной локации.
-     * @param centerLoc Центральная локация для поиска.
-     * @param searchRadius Радиус поиска.
-     * @return Локация ближайшего блока NETHER_PORTAL, или null если не найдено.
+     * Синхронно ищет блок портала. Может вызывать лаги на основном потоке.
+     * Используется как запасной вариант для Bukkit/Spigot.
      */
-    private Location findNearestNetherPortalBlock(Location centerLoc, int searchRadius) {
+    private Location findPortalBlockSync(Location centerLoc, int searchRadius) {
         if (centerLoc == null || centerLoc.getWorld() == null) {
             return null;
         }
@@ -227,5 +234,43 @@ class GameListener implements Listener {
             }
         }
         return null;
+    }
+
+    /**
+     * Асинхронно ищет блок портала с помощью Paper API.
+     * Безопасно для производительности.
+     */
+    public CompletableFuture<Location> findPortalBlockAsync(Location centerLoc, int searchRadius) {
+        if (centerLoc == null || centerLoc.getWorld() == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        World world = centerLoc.getWorld();
+        int centerX = centerLoc.getBlockX();
+        int centerY = centerLoc.getBlockY();
+        int centerZ = centerLoc.getBlockZ();
+
+        return CompletableFuture.supplyAsync(() -> {
+            for (int x = -searchRadius; x <= searchRadius; x++) {
+                for (int y = -searchRadius; y <= searchRadius; y++) {
+                    for (int z = -searchRadius; z <= searchRadius; z++) {
+                        int checkX = centerX + x;
+                        int checkY = centerY + y;
+                        int checkZ = centerZ + z;
+
+                        CompletableFuture<Chunk> chunkFuture = world.getChunkAtAsync(checkX >> 4, checkZ >> 4);
+                        Chunk chunk = chunkFuture.join();
+
+                        if (chunk != null) {
+                            Block block = world.getBlockAt(checkX, checkY, checkZ);
+                            if (block.getType() == Material.NETHER_PORTAL) {
+                                return block.getLocation();
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        });
     }
 }
