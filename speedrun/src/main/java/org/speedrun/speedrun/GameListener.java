@@ -20,13 +20,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.json.JSONObject;
 import org.speedrun.speedrun.events.StructureFoundEvent;
-
-//beacon
-import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.Sound;
-import org.bukkit.block.Beacon;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,26 +37,14 @@ class GameListener implements Listener {
             EntityType.CHICKEN,
             EntityType.PIG
     );
-
-    // simple log structured events to .json file
-    private void log(JSONObject json){
-        plugin.getGameManager().getLogger().logStructuredEvent(json);
-    }
+    private final GameManager gameManager;
     private void increment(String key){
         plugin.getGameManager().incrementCounter(key);
     }
-    private void logMilestone(String playerName, String milestone){
-        long timestamp = System.currentTimeMillis();
-        JSONObject json = new JSONObject();
-        json.put("event", "advancement");
-        json.put("player", playerName);
-        json.put("name", milestone);
-        json.put("m_seconds", timestamp);
-        log(json);
-    }
 
-    public GameListener(Speedrun plugin) {
+    public GameListener(Speedrun plugin, GameManager gameManager) {
         this.plugin = plugin;
+        this.gameManager = gameManager;
 
         this.NETHER_PORTAL_CHECK_RADIUS = plugin.getConfigManager().getNetherPortalCheckRadius();
         this.TELEPORT_PORTAL_SEARCH_RADIUS = plugin.getConfigManager().getTeleportPortalSearchRadius();
@@ -71,6 +53,8 @@ class GameListener implements Listener {
     // --- Game State Events ---
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         if (plugin.getConfigManager().isStartOnFirstJoin() && !plugin.getGameManager().isRunning()) {
             if (Bukkit.getOnlinePlayers().size() == 1) {
                 plugin.getGameManager().startRun();
@@ -83,39 +67,37 @@ class GameListener implements Listener {
             plugin.getTaskManager().getAllTasks().forEach(task -> task.scale(playerCount, multiplier));
         }
         plugin.getScoreboardManager().updateScoreboard(event.getPlayer());
+
+        logger.logPlayerJoinOrQuit(event.getPlayer().getName(), "join");
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         if (plugin.getConfigManager().isPlayerScalingEnabled()) {
             int playerCount = Math.max(1, Bukkit.getOnlinePlayers().size() - 1);
             double multiplier = plugin.getConfigManager().getPlayerScalingMultiplier();
             plugin.getTaskManager().getAllTasks().forEach(task -> task.scale(playerCount, multiplier));
         }
+
+        logger.logPlayerJoinOrQuit(event.getPlayer().getName(), "quit");
     }
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
-        if (event.getEntityType() == EntityType.ENDER_DRAGON) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
+        EntityType mobType = event.getEntityType();
+        String mob = mobType.name();
+
+        if (mobType == EntityType.ENDER_DRAGON) {
             plugin.getGameManager().stopRun(true);
         }
 
         // mobs kill logger and counter
         if(event.getEntity().getKiller() != null){
-            Player killer = event.getEntity().getKiller();
-            String mob = event.getEntityType().name();
-            EntityType mobType = event.getEntityType();
-            Location loc = event.getEntity().getLocation();
-            String world = loc.getWorld().getName();
-
-            // mob kill event
-            JSONObject json = new JSONObject();
-            json.put("event", "mob_kill");
-            json.put("player", killer.getName());
-            json.put("mob", mob);
-            json.put("x", loc.getX());
-            json.put("z", loc.getZ());
-            json.put("world", world);
+            logger.logMobKill(event.getEntity().getKiller(), mob, event.getEntity().getLocation());
 
             if(FOOD_MOBS.contains(mobType)){
                 increment("food_mobs_killed");
@@ -124,87 +106,40 @@ class GameListener implements Listener {
             // mob kill counter
             if(mob.equals("BLAZE")) increment("blazes_killed");
             else if(mob.equals("ENDERMAN")) increment("endermans_killed");
-
-            log(json);
         }
     }
 
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event){
+        SpeedrunLogger logger = gameManager.getLogger();
+
         Player player = event.getEntity();
-        String name = player.getName();
         String deathCause = "unknown";
-        Location loc = player.getLocation();
-        String world = player.getWorld().getName();
 
         if(player.getLastDamageCause() != null){
             EntityDamageEvent.DamageCause cause = player.getLastDamageCause().getCause();
             deathCause = cause.name();
         }
 
-        JSONObject json = new JSONObject();
-        json.put("event", "player_death");
-        json.put("player", name);
-        json.put("death_by", deathCause);
-        json.put("x", loc.getX());
-        json.put("z", loc.getZ());
-        json.put("world", world);
+        logger.logPlayerDeath(player, deathCause, player.getLocation());
 
-        increment(name + "_deaths");
-
-        log(json);
+        increment(player.getName() + "_deaths");
     }
 
     @EventHandler
     public void onStructureFound(StructureFoundEvent event) {
-        JSONObject json = new JSONObject();
-        json.put("event", "structure_found");
-        json.put("player", event.getPlayer().getName());
-        json.put("structure", event.getStructureKey());
-        json.put("x", event.getLocation().getX());
-        json.put("z", event.getLocation().getZ());
-        json.put("world", event.getLocation().getWorld().getName());
-        log(json);
+        SpeedrunLogger logger = gameManager.getLogger();
+
+        logger.logStructureFound(
+                event.getPlayer(),
+                event.getStructureKey(),
+                event.getLocation()
+        );
 
         // condition waypoints :) (true in config)
         if (!plugin.getConfigManager().areWaypointsEnabled()) return;
 
-        Location beaconLoc = event.getLocation().clone().add(0.5, 0, 0.5);
-        beaconLoc.setY(beaconLoc.getWorld().getHighestBlockYAt(beaconLoc) + 1);
-
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                // 3x3 iron base (minimal pyramid)
-                for (int x = -1; x <= 1; x++) {
-                    for (int z = -1; z <= 1; z++) {
-                        Location blockLoc = beaconLoc.clone().add(x, -1, z);
-                        blockLoc.getBlock().setType(Material.IRON_BLOCK);
-                        blockLoc.getBlock().setMetadata("indestructible", new FixedMetadataValue(plugin, true));
-                    }
-                }
-
-                // Place beacon
-                Block beaconBlock = beaconLoc.getBlock();
-                beaconBlock.setType(Material.BEACON);
-                beaconBlock.setMetadata("indestructible", new FixedMetadataValue(plugin, true));
-
-                // Set colored glass (hardcoded colors)
-                Material glassColor = getBeaconColor(event.getStructureKey());
-                Block glassBlock = beaconLoc.clone().add(0, 1, 0).getBlock();
-                glassBlock.setType(glassColor);
-                glassBlock.setMetadata("indestructible", new FixedMetadataValue(plugin, true));
-
-                // Configure beacon (no effects)
-                if (beaconBlock.getState() instanceof Beacon beacon) {
-                    beacon.setPrimaryEffect(null);
-                    beacon.update(true);
-                }
-
-                // Play activation sound
-                beaconLoc.getWorld().playSound(beaconLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
-            }
-        }.runTask(plugin);
+        gameManager.getCasualModeStructureManager().createBeaconStructure(event.getLocation(), event.getStructureKey());
     }
 
     @EventHandler
@@ -236,82 +171,74 @@ class GameListener implements Listener {
 
     @EventHandler
     public void onPlayerPickupItem(EntityPickupItemEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
+        if (!(event.getEntity() instanceof Player player)) return;
 
-        Player player = (Player) event.getEntity();
+        SpeedrunLogger logger = gameManager.getLogger();
         ItemStack item = event.getItem().getItemStack();
 
         if (item.getType() == Material.FLINT) {
-            logMilestone(player.getName(), "flint_pickup");
+            logger.logMilestone(player.getName(), "flint_pickup");
         }
 
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
-            plugin.getTaskManager().trackItemPickup((Player) event.getEntity(), event.getItem().getItemStack());
+            plugin.getTaskManager().trackItemPickup(player, item);
             plugin.getTaskManager().updateItemTasks();
         }
     }
 
     @EventHandler
     public void onCraftItem(CraftItemEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (!(event.getWhoClicked() instanceof Player player)) return;
 
-        Player player = (Player) event.getWhoClicked();
+        SpeedrunLogger logger = gameManager.getLogger();
         ItemStack result = event.getRecipe().getResult();
 
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
-            plugin.getTaskManager().trackItemCraft((Player) event.getWhoClicked(), event.getCurrentItem());
+            plugin.getTaskManager().trackItemCraft(player, event.getCurrentItem());
             plugin.getTaskManager().updateItemTasks();
         }
 
         // craft log
         if (result.getType() == Material.ENDER_EYE) {
-            logMilestone(player.getName(), "crafted_eye_of_ender");
+            logger.logMilestone(player.getName(), "crafted_eye_of_ender");
         }
     }
 
     // --- Structure Finding Events ---
     @EventHandler
     public void onAdvancement(PlayerAdvancementDoneEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         Advancement adv = event.getAdvancement();
         String key = adv.getKey().getKey();
         Player player = event.getPlayer();
         String playerName = player.getName();
 
         final Map<String, Runnable> handlers = new HashMap<>() {{
-            put("story/root", () -> logMilestone(playerName, "spawned"));
-            put("story/mine_stone", () -> logMilestone(playerName, "spawned"));
-            put("story/mine_iron", () -> logMilestone(playerName, "first_iron"));
-            put("story/smelt_iron", () -> logMilestone(playerName, "first_iron_smelted"));
-            put("story/enter_the_nether", () -> logMilestone(playerName, "enter_the_nether"));
+            put("story/mine_stone", () -> logger.logMilestone(playerName, "spawned"));
+            put("story/mine_iron", () -> logger.logMilestone(playerName, "first_iron"));
+            put("story/smelt_iron", () -> logger.logMilestone(playerName, "first_iron_smelted"));
+            put("story/enter_the_nether", () -> logger.logMilestone(playerName, "enter_the_nether"));
             put("nether/find_fortress", () -> {
-                logMilestone(playerName, "find_fortress");
+                logger.logMilestone(playerName, "find_fortress");
                 plugin.getStructureManager().structureFound(player, "FORTRESS", player.getLocation());
             });
             put("nether/find_bastion", () -> {
-                logMilestone(playerName, "find_bastion");
+                logger.logMilestone(playerName, "find_bastion");
                 plugin.getStructureManager().structureFound(player, "BASTION", player.getLocation());
             });
-            put("nether/obtain_blaze_rod", () -> logMilestone(playerName, "first_blaze_rod"));
+            put("nether/obtain_blaze_rod", () -> logger.logMilestone(playerName, "first_blaze_rod"));
             put("story/follow_ender_eye", () -> {
-                logMilestone(playerName, "first_stronghold_enter");
+                logger.logMilestone(playerName, "first_stronghold_enter");
                 plugin.getStructureManager().structureFound(player, "END_PORTAL", player.getLocation());
             });
-            put("story/enter_the_end", () -> logMilestone(playerName, "first_end_enter"));
+            put("story/enter_the_end", () -> logger.logMilestone(playerName, "first_end_enter"));
         }};
 
         Runnable handler = handlers.get(key);
         if (handler != null) {
             handler.run();
         }
-
-        // old logic :)
-//        if (key.equalsIgnoreCase("nether/find_fortress")) {
-//            plugin.getStructureManager().structureFound(player, "FORTRESS", player.getLocation());
-//        } else if (key.equalsIgnoreCase("nether/find_bastion")) {
-//            plugin.getStructureManager().structureFound(player, "BASTION", player.getLocation());
-//        } else if (key.equalsIgnoreCase("story/follow_ender_eye")) {
-//            plugin.getStructureManager().structureFound(player, "END_PORTAL", player.getLocation());
-//        }
     }
 
     /**
@@ -320,10 +247,14 @@ class GameListener implements Listener {
      */
     @EventHandler
     public void onPlayerPortal(PlayerPortalEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         Location from = event.getFrom();
         Location to = event.getTo();
         World.Environment fromWorld = from.getWorld().getEnvironment();
         World.Environment toWorld = to.getWorld().getEnvironment();
+
+        logger.logPlayerPortalFromTo(event.getPlayer().getName(), fromWorld, toWorld);
 
         // Если портал еще не был найден, не делаем ничего
         if (!plugin.getStructureManager().isPortalPartiallyFound()) {
@@ -428,15 +359,6 @@ class GameListener implements Listener {
             }
         }
         return null;
-    }
-
-    private Material getBeaconColor(String structureKey) {
-        return switch (structureKey) {
-            case "VILLAGE" -> Material.GREEN_STAINED_GLASS;  // Village = Green
-            case "LAVA_POOL" ->  // Assuming you have a custom key for lava pools
-                    Material.RED_STAINED_GLASS;    // Lava = Red
-            default -> Material.ORANGE_STAINED_GLASS; // Default = Orange
-        };
     }
 
     private boolean isStainedGlass(Material material) {

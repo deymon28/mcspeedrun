@@ -1,6 +1,8 @@
 package org.speedrun.speedrun;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import java.io.File;
@@ -106,9 +108,9 @@ public class SpeedrunLogger {
         log(Level.INFO, message);
     }
 
-    public void warning(String message) {
-        log(Level.WARNING, message);
-    }
+//    public void warning(String message) {
+//        log(Level.WARNING, message);
+//    }
 
     private void log(Level level, String message) {
         if (!active || writer == null) return;
@@ -120,7 +122,98 @@ public class SpeedrunLogger {
     public void logStructuredEvent(JSONObject json) {
         if(!active || writer == null) return;
         json.put("timestamp", new SimpleDateFormat("HH:mm:ss").format(new Date()));
-        structuredWriter.println(json.toString());
+        structuredWriter.println(json);
         structuredWriter.flush();
     }
+
+    public void logStructureFound(Player player, String structureKey, Location location){
+        JSONObject json = new JSONObject();
+        json.put("event", "structure_found");
+        json.put("player", player.getName());
+        json.put("structure", structureKey);
+        json.put("x", location.getX());
+        json.put("z", location.getZ());
+        json.put("world", location.getWorld().getName());
+
+        logStructuredEvent(json);
+    }
+
+    public void logPlayerDeath(Player player, String deathCause, Location loc) {
+        String name = player.getName();
+        String world = player.getWorld().getName();
+
+        JSONObject json = new JSONObject();
+        json.put("event", "player_death");
+        json.put("player", name);
+        json.put("death_by", deathCause);
+        json.put("x", loc.getX());
+        json.put("z", loc.getZ());
+        json.put("world", world);
+
+        logStructuredEvent(json);
+    }
+
+    public void logMobKill(Player killer, String mob, Location loc) {
+        String world = loc.getWorld().getName();
+
+        JSONObject json = new JSONObject();
+        json.put("event", "mob_kill");
+        json.put("player", killer.getName());
+        json.put("mob", mob);
+        json.put("x", loc.getX());
+        json.put("z", loc.getZ());
+        json.put("world", world);
+
+        logStructuredEvent(json);
+    }
+
+    public void logMilestone(String playerName, String milestone){
+        long timestamp = System.currentTimeMillis();
+
+        JSONObject json = new JSONObject();
+        json.put("event", "advancement");
+        json.put("player", playerName);
+        json.put("name", milestone);
+        json.put("m_seconds", timestamp);
+
+        logStructuredEvent(json);
+    }
+
+    public void logPlayerJoinOrQuit(String playerName, String type) {
+        long timestamp = System.currentTimeMillis();
+
+        JSONObject json = new JSONObject();
+        json.put("event", "player_join_quit");
+        json.put("player", playerName);
+        json.put("type", type);
+        json.put("m_seconds", timestamp);
+
+        logStructuredEvent(json);
+    }
+
+    public void logPlayerPortalFromTo(String playerName, World.Environment from, World.Environment to) {
+        long timestamp = System.currentTimeMillis();
+
+        JSONObject json = new JSONObject();
+        json.put("event", "player_portal");
+        json.put("player", playerName);
+        json.put("from_world", from);
+        json.put("to_world", to);
+        json.put("m_seconds", timestamp);
+
+        logStructuredEvent(json);
+    }
+
+    public void logCompletedTask(String name, Integer progressValue) {
+        long timestamp = System.currentTimeMillis();
+
+        JSONObject json = new JSONObject();
+        json.put("event", "task_completed");
+        json.put("name", name);
+        json.put("progress_value", progressValue);
+        json.put("m_seconds", timestamp);
+
+        logStructuredEvent(json);
+    }
+
 }

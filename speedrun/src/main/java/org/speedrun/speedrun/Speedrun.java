@@ -29,7 +29,7 @@ public final class Speedrun extends JavaPlugin {
         this.scoreboardManager = new ScoreboardManager(this);
 
         // Register Listeners
-        getServer().getPluginManager().registerEvents(new GameListener(this), this);
+        getServer().getPluginManager().registerEvents(new GameListener(this, gameManager), this);
 
         // Register Commands
         Objects.requireNonNull(getCommand("run")).setExecutor(new RunCommand(this));

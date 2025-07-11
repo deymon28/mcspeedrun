@@ -60,6 +60,7 @@ public class Task {
             completed = true;
             progress = requiredAmount;
             plugin.getLogger().info("[DEBUG] Task completion detected for " + displayName + ". Calling executeRewardCommands.");
+            plugin.getGameManager().getLogger().logCompletedTask(displayName, progress);
             // Передать null для игрока, если это общее завершение задачи, или игрока, который ее завершил, если применимо
             plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
         }

@@ -8,6 +8,7 @@ import org.bukkit.block.data.Levelled;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.speedrun.speedrun.casualGameMode.CasualModeStructureManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 
 public class GameManager {
     private final Speedrun plugin;
+    private final CasualModeStructureManager casualModeStructureManager;
     private long totalSeconds = 0;
     private boolean isRunning = false;
     private boolean isPaused = false;
@@ -28,6 +30,7 @@ public class GameManager {
     public GameManager(Speedrun plugin) {
         this.plugin = plugin;
         this.logger = new SpeedrunLogger(plugin);
+        this.casualModeStructureManager = new CasualModeStructureManager(plugin);
         if (!plugin.getConfigManager().isStartOnFirstJoin()) {
             startRun();
         }
@@ -169,6 +172,9 @@ public class GameManager {
     }
     public void incrementCounter(String key) {
         counters.put(key, counters.getOrDefault(key, 0) + 1);
+    }
+    public CasualModeStructureManager getCasualModeStructureManager() {
+        return casualModeStructureManager;
     }
 
     public String getFormattedTime() { return TimeUtil.format(totalSeconds); }
