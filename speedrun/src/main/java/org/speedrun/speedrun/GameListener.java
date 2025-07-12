@@ -1,5 +1,7 @@
 package org.speedrun.speedrun;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.*;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.block.Block;
@@ -8,13 +10,17 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.speedrun.speedrun.events.StructureFoundEvent;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -25,10 +31,21 @@ class GameListener implements Listener {
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
     private final int NETHER_PORTAL_CHECK_RADIUS; // Radius for checking nearby blocks for portals when lighting
-    private final int TELEPORT_PORTAL_SEARCH_RADIUS; // Increased radius for finding portal block after teleportation\
+    private final int TELEPORT_PORTAL_SEARCH_RADIUS; // Increased radius for finding portal block after teleportation
+    private static final Set<EntityType> FOOD_MOBS = Set.of(
+            EntityType.SHEEP,
+            EntityType.COW,
+            EntityType.CHICKEN,
+            EntityType.PIG
+    );
+    private final GameManager gameManager;
+    private void increment(String key){
+        plugin.getGameManager().incrementCounter(key);
+    }
 
-    public GameListener(Speedrun plugin) {
+    public GameListener(Speedrun plugin, GameManager gameManager) {
         this.plugin = plugin;
+        this.gameManager = gameManager;
 
         this.NETHER_PORTAL_CHECK_RADIUS = plugin.getConfigManager().getNetherPortalCheckRadius();
         this.TELEPORT_PORTAL_SEARCH_RADIUS = plugin.getConfigManager().getTeleportPortalSearchRadius();
@@ -37,6 +54,8 @@ class GameListener implements Listener {
     // --- Game State Events ---
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         if (plugin.getConfigManager().isStartOnFirstJoin() && !plugin.getGameManager().isRunning()) {
             if (Bukkit.getOnlinePlayers().size() == 1) {
                 plugin.getGameManager().startRun();
@@ -49,21 +68,97 @@ class GameListener implements Listener {
             plugin.getTaskManager().getAllTasks().forEach(task -> task.scale(playerCount, multiplier));
         }
         plugin.getScoreboardManager().updateScoreboard(event.getPlayer());
+
+        logger.logPlayerJoinOrQuit(event.getPlayer().getName(), "join");
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         if (plugin.getConfigManager().isPlayerScalingEnabled()) {
             int playerCount = Math.max(1, Bukkit.getOnlinePlayers().size() - 1);
             double multiplier = plugin.getConfigManager().getPlayerScalingMultiplier();
             plugin.getTaskManager().getAllTasks().forEach(task -> task.scale(playerCount, multiplier));
         }
+
+        logger.logPlayerJoinOrQuit(event.getPlayer().getName(), "quit");
     }
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
-        if (event.getEntityType() == EntityType.ENDER_DRAGON) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
+        EntityType mobType = event.getEntityType();
+        String mob = mobType.name();
+
+        if (mobType == EntityType.ENDER_DRAGON) {
             plugin.getGameManager().stopRun(true);
+        }
+
+        // mobs kill logger and counter
+        if(event.getEntity().getKiller() != null){
+            logger.logMobKill(event.getEntity().getKiller(), mob, event.getEntity().getLocation());
+
+            if(FOOD_MOBS.contains(mobType)){
+                increment("food_mobs_killed");
+            }
+
+            // mob kill counter
+            if(mob.equals("BLAZE")) increment("blazes_killed");
+            else if(mob.equals("ENDERMAN")) increment("endermans_killed");
+        }
+    }
+
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event){
+        SpeedrunLogger logger = gameManager.getLogger();
+
+        Player player = event.getEntity();
+        String deathCause = "unknown";
+
+        if(player.getLastDamageCause() != null){
+            EntityDamageEvent.DamageCause cause = player.getLastDamageCause().getCause();
+            deathCause = cause.name();
+        }
+
+        logger.logPlayerDeath(player, deathCause, player.getLocation());
+
+        increment(player.getName() + "_deaths");
+    }
+
+    @EventHandler
+    public void onStructureFound(StructureFoundEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
+        logger.logStructureFound(
+                event.getPlayer(),
+                event.getStructureKey(),
+                event.getLocation()
+        );
+
+        // condition waypoints :) (true in config)
+        if (!plugin.getConfigManager().areWaypointsEnabled()) return;
+
+        gameManager.getCasualModeStructureManager().createBeaconStructure(event.getLocation(), event.getStructureKey());
+    }
+
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        Material type = block.getType();
+
+        //later heatmap data log here::to do
+
+        // waypoint protection
+        if ((block.getType() == Material.BEACON ||
+                block.getType() == Material.IRON_BLOCK ||
+                isStainedGlass(type)) &&
+                block.hasMetadata("indestructible")) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(
+                    Component.text("This is part of a structure marker and cannot be destroyed.", NamedTextColor.RED)
+            );
         }
     }
 
@@ -77,35 +172,73 @@ class GameListener implements Listener {
 
     @EventHandler
     public void onPlayerPickupItem(EntityPickupItemEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        SpeedrunLogger logger = gameManager.getLogger();
+        ItemStack item = event.getItem().getItemStack();
+
+        if (item.getType() == Material.FLINT) {
+            logger.logMilestone(player.getName(), "flint_pickup");
+        }
+
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
-            plugin.getTaskManager().trackItemPickup((Player) event.getEntity(), event.getItem().getItemStack());
+            plugin.getTaskManager().trackItemPickup(player, item);
             plugin.getTaskManager().updateItemTasks();
         }
     }
 
     @EventHandler
     public void onCraftItem(CraftItemEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        SpeedrunLogger logger = gameManager.getLogger();
+        ItemStack result = event.getRecipe().getResult();
+
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
-            plugin.getTaskManager().trackItemCraft((Player) event.getWhoClicked(), event.getCurrentItem());
+            plugin.getTaskManager().trackItemCraft(player, event.getCurrentItem());
             plugin.getTaskManager().updateItemTasks();
+        }
+
+        // craft log
+        if (result.getType() == Material.ENDER_EYE) {
+            logger.logMilestone(player.getName(), "crafted_eye_of_ender");
         }
     }
 
     // --- Structure Finding Events ---
     @EventHandler
     public void onAdvancement(PlayerAdvancementDoneEvent event) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         Advancement adv = event.getAdvancement();
         String key = adv.getKey().getKey();
         Player player = event.getPlayer();
+        String playerName = player.getName();
 
-        if (key.equalsIgnoreCase("nether/find_fortress")) {
-            plugin.getStructureManager().structureFound(player, "FORTRESS", player.getLocation());
-        } else if (key.equalsIgnoreCase("nether/find_bastion")) {
-            plugin.getStructureManager().structureFound(player, "BASTION", player.getLocation());
-        } else if (key.equalsIgnoreCase("story/follow_ender_eye")) {
-            plugin.getStructureManager().structureFound(player, "END_PORTAL", player.getLocation());
+        final Map<String, Runnable> handlers = new HashMap<>() {{
+            put("story/mine_stone", () -> logger.logMilestone(playerName, "spawned"));
+            put("story/mine_iron", () -> logger.logMilestone(playerName, "first_iron"));
+            put("story/smelt_iron", () -> logger.logMilestone(playerName, "first_iron_smelted"));
+            put("story/enter_the_nether", () -> logger.logMilestone(playerName, "enter_the_nether"));
+            put("nether/find_fortress", () -> {
+                logger.logMilestone(playerName, "find_fortress");
+                plugin.getStructureManager().structureFound(player, "FORTRESS", player.getLocation());
+            });
+            put("nether/find_bastion", () -> {
+                logger.logMilestone(playerName, "find_bastion");
+                plugin.getStructureManager().structureFound(player, "BASTION", player.getLocation());
+            });
+            put("nether/obtain_blaze_rod", () -> logger.logMilestone(playerName, "first_blaze_rod"));
+            put("story/follow_ender_eye", () -> {
+                logger.logMilestone(playerName, "first_stronghold_enter");
+                plugin.getStructureManager().structureFound(player, "END_PORTAL", player.getLocation());
+            });
+            put("story/enter_the_end", () -> logger.logMilestone(playerName, "first_end_enter"));
+        }};
+
+        Runnable handler = handlers.get(key);
+        if (handler != null) {
+            handler.run();
         }
     }
 
@@ -114,6 +247,7 @@ class GameListener implements Listener {
      */
     @EventHandler
     public void onPlayerPortal(PlayerPortalEvent event) {
+        // Если портал еще не был найден, не делаем ничего
         if (!plugin.getStructureManager().isPortalPartiallyFound()) {
             return;
         }
@@ -144,8 +278,12 @@ class GameListener implements Listener {
      * Вспомогательный метод, чтобы избежать дублирования кода
      */
     private void handlePortalLogic(PlayerPortalEvent event, Location finalLocation) {
+        SpeedrunLogger logger = gameManager.getLogger();
+
         World.Environment fromWorld = event.getFrom().getWorld().getEnvironment();
         World.Environment toWorld = event.getTo().getWorld().getEnvironment();
+
+        logger.logPlayerPortalFromTo(event.getPlayer().getName(), fromWorld, toWorld);
 
         // Из Верхнего в Нижний
         if (fromWorld == World.Environment.NORMAL && toWorld == World.Environment.NETHER) {
@@ -303,5 +441,10 @@ class GameListener implements Listener {
                     }
                     return null; // Не найден
                 });
+    }
+
+    private boolean isStainedGlass(Material material) {
+        return material.name().endsWith("_STAINED_GLASS") ||
+                material.name().endsWith("_STAINED_GLASS_PANE");
     }
 }

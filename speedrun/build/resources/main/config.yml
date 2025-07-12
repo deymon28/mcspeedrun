@@ -7,6 +7,8 @@ settings:
   language: "en"
   # Timer will start automatically when the first player joins the server.
   start-on-first-join: true
+  # The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
+  allow-reassigning-locations: true
   # Time in seconds to find the village before the task is removed. 600 = 10 minutes.
   village-search-timeout: 600
   # How to track player resources for tasks.
@@ -22,6 +24,17 @@ settings:
   # Log details of each speedrun attempt to 'logs/speedrun-log.txt'.
   log-attempts: true
 
+  # NEW: Settings for the automatic structure scanner
+  proximity-scanner:
+    lava-pool:
+      radius: 16
+      required-source-blocks: 12
+    village:
+      radius: 32
+    nether-portal:
+      check-radius: 4
+      search-radius: 90
+
 # ----------------------------------------------------------------
 # Task Progression
 # Define the stages and the tasks within each stage.
@@ -33,15 +46,15 @@ progression:
     world: "NORMAL" # Tasks are displayed when the player is in this world.
     tasks:
       # Use any log type as the key; the plugin aggregates all wood types. OAK_LOG is recommended.
-      OAK_LOG: { amount: 64, display-name: "Wood" }
-      COBBLESTONE: { amount: 64, display-name: "Cobblestone" }
+      OAK_LOG: { amount: 16, display-name: "Wood", srbp: true}
+      COBBLESTONE: { amount: 16, display-name: "Cobblestone", srbp: true}
   # Stage 2: Advancing to Iron Age
   2_IRON_AGE:
     world: "NORMAL"
     tasks:
-      IRON_INGOT: { amount: 7, display-name: "Iron Ingots" }
+      IRON_INGOT: { amount: 7, display-name: "Iron Ingots", srbp: false}
       # Use BREAD as a key for all cooked foods. The plugin will aggregate them.
-      BREAD: { amount: 64, display-name: "Cooked Food" }
+      BREAD: { amount: 16, display-name: "Cooked Food", srbp: true}
   # Stage 3: Preparing for the Nether
   #  3_NETHER_PREP:
   #    world: "NORMAL"
@@ -55,8 +68,8 @@ progression:
   4_NETHER_EXPLORATION:
     world: "NETHER"
     tasks:
-      ENDER_PEARL: { amount: 16, display-name: "Ender Pearls" }
-      BLAZE_ROD: { amount: 8, display-name: "Blaze Rods" }
+      ENDER_PEARL: { amount: 16, display-name: "Ender Pearls", srbp: false}
+      BLAZE_ROD: { amount: 8, display-name: "Blaze Rods", srbp: false}
 #  # Stage 5: The End
 #  5_THE_END:
 #    world: "THE_END"
@@ -73,12 +86,19 @@ rewards:
   # Command to run from the console when a single task is completed.
   # Use @p (closest player) or @a (all players) instead of %player% for console commands if specific player context isn't passed.
   on-task-complete:
-    # Corrected particle command syntax and target to @a
-    - "particle minecraft:totem_of_undying @a ~ ~1 ~ 1 1 1 0.1 50"
-    # Corrected playsound target to @a
-    - "playsound minecraft:entity.player.levelup master @a ~ ~ ~ 1 1.5"
-  # Command to run when all tasks in a stage are completed.
-  # These are usually for all players, so @a is appropriate.
+    - "api:sound minecraft:entity.player.levelup 1.0 1.5"
+    - "api:sound minecraft:item.totem.use 1.0 1.0"
+    - "api:particle minecraft:totem_of_undying 30 0.5 0.5 0.5 0"
+    - "api:particle minecraft:heart 10 0.2 0.2 0.2 0.1"
+
   on-stage-complete:
     - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"
-    - "particle minecraft:firework @a ~ ~1 ~ 1 1 1 0.1 100 normal" # 'normal' is fine here
+    - "api:sound minecraft:block.end_portal.spawn 1.0 1.0"
+    - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"
+    - "api:particle minecraft:flash 1 0 0 0 0"
+    - "api:particle minecraft:explosion_emitter 1 0 0 0 0"
+# ----------------------------------------------------------------
+# Optional waypoints for navigating the world (no nether, no end).
+# ----------------------------------------------------------------
+structure_waypoints:
+  enabled: true
