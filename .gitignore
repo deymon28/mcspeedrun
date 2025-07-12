@@ -27,3 +27,6 @@ replay_pid*
 .gradle/
 build/
 gradle/
+speedrun/.gradle/
+speedrun/build/
+speedrun/gradle/
