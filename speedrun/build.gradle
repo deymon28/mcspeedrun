@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'org.speedrun'
-version = '1.21.5-2.2.4-BETA'
+version = '1.21.5-2.3.0-BETA'
 
 repositories {
     mavenCentral()
@@ -27,7 +27,7 @@ dependencies {
 shadowJar {
     archiveBaseName.set('speedrun')
     archiveClassifier.set('') // empty = final jar will be speedrun-1.21.5-2.2.1-BETA.jar
-    archiveVersion.set("1.21.5-2.2.1-BETA")
+    archiveVersion.set("1.21.5-2.3.0-BETA")
 }
 
 tasks {
