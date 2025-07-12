@@ -15,6 +15,13 @@ import java.util.Map;
 import java.util.logging.Level;
 import org.json.JSONObject;
 
+/**
+ * Handles logging of speedrun events to files.
+ * Creates both a human-readable (.log) file and a machine-readable (.json) file for each run.
+ * |
+ * Обробляє логування подій спідрану у файли.
+ * Створює як людиночитний (.log) файл, так і машиночитний (.json) файл для кожного забігу.
+ */
 public class SpeedrunLogger {
     private final Speedrun plugin;
     private PrintWriter writer;
@@ -25,8 +32,18 @@ public class SpeedrunLogger {
         this.plugin = plugin;
     }
 
+    /**
+     * Starts a new logging session.
+     * Creates new log files with a timestamp and sets the logger to active.
+     * |
+     * Починає нову сесію логування.
+     * Створює нові файли логів з часовою міткою та активує логер.
+     */
     public void start() {
-        if (active) stop("Interrupted", "N/A"); // Закрываем предыдущую сессию, если она была активна
+        // Stop any previous, unclosed session to prevent data corruption.
+        // Зупиняємо будь-яку попередню, незакриту сесію, щоб уникнути пошкодження даних.
+        if (active) stop("Interrupted", "N/A");
+
         try {
             File logDir = new File(plugin.getDataFolder(), "logs");
             if (!logDir.exists() && !logDir.mkdirs()) {
@@ -50,18 +67,36 @@ public class SpeedrunLogger {
         }
     }
 
+    /**
+     * Stops the current logging session.
+     * Writes final summary information and closes the file writers.
+     * |
+     * Зупиняє поточну сесію логування.
+     * Записує підсумкову інформацію та закриває файлові потоки.
+     *
+     * @param outcome A string describing how the run ended (e.g., "Completed", "Reset"). / Рядок, що описує, як завершився забіг (напр., "Завершено", "Скинуто").
+     * @param finalTime The final time of the speedrun. / Фінальний час спідрану.
+     */
     public void stop(String outcome, String finalTime) {
-        if (active) {
-            info("================= SPEEDRUN LOG SESSION ENDED =================");
-            log(Level.INFO, "Final Outcome: " + outcome);
-            log(Level.INFO, "Final Time: " + finalTime);
-            logPlayerInventories();
+        if (!active) return;
 
-            JSONObject summary = generateSummary(outcome, finalTime);
-            logStructuredEvent(summary);
+        info("================= SPEEDRUN LOG SESSION ENDED =================");
+        log(Level.INFO, "Final Outcome: " + outcome);
+        log(Level.INFO, "Final Time: " + finalTime);
+        logPlayerInventories();
 
-            active = false;
-        }
+        JSONObject summary = generateSummary(outcome, finalTime);
+        logStructuredEvent(summary);
+
+        active = false;
+        closeWriters();
+    }
+
+    /**
+     * Closes the PrintWriter resources safely.
+     * Безпечно закриває ресурси PrintWriter.
+     */
+    private void closeWriters() {
         if( writer != null){
             writer.flush();
             writer.close();
@@ -74,6 +109,10 @@ public class SpeedrunLogger {
         }
     }
 
+    /**
+     * Logs the inventories of all online players at the end of the run.
+     * Логує інвентарі всіх онлайн-гравців наприкінці забігу.
+     */
     private void logPlayerInventories() {
         if (!active) return;
         log(Level.INFO, "--- Player Inventories at End of Run ---");
@@ -89,6 +128,10 @@ public class SpeedrunLogger {
         log(Level.INFO, "------------------------------------------");
     }
 
+    /**
+     * Generates a final JSON summary object with all collected statistics.
+     * Генерує фінальний JSON-об'єкт з усією зібраною статистикою.
+     */
     private JSONObject generateSummary(String outcome, String finalTime){
         JSONObject summary = new JSONObject();
         summary.put("event", "stat_summary");
@@ -104,14 +147,22 @@ public class SpeedrunLogger {
         return summary;
     }
 
+    /**
+     * Logs an informational message to the text log file.
+     * Логує інформаційне повідомлення до текстового файлу логів.
+     */
     public void info(String message) {
         log(Level.INFO, message);
     }
 
-//    public void warning(String message) {
-//        log(Level.WARNING, message);
-//    }
+    public void warning(String message) {
+        log(Level.WARNING, message);
+    }
 
+    /**
+     * Writes a message to the human-readable .log file.
+     * Записує повідомлення до людиночитнoго .log файлу.
+     */
     private void log(Level level, String message) {
         if (!active || writer == null) return;
         String timestamp = new SimpleDateFormat("HH:mm:ss").format(new Date());
@@ -119,12 +170,20 @@ public class SpeedrunLogger {
         writer.flush();
     }
 
+    /**
+     * Writes a JSON object to the machine-readable .json file.
+     * Записує JSON-об'єкт до машиночитнoго .json файлу.
+     */
     public void logStructuredEvent(JSONObject json) {
         if(!active || writer == null) return;
         json.put("timestamp", new SimpleDateFormat("HH:mm:ss").format(new Date()));
         structuredWriter.println(json);
         structuredWriter.flush();
     }
+
+    // =========================================================================================
+    // Specific Event Logging Methods
+    // =========================================================================================
 
     public void logStructureFound(Player player, String structureKey, Location location){
         JSONObject json = new JSONObject();

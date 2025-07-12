@@ -1,69 +1,116 @@
 # ----------------------------------------------------------------
-# SpeedrunRefactored Plugin Configuration
+# Speedrun Plugin Configuration
+# EN: Main configuration file for the Speedrun plugin
+# UA: Головний конфігураційний файл для плагіна Speedrun
 # ----------------------------------------------------------------
 
 settings:
-  # NORMAL or CASUAL - всі локації зі старту мають координати(і мають орієнтири). В Незері підсвічуються золоті блоки(в радіусі Х з конфіга).
+  # EN: NORMAL or CASUAL/HARDCORE - all locations have coordinates from start (with landmarks). In Nether, gold blocks are highlighted (within radius from config)./
+  # UA: NORMAL або CASUAL/HARDCORE - всі локації зі старту мають координати (і мають орієнтири). В Незері підсвічуються золоті блоки (в радіусі з конфіга)./Або тільки таймер.
   gamemode: "NORMAL" # Don't work now
 
-  # The language file to use from the 'lang' folder (e.g., 'en', 'uk').
+  # EN: The language file to use from the 'lang' folder (e.g., 'en', 'uk').
+  # UA: Мовний файл для використання з папки 'lang' (наприклад, 'en', 'uk').
   language: "en"
 
-  # Timer will start automatically when the first player joins the server.
+  # EN: Timer will start automatically when the first player joins the server. If 'false', the timer starts from the moment the server is launched.
+  # UA: Таймер запуститься автоматично, коли перший гравець приєднається до сервера. При 'false' таймер іде з моменту запуску сервера.
   start-on-first-join: true
 
-  # The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
+  # EN: The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
+  # UA: Можливість перепризначити координати будь-якої локації за допомогою команди '/run new LOC_NAME'. Якщо 'False', працює лише для 'Nether portal'.
   allow-reassigning-locations: true
 
-  # Time in seconds to find the village before the task is removed. 600 = 10 minutes.
+  # EN: Time in seconds to find the village before the task is removed. 600 = 10 minutes.
+  # UA: Час у секундах для знаходження села перед видаленням завдання. 600 = 10 хвилин.
   village-search-timeout: 600
 
-  # How to track player resources for tasks.
+  # EN: How to track player resources for tasks.
+  # UA: Як відстежувати ресурси гравця для завдань.
   # INVENTORY: Only counts items currently in players' inventories.
   # CUMULATIVE: Counts all items ever picked up or crafted by players during the run. (More demanding on the server)
+  # INVENTORY: Рахує лише предмети, які зараз знаходяться в інвентарі гравців.
+  # CUMULATIVE: Рахує всі предмети, які коли-небудь підбирались або крафтились гравцями під час забігу. (Більш вимогливо до сервера)
   task-tracking-mode: "INVENTORY"
 
-  # Dynamically scale required resource amounts based on the number of players online.
+  # EN: Dynamically scale required resource amounts based on the number of players online.
+  # UA: Динамічне масштабування необхідної кількості ресурсів на основі кількості гравців онлайн.
   scale-resources-by-playercount:
     enabled: true
-    # Formula: base_amount * (1 + (player_count - 1) * multiplier)
-    # A value of 0.5 means each additional player adds 50% of the base requirement.
+    # EN: Formula: base_amount * (1 + (player_count - 1) * multiplier)
+    # EN: A value of 0.5 means each additional player adds 50% of the base requirement.
+    # UA: Значення 0.5 означає, що кожен додатковий гравець додає 50% базової вимоги.
     multiplier: 0.5
-  # Log details of each speedrun attempt to 'logs/speedrun-log.txt'.
+
+  # EN: Log details of each speedrun attempt to 'logs/speedrun-log'.
+  # UA: Записувати деталі кожної спроби спідрана в 'logs/speedrun-log'.
   log-attempts: true
 
-  # NEW: Settings for the automatic structure scanner
+  # EN: Settings for the automatic structure scanner
+  # UA: Налаштування для автоматичного сканера структур
   proximity-scanner:
     lava-pool:
+      # EN: Radius in blocks to scan for lava pools
+      # UA: Радіус у блоках для сканування лавових озер
       radius: 16
+      # EN: Minimum number of lava source blocks required to consider it a valid lava pool
+      # UA: Мінімальна кількість джерельних блоків лави, необхідних для розгляду як валідне лавове озеро
       required-source-blocks: 12
     village:
+      # EN: Radius in blocks to scan for village structures
+      # UA: Радіус у блоках для сканування структур села
       radius: 32
     nether-portal:
+      # EN: Radius to check if player is near an existing nether portal
+      # UA: Радіус для перевірки, чи знаходиться гравець поблизу існуючого незерського порталу
       check-radius: 4
+      # EN: Radius for precise search of the Nezer portal
+      # UA: Радіус для точного пошуку Незер порталу
       search-radius: 90
 
 # ----------------------------------------------------------------
+# CASUAL MODE SETTINGS
+# ----------------------------------------------------------------
+casual:
+  # EN: Optional waypoints for navigating the world (no nether, no end).
+  # UA: Опціональні орієнтири для навігації світом (без незеру, без енду).
+  structure_waypoints:
+    # EN: Enable or disable structure waypoints in casual mode
+    # UA: Увімкнути або вимкнути орієнтири структур у казуальному режимі
+    enabled: true
+
+# ----------------------------------------------------------------
 # Task Progression
-# Define the stages and the tasks within each stage.
-# The plugin will progress from one stage to the next as all tasks are completed.
+# EN: Define the stages and the tasks within each stage.
+# EN: The plugin will progress from one stage to the next as all tasks are completed.
+# UA: Визначити етапи та завдання в кожному етапі.
+# UA: Плагін буде переходити з одного етапу до наступного, коли всі завдання виконані.
 # ----------------------------------------------------------------
 progression:
-  # Stage 1: Basic setup
+  # EN: Stage 1: Basic setup - Initial resource gathering phase
+  # UA: Етап 1: Базова підготовка - фаза початкового збору ресурсів
   1_GETTING_STARTED:
-    world: "NORMAL" # Tasks are displayed when the player is in this world.
+    # EN: Tasks are displayed when the player is in this world.
+    # UA: Завдання відображаються, коли гравець знаходиться в цьому світі.
+    world: "NORMAL"
     tasks:
-      # Use any log type as the key; the plugin aggregates all wood types. OAK_LOG is recommended.
+      # EN: Use any log type as the key; the plugin aggregates all wood types. OAK_LOG is recommended.
+      # UA: Використовуйте будь-який тип колоди як ключ; плагін агрегує всі типи деревини. OAK_LOG рекомендується.
       OAK_LOG: { amount: 16, display-name: "Wood", srbp: true}
       COBBLESTONE: { amount: 16, display-name: "Cobblestone", srbp: true}
-  # Stage 2: Advancing to Iron Age
+
+  # EN: Stage 2: Advancing to Iron Age - Tool and equipment upgrade phase
+  # UA: Етап 2: Перехід до Залізного віку - фаза покращення інструментів та обладнання
   2_IRON_AGE:
     world: "NORMAL"
     tasks:
       IRON_INGOT: { amount: 7, display-name: "Iron Ingots", srbp: false}
-      # Use BREAD as a key for all cooked foods. The plugin will aggregate them.
+      # EN: Use BREAD as a key for all cooked foods. The plugin will aggregate them.
+      # UA: Використовуйте BREAD як ключ для всіх приготованих продуктів. Плагін агрегує їх.
       BREAD: { amount: 16, display-name: "Cooked Food", srbp: true}
-  # Stage 3: Nether Exploration
+
+  # EN: Stage 3: Nether Exploration - Preparation for End dimension
+  # UA: Етап 3: Дослідження Незеру - підготовка до виміру Енду
   3_NETHER_EXPLORATION:
     world: "NETHER"
     tasks:
@@ -74,23 +121,25 @@ progression:
 # Optional cosmetic rewards for completing tasks or stages.
 # ----------------------------------------------------------------
 rewards:
-  enabled: true # Set to true to enable rewards
-  # Command to run from the console when a single task is completed.
-  # Use @p (closest player) or @a (all players) instead of %player% for console commands if specific player context isn't passed.
-  on-task-complete:
-    - "api:sound minecraft:entity.player.levelup 1.0 1.5"
-    - "api:sound minecraft:item.totem.use 1.0 1.0"
-    - "api:particle minecraft:totem_of_undying 30 0.5 0.5 0.5 0"
-    - "api:particle minecraft:heart 10 0.2 0.2 0.2 0.1"
-
-  on-stage-complete:
-    - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"
-    - "api:sound minecraft:block.end_portal.spawn 1.0 1.0"
-    - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"
-    - "api:particle minecraft:flash 1 0 0 0 0"
-    - "api:particle minecraft:explosion_emitter 1 0 0 0 0"
-# ----------------------------------------------------------------
-# Optional waypoints for navigating the world (no nether, no end).
-# ----------------------------------------------------------------
-structure_waypoints:
+  # EN: Reward system configuration for visual and audio feedback
+  # UA: Конфігурація системи винагород для візуального та звукового зворотнього зв'язку
+  # EN: Set to true to enable rewards
+  # UA: Встановити true для увімкнення винагород
   enabled: true
+
+  # EN: Command to run from the console when a single task is completed.
+  # UA: Команда для виконання з консолі, коли окреме завдання виконано.
+  on-task-complete:
+    - "api:sound minecraft:entity.player.levelup 1.0 1.5"  # EN: Level up sound effect / UA: Звуковий ефект підвищення рівня
+    - "api:sound minecraft:item.totem.use 1.0 1.0"         # EN: Totem use sound effect / UA: Звуковий ефект використання тотема
+    - "api:particle minecraft:totem_of_undying 30 0.5 0.5 0.5 0"  # EN: Totem particles / UA: Частки тотема
+    - "api:particle minecraft:heart 10 0.2 0.2 0.2 0.1"   # EN: Heart particles / UA: Частки сердець
+
+  # EN: Commands to run when an entire stage is completed
+  # UA: Команди для виконання, коли весь етап завершено
+  on-stage-complete:
+    - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"  # EN: Announce stage completion / UA: Оголосити завершення етапу
+    - "api:sound minecraft:block.end_portal.spawn 1.0 1.0"     # EN: End portal spawn sound / UA: Звук появи енд порталу
+    - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"       # EN: Spark particles / UA: Частки іскор
+    - "api:particle minecraft:flash 1 0 0 0 0"                 # EN: Flash particle / UA: Частка спалаху
+    - "api:particle minecraft:explosion_emitter 1 0 0 0 0"     # EN: Explosion emitter particle / UA: Частка вибуху

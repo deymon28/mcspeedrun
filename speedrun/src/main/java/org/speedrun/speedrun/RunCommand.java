@@ -9,17 +9,25 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
+import org.speedrun.speedrun.managers.ConfigManager;
+import org.speedrun.speedrun.managers.GameManager;
+import org.speedrun.speedrun.managers.TaskManager;
+import org.speedrun.speedrun.utils.LocationUtil;
 
 import java.util.*;
 
 /**
- * Обработчик команды /run.
- * ИЗМЕНЕНО: Добавлена логика для подкоманд /run locate pos1 и /run locate pos2.
+ * Handles the `/run` command and its subcommands.
+ * Provides administrative controls for the speedrun and informational commands for players.
+ * |
+ * Обробляє команду `/run` та її підкоманди.
+ * Надає адміністративні елементи керування спідраном та інформаційні команди для гравців.
  */
 public class RunCommand implements CommandExecutor, TabCompleter {
 
     private final Speedrun plugin;
-    // Хранение временных позиций для каждого игрока
+    // Temporary storage for player positions for the stronghold triangulation command.
+    // Тимчасове сховище для позицій гравця для команди тріангуляції фортеці.
     private final Map<UUID, Location> playerPos1 = new HashMap<>();
     private final Map<UUID, Location> playerPos2 = new HashMap<>();
 
@@ -27,11 +35,22 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         this.plugin = plugin;
     }
 
+    /**
+     * Executes the given command, returning its success.
+     * |
+     * Виконує задану команду, повертаючи її успішність.
+     *
+     * @param sender Source of the command. / Джерело команди.
+     * @param command Command which was executed. / Команда, яка була виконана.
+     * @param label Alias of the command which was used. / Псевдонім команди, який було використано.
+     * @param args Passed command arguments. / Передані аргументи команди.
+     * @return true if a valid command, otherwise false. / true, якщо команда дійсна, інакше false.
+     */
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String @NotNull [] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cЭту команду может использовать только игрок.");
-            return true; // CommandExecutor ожидает boolean
+            sender.sendMessage("§cThis command can only be used by a player.");
+            return true; // CommandExecutor is waiting boolean
         }
 
         if (args.length > 0) {
@@ -45,9 +64,9 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     }
                     if (!plugin.getGameManager().isRunning()) {
                         plugin.getGameManager().startRun();
-                        player.sendMessage("§aСпидран начат!");
+                        player.sendMessage("§aThe speedrun has begun!");
                     } else {
-                        player.sendMessage("§cСпидран уже запущен.");
+                        player.sendMessage("§cSpeedran has already been launched.");
                     }
                     return true;
 
@@ -58,7 +77,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     }
 
                     plugin.getGameManager().togglePause();
-                    player.sendMessage("§cСпидран на паузе.");
+                    player.sendMessage("§cSpeedran on pause.");
 
                     return true;
 
@@ -68,10 +87,10 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                         return true;
                     }
                     if (plugin.getGameManager().isRunning()) {
-                        plugin.getGameManager().stopRun(false); // false означает, что не победа
-                        player.sendMessage("§aСпидран остановлен.");
+                        plugin.getGameManager().stopRun(false); // false means that it is not a victory
+                        player.sendMessage("§aSpeedran has been stopped.");
                     } else {
-                        player.sendMessage("§cСпидран не запущен.");
+                        player.sendMessage("§cSpeedran is not running.");
                     }
                     return true;
 
@@ -81,7 +100,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                         return true;
                     }
                     plugin.getGameManager().resetRun();
-                    player.sendMessage("§aСпидран сброшен.");
+                    player.sendMessage("§aSpeedran reset.");
                     return true;
 
                 case "reload":
@@ -90,7 +109,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                         return true;
                     }
                     plugin.getConfigManager().reload();
-                    plugin.getTaskManager().reloadTasks(); // Перезагрузить задачи после конфига
+                    plugin.getTaskManager().reloadTasks(); // Reload tasks after configuration
                     player.sendMessage(plugin.getConfigManager().getFormattedText("commands.reloaded"));
                     return true;
 
@@ -104,11 +123,9 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     return true;
 
                 case "status":
-                    // Нет проверки разрешений для статуса
                     return showStatus(player);
 
                 case "tasks":
-                    // Нет проверки разрешений для задач
                     return showTasks(player);
 
                 case "new":
@@ -128,11 +145,11 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                         }
 
                         if (!success) {
-                            player.sendMessage("§cНе удалось обновить локацию: " + fullLocName);
+                            player.sendMessage("§cFailed to update location: " + fullLocName);
                         }
                         return true;
                     }
-                    player.sendMessage("§cИспользование: /run new <имя_структуры> или /run new nether portal");
+                    player.sendMessage("§cUsage: /run new <structure_name> or /run new nether portal");
                     return true;
 
 
@@ -144,15 +161,26 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     return handleLocateCommand(player, args);
 
                 default:
-                    player.sendMessage("§cНеизвестная подкоманда. Используйте: start, stop, reset, reload, skipstage, status, tasks, new, locate.");
+                    player.sendMessage("§cUnknown subcommand. Use: start, stop, reset, reload, skipstage, status, tasks, new, locate.");
                     return true;
             }
         }
 
-        player.sendMessage("§aИспользование: /run <start|stop|reset|reload|skipstage|status|tasks|new|locate>");
+        player.sendMessage("§aUsage: /run <start|stop|reset|reload|skipstage|status|tasks|new|locate>");
         return true;
     }
 
+    /**
+     * Requests a list of possible completions for a command argument.
+     * |
+     * Запитує список можливих доповнень для аргументу команди.
+     *
+     * @param sender Source of the command. / Джерело команди.
+     * @param command Command which was executed. / Команда, яка була виконана.
+     * @param alias Alias of the command which was used. / Псевдонім команди, який було використано.
+     * @param args The arguments passed to the command, including final partial argument to be completed. / Аргументи, передані команді.
+     * @return A List of possible completions for the final argument. / Список можливих доповнень.
+     */
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String @NotNull [] args) {
         if (!(sender instanceof Player)) {
@@ -162,7 +190,8 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            // Предлагаем основные подкоманды
+            // Suggest all subcommands.
+            // Пропонуємо всі підкоманди.
             String[] subcommands = {"start", "stop", "reset", "reload", "skipstage", "status", "tasks", "new", "locate"};
             for (String sub : subcommands) {
                 if (sub.startsWith(args[0].toLowerCase())) {
@@ -174,26 +203,28 @@ public class RunCommand implements CommandExecutor, TabCompleter {
             String currentArg = args[1].toLowerCase();
 
             if (subCommand.equals("new")) {
-                // Предлагаем известные структуры для команды /run new
+                // Suggest known structure names for `/run new`.
+                // Пропонуємо відомі назви структур для `/run new`.
                 for (String structureKey : plugin.getStructureManager().getFoundStructures().keySet()) {
                     String displayName = plugin.getStructureManager().getLocalizedStructureName(structureKey);
                     if (displayName.toLowerCase().startsWith(currentArg)) {
                         completions.add(displayName);
                     }
                 }
-                // Добавляем специальные случаи, если они не покрыты foundStructures
+                /// Add special case. / Додаємо особливий випадок.
                 if ("nether portal".startsWith(currentArg)) {
                     completions.add("nether portal");
                 }
-                if ("lava pool".startsWith(currentArg)) { // Хотя это уже в foundStructures, явно добавить не помешает
+                if ("lava pool".startsWith(currentArg)) {
                     completions.add("lava pool");
                 }
-                if ("end portal".startsWith(currentArg)) { // Аналогично
+                if ("end portal".startsWith(currentArg)) {
                     completions.add("end portal");
                 }
 
             } else if (subCommand.equals("locate")) {
-                // Предлагаем pos1 и pos2 для команды /run locate
+                // Suggest pos1/pos2 for `/run locate`.
+                // Пропонуємо pos1/pos2 для `/run locate`.
                 if ("pos1".startsWith(currentArg)) {
                     completions.add("pos1");
                 }
@@ -202,29 +233,32 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                 }
             }
         }
-        // Для locate с координатами, не предлагаем автодополнение, так как это числовые значения.
-        // Для других подкоманд с более чем 1 аргументом, можно добавить логику здесь, если требуется.
+        // For locate with coordinates, we do not offer autocompletion, as these are numeric values.
+        // For other subcommands with more than 1 argument, you can add logic here if required.
 
         return completions;
     }
 
 
     /**
-     * Обрабатывает подкоманду /run locate.
-     * Поддерживает /run locate pos1, /run locate pos2 и /run locate <x1> <y1> <z1> <x2> <y2> <z2>.
+     * Handles the `/run locate` command for stronghold triangulation.
+     * Can be used with `pos1`/`pos2` or by providing coordinates directly.
+     * |
+     * Обробляє команду `/run locate` для тріангуляції фортеці.
+     * Можна використовувати з `pos1`/`pos2` або надаючи координати напряму.
      */
     private boolean handleLocateCommand(Player player, String[] args) {
-        // /run locate pos1 или /run locate pos2
+        // /run locate pos1 or /run locate pos2
         if (args.length == 2) {
             String locateSubCommand = args[1].toLowerCase();
             if (locateSubCommand.equals("pos1")) {
                 playerPos1.put(player.getUniqueId(), player.getLocation());
-                player.sendMessage("§aПозиция 1 установлена на ваши текущие координаты и направление.");
+                player.sendMessage("§aPosition 1 set to your current location and direction.");
                 checkAndCalculateLocate(player);
                 return true;
             } else if (locateSubCommand.equals("pos2")) {
                 playerPos2.put(player.getUniqueId(), player.getLocation());
-                player.sendMessage("§aПозиция 2 установлена на ваши текущие координаты и направление.");
+                player.sendMessage("§aPosition 2 set to your current location and direction.");
                 checkAndCalculateLocate(player);
                 return true;
             }
@@ -232,7 +266,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         }
 
         // /run locate <x1> <y1> <z1> <x2> <y2> <z2>
-        // Исправлен индекс для Z-координат и использование float для yaw.
+        // Fixed index for Z coordinates and use of float for yaw.
         if (args.length == 7) {
             try {
                 double x1 = Double.parseDouble(args[1]);
@@ -242,27 +276,26 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                 //double y2 = Double.parseDouble(args[5]);
                 double z2 = Double.parseDouble(args[6]);
 
-                // Для ручного ввода координат, yaw и pitch не предоставляются, используем 0f.
-                // Если вам нужен yaw/pitch для ручного ввода, их нужно добавить как аргументы команды.
+                // Yaw/pitch are not provided via manual coordinate entry.
+                // Напрямок погляду (yaw/pitch) не надається при ручному вводі координат.
                 Location predicted = LocationUtil.triangulate(x1, z1, 0f, x2, z2, 0f);
 
                 calculateAndDisplayLocate(player, predicted);
                 return true;
             } catch (NumberFormatException e) {
-                player.sendMessage("§cНеверный формат координат. Используйте числа.");
+                player.sendMessage("§cInvalid coordinate format. Use numbers.");
                 return true;
             }
         }
 
-        // Если ни один из форматов не соответствует, показать использование
-        player.sendMessage("§aИспользование: /run locate <x1> <y1> <z1> <x2> <y2> <z2>");
-        player.sendMessage("§aИли: /run locate <pos1|pos2>");
+        // If none of the formats match, show usage
+        player.sendMessage("§aUsage: /run locate <pos1|pos2> or /run locate <x1> <y1> <z1> <x2> <y2> <z2>");
         return true;
     }
 
     /**
-     * Проверяет, установлены ли обе позиции (pos1 и pos2) для игрока,
-     * и если да, вызывает расчет.
+     * If both pos1 and pos2 are set for a player, calculates the triangulation.
+     * Якщо для гравця встановлені обидві позиції (pos1 і pos2), обчислює тріангуляцію.
      */
     private void checkAndCalculateLocate(Player player) {
         UUID playerId = player.getUniqueId();
@@ -270,7 +303,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
             Location loc1 = playerPos1.get(playerId);
             Location loc2 = playerPos2.get(playerId);
 
-            // Вычислить предсказанное местоположение с помощью триангуляции
+            // Calculate the predicted location using triangulation
             Location predicted = LocationUtil.triangulate(
                     loc1.getX(), loc1.getZ(), loc1.getYaw(),
                     loc2.getX(), loc2.getZ(), loc2.getYaw()
@@ -278,32 +311,32 @@ public class RunCommand implements CommandExecutor, TabCompleter {
 
             calculateAndDisplayLocate(player, predicted);
 
-            // Очистить сохраненные позиции после расчета
+            // Clear stored positions after calculation.
+            // Очищуємо збережені позиції після обчислення.
             playerPos1.remove(playerId);
             playerPos2.remove(playerId);
         }
     }
 
     /**
-     * Выполняет расчет расстояния и угла между двумя локациями (если предоставлено)
-     * и выводит результат игроку.
-     * Этот метод теперь обобщен для принятия потенциально нулевого предсказанного местоположения.
+     * Displays the result of the triangulation to the player.
+     * Відображає результат тріангуляції гравцеві.
      */
     private void calculateAndDisplayLocate(Player player, Location predicted) {
-        player.sendMessage("§a--- Расчет местоположения Портала Края ---");
+        player.sendMessage("§a--- End Portal Location Calculation ---");
 
         if (predicted != null) {
             plugin.getStructureManager().setPredictedEndPortalLocation(predicted);
             int netherX = predicted.getBlockX() / 8;
             int netherZ = predicted.getBlockZ() / 8;
-            player.sendMessage("§aПредполагаемый портал в Энд: §e" + LocationUtil.format(predicted) + " §7(Нижний мир: §c" + netherX + ", " + netherZ + "§7)");
+            player.sendMessage("§aPredicted End Portal: §e" + LocationUtil.format(predicted) + " §7(Нижний мир: §c" + netherX + ", " + netherZ + "§7)");
         } else {
-            player.sendMessage("§cНе удалось рассчитать местоположение. Линии могут быть параллельны или позиции не установлены.");
+            player.sendMessage("§cCould not calculate location. Lines may be parallel.");
         }
     }
 
-    // Вспомогательные методы для отображения статуса и задач
-    private boolean showStatus(CommandSender sender) { // Изменен тип возвращаемого значения на boolean
+    // Supporting methods for displaying status and tasks
+    private boolean showStatus(CommandSender sender) {
         GameManager gm = plugin.getGameManager();
         TaskManager tm = plugin.getTaskManager();
         ConfigManager cm = plugin.getConfigManager();
@@ -314,10 +347,10 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         tm.getCurrentStageName().ifPresent(stageName -> sender.sendMessage(cm.getFormattedText("commands.status.stage", "%stage%", stageName)));
         sender.sendMessage(cm.getFormattedText("commands.status.players", "%players%", String.valueOf(Bukkit.getOnlinePlayers().size())));
         sender.sendMessage(cm.getFormattedText("commands.status.footer"));
-        return true; // Возвращаем true для успешного выполнения команды
+        return true; // Return true for successful command execution
     }
 
-    private boolean showTasks(Player player) { // Изменен тип возвращаемого значения на boolean
+    private boolean showTasks(Player player) {
         TaskManager tm = plugin.getTaskManager();
         ConfigManager cm = plugin.getConfigManager();
         World.Environment currentWorld = player.getWorld().getEnvironment();
@@ -331,12 +364,12 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         } else {
             for (Task task : tasksForWorld) {
                 if (!task.isCompleted()) {
-                    // Используем геттеры для доступа к полям Task
+                    // Use getters to access Task fields.
                     player.sendMessage(cm.getFormattedText("scoreboard.task-line", "%name%", task.displayName, "%progress%", String.valueOf(task.getProgress()), "%required%", String.valueOf(task.getRequiredAmount())));
                 }
             }
         }
         player.sendMessage(cm.getFormattedText("commands.tasks.footer"));
-        return true; // Возвращаем true для успешного выполнения команды
+        return true; // Return true for successful command execution
     }
 }
