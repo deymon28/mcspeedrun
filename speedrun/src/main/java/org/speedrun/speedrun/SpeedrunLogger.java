@@ -146,6 +146,15 @@ public class SpeedrunLogger {
             summary.put(entry.getKey(), entry.getValue());
         }
 
+        if (plugin.getCasualGameModeManager() != null) {
+            boolean isCasualModeEnabled = plugin.getCasualGameModeManager().isCasualModeActive();
+            summary.put("casual_mode_enabled", isCasualModeEnabled);
+            plugin.getLogger().info("Logging summary: Casual mode enabled = " + isCasualModeEnabled);
+        } else {
+            summary.put("casual_mode_enabled", false); // Default to false if manager not initialized
+            plugin.getLogger().warning("CasualGameModeManager is null when generating summary. 'casual_mode_enabled' set to false.");
+        }
+
         return summary;
     }
 

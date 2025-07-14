@@ -431,4 +431,21 @@ public class CompassListener implements Listener {
         }
         return null;
     }
+
+    public void reset() {
+        stopCompassUpdateTask(); // Stop the task before clearing data
+        playerDestinations.clear(); // Clear player-specific dynamic destinations
+        predefinedDestinationsByWorld.clear(); // Clear any dynamically loaded/added predefined destinations
+        // (If these are *only* loaded from config once, you might not clear them here)
+
+        // customDestinationIcons is typically static config, so it's usually NOT cleared on reset.
+
+        plugin.getLogger().info("Compass data and task reset.");
+
+        // Re-start the task if the casual game mode is still active after reset
+        // This ensures compasses start updating again for a new run.
+        if (plugin.getCasualGameModeManager().isCasualModeActive()) {
+            startCompassUpdateTask();
+        }
+    }
 }

@@ -1,16 +1,22 @@
 package org.speedrun.speedrun.managers;
 
+import org.bukkit.event.EventHandler;
 import org.speedrun.speedrun.Speedrun;
 import org.bukkit.Bukkit;
+import org.speedrun.speedrun.casualGameMode.CasualHighlightManager;
 import org.speedrun.speedrun.casualGameMode.CompassListener;
 import org.speedrun.speedrun.casualGameMode.GiveCompassCommand;
+import org.speedrun.speedrun.events.StructureFoundEvent;
 
 public class CasualGameModeManager {
 
     private final Speedrun plugin;
     private final GameManager gameManager;
     private CompassListener compassListener;
+    private CasualHighlightManager casualHighlightManager;
+
     private boolean isEnabled = false;
+
 
     public CasualGameModeManager(Speedrun plugin, GameManager gameManager) {
         this.plugin = plugin;
@@ -38,6 +44,12 @@ public class CasualGameModeManager {
         // Link the CompassListener to the GameManager so other parts of your plugin can access it
         gameManager.setCompassListener(compassListener);
 
+        // Initialize and start CasualHighlightManager
+        casualHighlightManager = new CasualHighlightManager(plugin);
+
+        plugin.getLogger().info("CasualHighlightManager started for gold block highlighting.");
+
+
         isEnabled = true;
         plugin.getLogger().info("Casual Game Mode enabled.");
     }
@@ -61,15 +73,33 @@ public class CasualGameModeManager {
         // Clear the reference in GameManager to prevent lingering issues
         gameManager.setCompassListener(null);
 
-        // Unregister the command if you wish (less common as commands are usually globally managed)
-        // However, if the command should only exist when casual mode is active:
-        // plugin.getCommand("givecompass").setExecutor(null); // This will effectively unregister it
-
+        // NEW: Stop CasualHighlightManager tasks and remove entities
+        if (casualHighlightManager != null) {
+            casualHighlightManager.stopHighlightingTask();
+        }
         isEnabled = false;
         plugin.getLogger().info("Casual Game Mode disabled.");
     }
 
     public boolean isCasualModeActive() {
         return isEnabled;
+    }
+    public CasualHighlightManager getCasualHighlightManager() {
+        return casualHighlightManager;
+    }
+    public void reset() {
+        plugin.getLogger().info("Resetting Casual Game Mode components...");
+        if (compassListener != null) {
+            compassListener.reset(); // Call reset on CompassListener
+        } else {
+            plugin.getLogger().warning("CompassListener is null during CasualGameModeManager reset.");
+        }
+        if (casualHighlightManager != null) {
+            casualHighlightManager.stopHighlightingTask(); // stopHighlightingTask already serves as a reset for it
+        } else {
+            plugin.getLogger().warning("CasualHighlightManager is null during CasualGameModeManager reset.");
+        }
+
+        plugin.getLogger().info("Casual Game Mode components reset.");
     }
 }

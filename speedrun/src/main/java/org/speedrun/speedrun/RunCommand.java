@@ -100,6 +100,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                         return true;
                     }
                     plugin.getGameManager().resetRun();
+                    plugin.getCasualGameModeManager().reset();
                     player.sendMessage("§aSpeedran reset.");
                     return true;
 

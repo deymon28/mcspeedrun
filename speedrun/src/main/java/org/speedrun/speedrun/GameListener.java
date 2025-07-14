@@ -212,6 +212,17 @@ class GameListener implements Listener {
         if(plugin.getCasualGameModeManager().isCasualModeActive()){
             // Get CompassListener from GameManager to add the dynamic destination
             gameManager.getCompassListener().addDynamicDestination(event.getPlayer(), event.getStructureKey(), event.getLocation());
+
+            if (event.getStructureKey().equals("BASTION")) {
+                plugin.getLogger().info("Bastion Remnant found by DedicatedGameListener at: " + event.getLocation().toVector() + ". Notifying highlight manager.");
+                // Get the CasualHighlightManager instance and notify it
+                if (plugin.getCasualGameModeManager().getCasualHighlightManager() != null) {
+                    plugin.getCasualGameModeManager().getCasualHighlightManager().addDetectedBastion(event.getLocation(), event.getLocation().getWorld());
+                } else {
+                    plugin.getLogger().warning("CasualHighlightManager is null when a Bastion Remnant was detected!");
+                }
+            }
+
             // If enabled, create a temporary beacon waypoint at the structure's location.
             // Якщо увімкнено, створюємо тимчасовий вейпоінт-маяк на місці структури.
             if (plugin.getConfigManager().areWaypointsEnabled()) {
