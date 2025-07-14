@@ -10,6 +10,7 @@ import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.events.StructureFoundEvent;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -25,6 +26,8 @@ public class StructureManager {
     // Stores locations of all tracked structures. Using LinkedHashMap to maintain insertion order.
     // Зберігає локації всіх відстежуваних структур. Використовується LinkedHashMap для збереження порядку додавання.
     private final Map<String, Location> foundLocations = new LinkedHashMap<>();
+
+    private boolean villageSearchFailed = false;
 
     // Separate locations for each side of the portal pair.
     // Окремі локації для кожної сторони пари порталів.
@@ -108,6 +111,15 @@ public class StructureManager {
      * @param loc The location of a portal block. / Місцезнаходження блоку порталу.
      */
     public void portalLit(Player player, Location loc) {
+        // То є в певній мірі костиль
+        // Перевіряємо, чи цей портал вже відомий
+        for (Location knownLoc : Arrays.asList(overworldPortalLocation, netherPortalLocation)) {
+            if (knownLoc != null && knownLoc.distance(loc) < 4.0) {
+                return; // Портал вже зареєстровано
+            }
+        }
+
+
         if (isPortalFullyFound() && !plugin.getConfigManager().isReassigningLocationsEnabled()) {
             String message = "Portal reassignment is disabled in the config.";
             if (player != null) player.sendMessage(Component.text(message, NamedTextColor.RED));
@@ -266,14 +278,23 @@ public class StructureManager {
     /** Checks if the village search timer has expired. / Перевіряє, чи не сплив час таймера пошуку села. */
     public void checkVillageTimeout() {
         if (isVillageSearchActive() && plugin.getGameManager().getVillageTimeRemaining() <= 0) {
-            foundLocations.put("VILLAGE", null); // Reset the search. / Скидаємо пошук.
-            Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout"));
+            if (!villageSearchFailed) { // Перевіряємо, чи не було вже повідомлення
+                foundLocations.remove("VILLAGE", null); // Reset the search. / Скидаємо пошук.
+                Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout"));
+
+                villageSearchFailed = true; // Забороняємо повторні повідомлення
+            }
         }
     }
 
     /** @return True if the plugin is currently actively searching for a village. / True, якщо плагін наразі активно шукає село. */
     public boolean isVillageSearchActive() {
-        return foundLocations.containsKey("VILLAGE") && foundLocations.get("VILLAGE") == null;
+        return plugin.getGameManager().getVillageTimeElapsed() < plugin.getConfigManager().getVillageTimeout() && !villageSearchFailed;
+        //return foundLocations.containsKey("VILLAGE") && foundLocations.get("VILLAGE") == null;
+    }
+
+    public boolean isVillageSearchFailed() {
+        return villageSearchFailed;
     }
 
     /** @return True if the plugin is actively searching for a lava pool. / True, якщо плагін активно шукає озеро лави. */

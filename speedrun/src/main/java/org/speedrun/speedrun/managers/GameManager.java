@@ -296,6 +296,10 @@ public class GameManager {
         return plugin.getConfigManager().getVillageTimeout() - villageTimeElapsed;
     }
 
+    public long getVillageTimeElapsed() {
+        return villageTimeElapsed;
+    }
+
     /** @return True if the speedrun is currently active. / True, якщо спідран наразі активний. */
     public boolean isRunning() { return isRunning; }
 

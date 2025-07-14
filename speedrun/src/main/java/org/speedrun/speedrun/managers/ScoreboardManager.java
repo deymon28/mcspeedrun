@@ -91,6 +91,7 @@ public class ScoreboardManager {
             // Don't show Lava Pool if a Nether Portal has been found.
             // Не показуємо Озеро Лави, якщо портал в Незер вже знайдено.
             if (key.equals("LAVA_POOL") && sm.isPortalPartiallyFound()) continue;
+            if (key.equals("VILLAGE") && sm.isVillageSearchFailed()) continue;
 
             String displayName = sm.getLocalizedStructureName(key);
             String line;
