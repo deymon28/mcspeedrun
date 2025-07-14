@@ -35,6 +35,19 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         this.plugin = plugin;
     }
 
+
+    private static final Map<String, String> STRUCTURE_KEYS = Map.of(
+            "lavapool", "LAVA_POOL",
+            "lava_pool", "LAVA_POOL",
+            "village", "VILLAGE",
+            "netherportal", "NETHER_PORTAL",
+            "nether_portal", "NETHER_PORTAL",
+            "fortress", "FORTRESS",
+            "bastion", "BASTION",
+            "endportal", "END_PORTAL",
+            "end_portal", "END_PORTAL"
+    );
+
     /**
      * Executes the given command, returning its success.
      * |
@@ -129,27 +142,43 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     return showTasks(player);
 
                 case "new":
+                    // Join the arguments back together and map them to the internal key
+                    String rawKey = String.join("_", Arrays.copyOfRange(args, 1, args.length)).toLowerCase();
+                    String key = STRUCTURE_KEYS.get(rawKey);
+
+                    if (key == null) {
+                        player.sendMessage("§cInvalid structure name. Valid options: "
+                                + String.join(", ", STRUCTURE_KEYS.keySet()));
+                        return true;
+                    }
+
                     if (!player.hasPermission("speedrun.admin")) {
                         player.sendMessage(plugin.getConfigManager().getFormattedText("commands.no-permission"));
                         return true;
                     }
-                    if (args.length > 1) {
-                        String fullLocName = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-                        String key = fullLocName.replace(' ', '_').toUpperCase();
 
-                        boolean success;
-                        if (key.equals("NETHER_PORTAL") && fullLocName.equalsIgnoreCase("nether portal")) {
-                            success = plugin.getStructureManager().reassignNetherPortal(player);
-                        } else {
-                            success = plugin.getStructureManager().updateStructureLocation(fullLocName, player.getLocation(), player);
-                        }
+                    // 1. Always un-hide the structure (even if coords stay the same)
+                    plugin.getStructureManager().restoreStructure(key);
 
-                        if (!success) {
-                            player.sendMessage("§cFailed to update location: " + fullLocName);
-                        }
+                    // 2. Update (or set) the coordinates
+                    boolean success;
+                    if (key.equals("NETHER_PORTAL") && rawKey.equals("nether_portal")) {
+                        success = plugin.getStructureManager().reassignNetherPortal(player);
+                    } else {
+                        success = plugin.getStructureManager().updateStructureLocation(
+                                key,          // use the internal key directly
+                                player.getLocation(),
+                                player
+                        );
+                    }
+
+                    if (!success) {
+                        player.sendMessage("§cFailed to update location for: " + rawKey);
                         return true;
                     }
-                    player.sendMessage("§cUsage: /run new <structure_name> or /run new nether portal");
+
+                    // 3. Notify and return
+                    player.sendMessage("§aLocation updated and re-shown: " + rawKey);
                     return true;
 
 
@@ -160,13 +189,30 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     }
                     return handleLocateCommand(player, args);
 
+                case "remove":
+                    if (args.length < 2) {
+                        player.sendMessage("§cUsage: /run remove <structure>");
+                        return true;
+                    }
+                    String rawRemove = String.join("_", Arrays.copyOfRange(args, 1, args.length)).toLowerCase();
+                    String keyRemove = STRUCTURE_KEYS.get(rawRemove);
+                    if (keyRemove == null) {
+                        player.sendMessage("§cInvalid structure name. Valid: "
+                                + String.join(", ", STRUCTURE_KEYS.keySet()));
+                        return true;
+                    }
+                    if (plugin.getStructureManager().removeStructure(keyRemove)) {
+                        player.sendMessage("§aStructure hidden: " + rawRemove);
+                    }
+                    return true;
+
                 default:
-                    player.sendMessage("§cUnknown subcommand. Use: start, stop, reset, reload, skipstage, status, tasks, new, locate.");
+                    player.sendMessage("§cUnknown subcommand. Use: start, pause, stop, reset, reload, skipstage, status, tasks, new, locate, remove.");
                     return true;
             }
         }
 
-        player.sendMessage("§aUsage: /run <start|stop|reset|reload|skipstage|status|tasks|new|locate>");
+        player.sendMessage("§aUsage: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove>");
         return true;
     }
 
@@ -192,7 +238,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             // Suggest all subcommands.
             // Пропонуємо всі підкоманди.
-            String[] subcommands = {"start", "stop", "reset", "reload", "skipstage", "status", "tasks", "new", "locate"};
+            String[] subcommands = {"start", "pause", "stop", "reset", "reload", "skipstage", "status", "tasks", "new", "locate", "remove"};
             for (String sub : subcommands) {
                 if (sub.startsWith(args[0].toLowerCase())) {
                     completions.add(sub);
@@ -202,25 +248,22 @@ public class RunCommand implements CommandExecutor, TabCompleter {
             String subCommand = args[0].toLowerCase();
             String currentArg = args[1].toLowerCase();
 
-            if (subCommand.equals("new")) {
+            if (subCommand.equals("new") || subCommand.equals("remove")) {
                 // Suggest known structure names for `/run new`.
                 // Пропонуємо відомі назви структур для `/run new`.
-                for (String structureKey : plugin.getStructureManager().getFoundStructures().keySet()) {
-                    String displayName = plugin.getStructureManager().getLocalizedStructureName(structureKey);
-                    if (displayName.toLowerCase().startsWith(currentArg)) {
-                        completions.add(displayName);
-                    }
+                for (String k : STRUCTURE_KEYS.values()) {
+                    if (k.toLowerCase().startsWith(currentArg)) completions.add(k);
                 }
                 /// Add special case. / Додаємо особливий випадок.
-                if ("nether portal".startsWith(currentArg)) {
-                    completions.add("nether portal");
-                }
-                if ("lava pool".startsWith(currentArg)) {
-                    completions.add("lava pool");
-                }
-                if ("end portal".startsWith(currentArg)) {
-                    completions.add("end portal");
-                }
+                // if ("nether portal".startsWith(currentArg)) {
+                //     completions.add("nether portal");
+                // }
+                // if ("lava pool".startsWith(currentArg)) {
+                //     completions.add("lava pool");
+                // }
+                // if ("end portal".startsWith(currentArg)) {
+                //     completions.add("end portal");
+                // }
 
             } else if (subCommand.equals("locate")) {
                 // Suggest pos1/pos2 for `/run locate`.

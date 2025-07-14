@@ -2,6 +2,7 @@ package org.speedrun.speedrun;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.speedrun.speedrun.managers.*;
+import org.speedrun.speedrun.utils.TabCoordinateDisplay;
 
 import java.util.Objects;
 
@@ -27,6 +28,8 @@ public final class Speedrun extends JavaPlugin {
     private TaskManager taskManager;
     private StructureManager structureManager;
     private ScoreboardManager scoreboardManager;
+
+    TabCoordinateDisplay tabCoords = new TabCoordinateDisplay(this);
 
     // =========================================================================================
     // Plugin Lifecycle
@@ -57,6 +60,8 @@ public final class Speedrun extends JavaPlugin {
         Objects.requireNonNull(getCommand("run")).setExecutor(runCommand);
         Objects.requireNonNull(getCommand("run")).setTabCompleter(runCommand);
 
+        tabCoords.enable();
+
         getLogger().info("Speedrun plugin has been enabled.");
     }
 
@@ -74,6 +79,9 @@ public final class Speedrun extends JavaPlugin {
         if (gameManager != null) {
             gameManager.stopRun(false);
         }
+
+        tabCoords.disable();
+
         getLogger().info("Speedrun plugin has been disabled.");
     }
 

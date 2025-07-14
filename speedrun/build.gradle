@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'org.speedrun'
-version = '1.21.5-2.3.3-BETA'
+version = '1.21.5-2.3.9-BETA'
 
 repositories {
     mavenCentral()

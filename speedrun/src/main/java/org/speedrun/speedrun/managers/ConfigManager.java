@@ -199,6 +199,10 @@ public class ConfigManager {
     // Configuration Getters
     // =========================================================================================
 
+    public int getPortalSearchTimeout() {
+        return config.getInt("settings.portal-search-timeout", 15); // 15 секунд по умолчанию
+    }
+
     /** @return The raw FileConfiguration object for config.yml. / "Сирий" об'єкт FileConfiguration для config.yml. */
     public FileConfiguration getRawConfig() { return config; }
 

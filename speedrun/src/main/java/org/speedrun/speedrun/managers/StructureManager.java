@@ -10,9 +10,7 @@ import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.events.StructureFoundEvent;
 
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Manages the detection, storage, and state of key structures.
@@ -27,7 +25,7 @@ public class StructureManager {
     // Зберігає локації всіх відстежуваних структур. Використовується LinkedHashMap для збереження порядку додавання.
     private final Map<String, Location> foundLocations = new LinkedHashMap<>();
 
-    private boolean villageSearchFailed = false;
+    public boolean villageSearchFailed = false;
 
     // Separate locations for each side of the portal pair.
     // Окремі локації для кожної сторони пари порталів.
@@ -35,6 +33,8 @@ public class StructureManager {
     private Location netherPortalLocation;
 
     private Location predictedEndPortalLocation;
+
+    private final Set<String> hiddenStructures = new HashSet<>();
 
     public StructureManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -53,6 +53,8 @@ public class StructureManager {
         predictedEndPortalLocation = null;
         overworldPortalLocation = null;
         netherPortalLocation = null;
+
+        villageSearchFailed = false;
 
         // Initialize the map with all structures that need to be tracked.
         // Ініціалізуємо мапу всіма структурами, які потрібно відстежувати.
@@ -80,6 +82,12 @@ public class StructureManager {
         // Портали в Незер обробляються методами portalLit() та portalExitFound().
         if (key.equals("NETHER_PORTAL")) {
             return;
+        }
+
+        if (key.equals("VILLAGE")) {
+            // plugin.getGameManager().villageTimeElapsed = plugin.getConfigManager().getVillageTimeout();
+            villageSearchFailed = false;
+            plugin.getGameManager().villageTimeElapsed = 0;
         }
 
         foundLocations.put(key, loc);
@@ -114,8 +122,10 @@ public class StructureManager {
         // То є в певній мірі костиль
         // Перевіряємо, чи цей портал вже відомий
         for (Location knownLoc : Arrays.asList(overworldPortalLocation, netherPortalLocation)) {
-            if (knownLoc != null && knownLoc.distance(loc) < 4.0) {
-                return; // Портал вже зареєстровано
+            if (knownLoc != null
+                    && knownLoc.getWorld().equals(loc.getWorld())
+                    && knownLoc.distance(loc) < 4.0) {
+                return; // same portal
             }
         }
 
@@ -234,10 +244,29 @@ public class StructureManager {
         return true;
     }
 
+    public void restoreStructure(String key) {
+        if (!foundLocations.containsKey(key)) return;
+
+        hiddenStructures.remove(key); // un-hide line
+        Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
+    }
+
+    public boolean removeStructure(String key) {
+        if (!foundLocations.containsKey(key)) return false;
+
+        hiddenStructures.add(key); // hide line
+        Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
+        return true;
+    }
+
 
     // =========================================================================================
     // Getters & State Checks
     // =========================================================================================
+
+    public boolean isStructureHidden(String key) {
+        return hiddenStructures.contains(key);
+    }
 
     /** @return The location of the Overworld-side portal, or null if not found. / Локація порталу у Звичайному світі, або null, якщо не знайдено. */
     public Location getOverworldPortalLocation() { return overworldPortalLocation; }
@@ -277,19 +306,26 @@ public class StructureManager {
 
     /** Checks if the village search timer has expired. / Перевіряє, чи не сплив час таймера пошуку села. */
     public void checkVillageTimeout() {
-        if (isVillageSearchActive() && plugin.getGameManager().getVillageTimeRemaining() <= 0) {
-            if (!villageSearchFailed) { // Перевіряємо, чи не було вже повідомлення
-                foundLocations.remove("VILLAGE", null); // Reset the search. / Скидаємо пошук.
-                Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout"));
-
-                villageSearchFailed = true; // Забороняємо повторні повідомлення
-            }
+        // Only check timeout if village hasn't been found yet
+        if (foundLocations.get("VILLAGE") != null) return;
+        // already handled or still time left?  skip
+        if (villageSearchFailed
+                || plugin.getGameManager().getVillageTimeRemaining() > 0) {
+            return;
         }
+
+        villageSearchFailed = true;
+        foundLocations.put("VILLAGE", null);
+        Bukkit.broadcast(plugin.getConfigManager().getFormatted("messages.village-timeout"));
+        Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
     }
 
     /** @return True if the plugin is currently actively searching for a village. / True, якщо плагін наразі активно шукає село. */
     public boolean isVillageSearchActive() {
-        return plugin.getGameManager().getVillageTimeElapsed() < plugin.getConfigManager().getVillageTimeout() && !villageSearchFailed;
+        return foundLocations.get("VILLAGE") == null
+                && plugin.getGameManager().getVillageTimeElapsed() < plugin.getConfigManager().getVillageTimeout()
+                && !villageSearchFailed;
+        // return plugin.getGameManager().getVillageTimeElapsed() < plugin.getConfigManager().getVillageTimeout() && !villageSearchFailed;
         //return foundLocations.containsKey("VILLAGE") && foundLocations.get("VILLAGE") == null;
     }
 

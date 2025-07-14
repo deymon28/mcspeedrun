@@ -44,7 +44,7 @@ public class GameManager {
 
     // Specific task timers
     // Таймери для конкретних завдань
-    private long villageTimeElapsed = 0;
+    public long villageTimeElapsed = 0;
 
     // Event counters for logging
     // Лічильники подій для логування
@@ -103,7 +103,7 @@ public class GameManager {
     public void resetRun() {
         logger.info("Speedrun is being reset by an admin.");
         stopRun(false); // Stop without triggering a win condition. / Зупинка без спрацювання умови перемоги.
-        startRun();
+        Bukkit.getScheduler().runTask(plugin, this::startRun);
         Bukkit.broadcast(plugin.getConfigManager().getFormatted("commands.run-reset"));
     }
 
@@ -175,7 +175,8 @@ public class GameManager {
                 }
                 if (!isPaused) {
                     totalSeconds++;
-                    if (plugin.getStructureManager().isVillageSearchActive()) {
+                    if (plugin.getStructureManager().isVillageSearchActive()
+                            && plugin.getStructureManager().getFoundStructures().get("VILLAGE") == null) {
                         villageTimeElapsed++;
                     }
                 }
@@ -219,6 +220,11 @@ public class GameManager {
      * Сканує наявність дзвона біля гравця для виявлення села.
      */
     private void findNearbyBell(Player player) {
+        // Already found?  Stop scanning.
+        if (plugin.getStructureManager().getFoundStructures().containsKey("VILLAGE")
+                && plugin.getStructureManager().getFoundStructures().get("VILLAGE") != null) {
+            return;
+        }
         scanForBlock(player, plugin.getConfigManager().getVillageBellRadius(), Material.BELL, "VILLAGE");
     }
 

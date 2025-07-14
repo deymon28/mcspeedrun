@@ -21,6 +21,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.speedrun.speedrun.events.StructureFoundEvent;
 import org.speedrun.speedrun.managers.ConfigManager;
 import org.speedrun.speedrun.managers.GameManager;
@@ -29,6 +30,7 @@ import org.speedrun.speedrun.utils.PaperCheckUtil;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Listens for various Bukkit events to drive the speedrun logic.
@@ -299,12 +301,17 @@ class GameListener implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         // Manual village detection by right-clicking a bell.
         // Ручне виявлення села через правий клік по дзвону.
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.BELL) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK
+                && event.getClickedBlock() != null
+                && event.getClickedBlock().getType() == Material.BELL) {
+
             Player player = event.getPlayer();
             long now = System.currentTimeMillis();
             if (lastBellInteract.getOrDefault(player.getUniqueId(), 0L) + BELL_COOLDOWN > now) return;
 
-            if (plugin.getStructureManager().isVillageSearchActive()) {
+            if (!plugin.getStructureManager().getFoundStructures().containsKey("VILLAGE")
+                    || plugin.getStructureManager().getFoundStructures().get("VILLAGE") == null) {
+                plugin.getStructureManager().villageSearchFailed = false;  // reset the failed flag
                 plugin.getStructureManager().structureFound(player, "VILLAGE", event.getClickedBlock().getLocation());
                 lastBellInteract.put(player.getUniqueId(), now);
             }
@@ -367,16 +374,29 @@ class GameListener implements Listener {
 
         Location to = event.getTo();
 
+        AtomicBoolean handled = new AtomicBoolean(false);
+        long timeout = 20L * plugin.getConfigManager().getPortalSearchTimeout();
+
+        BukkitTask timeoutTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (handled.compareAndSet(false, true)) {
+                plugin.getLogger().warning("Portal search timeout, using approximate location");
+                handlePortalLogic(event, to);
+            }
+        }, timeout);
+
         // Use an async, non-blocking method on Paper servers for better performance.
         // Використовуємо асинхронний, неблокуючий метод на серверах Paper для кращої продуктивності.
         if (PaperCheckUtil.IsPaper()) {
             findPortalBlockAsync(to, TELEPORT_PORTAL_SEARCH_RADIUS)
+                    .orTimeout(plugin.getConfigManager().getPortalSearchTimeout(), java.util.concurrent.TimeUnit.SECONDS)
+                    .exceptionally(ex -> null) // on timeout -> use fallback
                     .thenAccept(preciseExitLoc -> {
-                        Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
-
-                        // Switch back to the main thread to call Bukkit API.
-                        // Повертаємося до основного потоку для виклику Bukkit API.
-                        plugin.getServer().getScheduler().runTask(plugin, () -> handlePortalLogic(event, finalLocation));
+                        if (handled.compareAndSet(false, true)) {
+                            timeoutTask.cancel();
+                            Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
+                            plugin.getServer().getScheduler().runTask(plugin,
+                                    () -> handlePortalLogic(event, finalLocation));
+                        }
                     });
         } else {
             // Fallback to a synchronous (potentially laggy) method for Spigot/Bukkit.

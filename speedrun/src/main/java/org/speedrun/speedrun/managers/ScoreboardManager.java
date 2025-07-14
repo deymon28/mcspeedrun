@@ -88,6 +88,10 @@ public class ScoreboardManager {
         // Рядки 4+: Знайдені структури
         for (Map.Entry<String, Location> entry : sm.getFoundStructures().entrySet()) {
             String key = entry.getKey();
+
+            // if (sm.getFoundStructures().containsKey(key) && sm.isStructureHidden(key)) continue;
+            if (sm.isStructureHidden(key)) continue;
+
             // Don't show Lava Pool if a Nether Portal has been found.
             // Не показуємо Озеро Лави, якщо портал в Незер вже знайдено.
             if (key.equals("LAVA_POOL") && sm.isPortalPartiallyFound()) continue;
