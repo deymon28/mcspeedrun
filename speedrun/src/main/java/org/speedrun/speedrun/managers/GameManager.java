@@ -10,6 +10,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.SpeedrunLogger;
+import org.speedrun.speedrun.casualGameMode.CompassListener;
 import org.speedrun.speedrun.utils.TimeUtil;
 import org.speedrun.speedrun.casualGameMode.CasualModeStructureManager;
 
@@ -29,6 +30,7 @@ public class GameManager {
     private final Speedrun plugin;
     private final CasualModeStructureManager casualModeStructureManager;
     private final SpeedrunLogger logger;
+    private CompassListener compassListener;
 
     // Game state fields
     // Поля стану гри
@@ -281,6 +283,19 @@ public class GameManager {
     /** Increments a named counter by one. / Збільшує іменований лічильник на одиницю. */
     public void incrementCounter(String key) {
         counters.put(key, counters.getOrDefault(key, 0) + 1);
+    }
+
+    // NEW: Setter method for CompassListener
+    // This will be called from your main Speedrun class
+    public void setCompassListener(CompassListener compassListener) {
+        this.compassListener = compassListener;
+    }
+
+    // NEW: Getter method for CompassListener
+    public CompassListener getCompassListener() {
+        // You might want to add a null check or throw an exception if it's not set yet.
+        // For typical plugin lifecycle, it should be set before it's needed.
+        return compassListener;
     }
 
     /** @return The manager for casual mode features. / Менеджер функцій казуального режиму. */

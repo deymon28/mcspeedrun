@@ -13,6 +13,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 import java.util.logging.Level;
+
+import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
 
 /**
@@ -144,6 +146,15 @@ public class SpeedrunLogger {
             summary.put(entry.getKey(), entry.getValue());
         }
 
+        if (plugin.getCasualGameModeManager() != null) {
+            boolean isCasualModeEnabled = plugin.getCasualGameModeManager().isCasualModeActive();
+            summary.put("casual_mode_enabled", isCasualModeEnabled);
+            plugin.getLogger().info("Logging summary: Casual mode enabled = " + isCasualModeEnabled);
+        } else {
+            summary.put("casual_mode_enabled", false); // Default to false if manager not initialized
+            plugin.getLogger().warning("CasualGameModeManager is null when generating summary. 'casual_mode_enabled' set to false.");
+        }
+
         return summary;
     }
 
@@ -185,10 +196,16 @@ public class SpeedrunLogger {
     // Specific Event Logging Methods
     // =========================================================================================
 
-    public void logStructureFound(Player player, String structureKey, Location location){
+    public void logStructureFound(@Nullable Player player, String structureKey, Location location){
+        String name = "Server";
+
+        if(player != null) {
+            name = player.getName();
+        }
+
         JSONObject json = new JSONObject();
         json.put("event", "structure_found");
-        json.put("player", player.getName());
+        json.put("player", name);
         json.put("structure", structureKey);
         json.put("x", location.getX());
         json.put("z", location.getZ());

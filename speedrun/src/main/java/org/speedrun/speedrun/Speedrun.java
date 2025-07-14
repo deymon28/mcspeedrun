@@ -1,6 +1,7 @@
 package org.speedrun.speedrun;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.speedrun.speedrun.casualGameMode.GiveCompassCommand;
 import org.speedrun.speedrun.managers.*;
 
 import java.util.Objects;
@@ -27,7 +28,7 @@ public final class Speedrun extends JavaPlugin {
     private TaskManager taskManager;
     private StructureManager structureManager;
     private ScoreboardManager scoreboardManager;
-
+    private CasualGameModeManager casualGameModeManager;
     // =========================================================================================
     // Plugin Lifecycle
     // =========================================================================================
@@ -49,6 +50,12 @@ public final class Speedrun extends JavaPlugin {
         this.gameManager = new GameManager(this);               // Contains the core game loop and state. / Містить основний ігровий цикл та стан.
         this.scoreboardManager = new ScoreboardManager(this);   // Manages the player-facing UI. / Керує інтерфейсом, що бачить гравець.
 
+        this.casualGameModeManager = new CasualGameModeManager(this, gameManager);
+        if (configManager.isCasualGameModeEnabled()) {
+            casualGameModeManager.enable();
+        } else {
+            getLogger().info("Casual Game Mode is disabled in config.yml. Some features will not be active.");
+        }
         // Register event listeners and command handlers.
         // Реєстрація слухачів подій та обробників команд.
         getServer().getPluginManager().registerEvents(new GameListener(this, gameManager), this);
@@ -56,7 +63,7 @@ public final class Speedrun extends JavaPlugin {
         RunCommand runCommand = new RunCommand(this);
         Objects.requireNonNull(getCommand("run")).setExecutor(runCommand);
         Objects.requireNonNull(getCommand("run")).setTabCompleter(runCommand);
-
+        Objects.requireNonNull(this.getCommand("givecompass")).setExecutor(new GiveCompassCommand(this));
         getLogger().info("Speedrun plugin has been enabled.");
     }
 
@@ -73,6 +80,9 @@ public final class Speedrun extends JavaPlugin {
         // Коректно зупиняємо спідран, щоб правильно зберегти логи.
         if (gameManager != null) {
             gameManager.stopRun(false);
+        }
+        if (casualGameModeManager != null) {
+            casualGameModeManager.disable();
         }
         getLogger().info("Speedrun plugin has been disabled.");
     }
@@ -95,6 +105,9 @@ public final class Speedrun extends JavaPlugin {
         return gameManager;
     }
 
+    public CasualGameModeManager getCasualGameModeManager() {
+        return casualGameModeManager;
+    }
     /**
      * @return The task manager instance. / Екземпляр менеджера завдань.
      */
