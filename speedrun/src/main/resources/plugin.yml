@@ -11,6 +11,9 @@ commands:
     usage: /run <start|stop|reset|reload|skipstage|status|tasks|new|locate>
     aliases: [sr]
     permission: speedrun.player
+  givecompass:
+    description: Gives a special navigation compass to a player.
+    usage: /givecompass [player]
 
 permissions:
   speedrun.player:

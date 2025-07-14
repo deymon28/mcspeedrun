@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A custom Bukkit event that is called whenever a key structure is found during the speedrun.
@@ -31,7 +32,7 @@ public class StructureFoundEvent extends Event {
      * @param structureKey The unique identifier for the structure (e.g., "VILLAGE"). / Унікальний ідентифікатор структури (напр., "VILLAGE").
      * @param location The location where the structure was found. / Місцезнаходження, де було знайдено структуру.
      */
-    public StructureFoundEvent(Player player, String structureKey, Location location){
+    public StructureFoundEvent(@Nullable Player player, String structureKey, Location location){
         this.player = player;
         this.structureKey = structureKey;
         this.location = location;

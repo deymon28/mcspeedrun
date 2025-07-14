@@ -5,6 +5,8 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.*;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.block.Block;
+import org.bukkit.Material;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -18,13 +20,15 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.event.player.*;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.speedrun.speedrun.events.StructureFoundEvent;
 import org.speedrun.speedrun.managers.ConfigManager;
 import org.speedrun.speedrun.managers.GameManager;
 import org.speedrun.speedrun.utils.PaperCheckUtil;
+import java.util.Collections;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -69,14 +73,37 @@ class GameListener implements Listener {
     private void increment(String key){
         plugin.getGameManager().incrementCounter(key);
     }
-
+    /**
+     * Utility method to create a consistent Navigation Compass.
+     * Placed here because GameListener needs it for join/death events.
+     */
+    private ItemStack createNavigationCompass() {
+        ItemStack compass = new ItemStack(Material.COMPASS);
+        ItemMeta meta = compass.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.GOLD + "Navigation Compass");
+            meta.setLore(Collections.singletonList(ChatColor.GRAY + "Right-click to open destinations menu."));
+            compass.setItemMeta(meta);
+        }
+        return compass;
+    }
     // =========================================================================================
     // Game State Events
     // =========================================================================================
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
         SpeedrunLogger logger = gameManager.getLogger();
+
+        if (plugin.getCasualGameModeManager().isCasualModeActive() && !player.hasPlayedBefore()) {
+            player.getInventory().addItem(createNavigationCompass());
+            player.sendMessage(ChatColor.GREEN + "Welcome! You received a " + ChatColor.GOLD + "Navigation Compass" + ChatColor.GREEN + ".");
+            player.sendMessage(ChatColor.GREEN + "Right-click it to find important locations!");
+            // Optional: Automatically set their compass target to spawn or a default location
+            // player.setCompassTarget(player.getWorld().getSpawnLocation());
+        }
+
 
         // If configured, start the run when the first player joins.
         // Якщо налаштовано, починаємо гру, коли приєднується перший гравець.
@@ -159,6 +186,15 @@ class GameListener implements Listener {
         increment(player.getName() + "_deaths");
     }
 
+    @EventHandler
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        if(plugin.getCasualGameModeManager().isCasualModeActive()){
+            Player player = event.getPlayer();
+            player.getInventory().addItem(createNavigationCompass());
+            player.sendMessage(ChatColor.GREEN + "You received a Navigation Compass!");
+        }
+    }
+
     // =========================================================================================
     // Structure and Task Events
     // =========================================================================================
@@ -173,10 +209,15 @@ class GameListener implements Listener {
                 event.getLocation()
         );
 
-        // If enabled, create a temporary beacon waypoint at the structure's location.
-        // Якщо увімкнено, створюємо тимчасовий вейпоінт-маяк на місці структури.
-        if (plugin.getConfigManager().areWaypointsEnabled()) {
-            gameManager.getCasualModeStructureManager().createBeaconStructure(event.getLocation(), event.getStructureKey());
+        if(plugin.getCasualGameModeManager().isCasualModeActive()){
+            // Get CompassListener from GameManager to add the dynamic destination
+            gameManager.getCompassListener().addDynamicDestination(event.getPlayer(), event.getStructureKey(), event.getLocation());
+            // If enabled, create a temporary beacon waypoint at the structure's location.
+            // Якщо увімкнено, створюємо тимчасовий вейпоінт-маяк на місці структури.
+            if (plugin.getConfigManager().areWaypointsEnabled()) {
+                if(Objects.equals(event.getStructureKey(), "NETHER_PORTAL")){ return; }
+                gameManager.getCasualModeStructureManager().createBeaconStructure(event.getLocation(), event.getStructureKey());
+            }
         }
     }
 

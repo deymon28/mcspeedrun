@@ -266,4 +266,6 @@ public class ConfigManager {
     public boolean areWaypointsEnabled() {
         return config.getBoolean("casual.structure_waypoints.enabled", true);
     }
+
+    public boolean isCasualGameModeEnabled() {return config.getBoolean("casual.enabled", true);}
 }

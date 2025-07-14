@@ -13,6 +13,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 import java.util.logging.Level;
+
+import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
 
 /**
@@ -185,10 +187,16 @@ public class SpeedrunLogger {
     // Specific Event Logging Methods
     // =========================================================================================
 
-    public void logStructureFound(Player player, String structureKey, Location location){
+    public void logStructureFound(@Nullable Player player, String structureKey, Location location){
+        String name = "Server";
+
+        if(player != null) {
+            name = player.getName();
+        }
+
         JSONObject json = new JSONObject();
         json.put("event", "structure_found");
-        json.put("player", player.getName());
+        json.put("player", name);
         json.put("structure", structureKey);
         json.put("x", location.getX());
         json.put("z", location.getZ());

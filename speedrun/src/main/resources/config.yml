@@ -72,6 +72,7 @@ settings:
 # CASUAL MODE SETTINGS
 # ----------------------------------------------------------------
 casual:
+  enabled: true
   # EN: Optional waypoints for navigating the world (no nether, no end).
   # UA: Опціональні орієнтири для навігації світом (без незеру, без енду).
   structure_waypoints:
