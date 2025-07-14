@@ -157,6 +157,7 @@ public class StructureManager {
         // Update the placeholder for scoreboard display.
         // Оновлюємо плейсхолдер для відображення на скорборді.
         foundLocations.put("NETHER_PORTAL", loc);
+        Bukkit.getPluginManager().callEvent(new StructureFoundEvent(player, "NETHER_PORTAL", loc));
 
         String playerName = (player != null) ? player.getName() : "GAME_WORLD";
         plugin.getGameManager().getLogger().info("Nether Portal lit by " + playerName + " in " + world.name() + " at " + LocationUtil.format(loc));
@@ -183,9 +184,11 @@ public class StructureManager {
         World.Environment exitWorld = exitLoc.getWorld().getEnvironment();
         if (exitWorld == World.Environment.NETHER && this.netherPortalLocation == null) {
             this.netherPortalLocation = exitLoc;
+            Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Nether-side) found at " + LocationUtil.format(exitLoc));
         } else if (exitWorld == World.Environment.NORMAL && this.overworldPortalLocation == null) {
             this.overworldPortalLocation = exitLoc;
+            Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Overworld-side) found at " + LocationUtil.format(exitLoc));
         }
         Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
