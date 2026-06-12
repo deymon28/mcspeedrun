@@ -175,7 +175,7 @@ public class StructureManager {
         Bukkit.getPluginManager().callEvent(new StructureFoundEvent(player, key, loc));
         boolean completedActiveStructureTask = plugin.getTaskManager().onStructureFound(key, player);
         if (!completedActiveStructureTask) {
-            plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
+            plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
         }
 
         String displayName = getLocalizedStructureName(key);
@@ -248,7 +248,7 @@ public class StructureManager {
         boolean completedActiveStructureTask = plugin.getTaskManager().onStructureFound("NETHER_PORTAL_OVERWORLD", player);
         MessageUtil.broadcast(plugin.getConfigManager().getFormatted("messages.portal-lit", "%player%", playerName));
         if (!completedActiveStructureTask) {
-            plugin.getConfigManager().executeRewardCommands("on-task-complete", player);
+            plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
         }
 
         // Update scoreboards for all players to reflect the new portal location.

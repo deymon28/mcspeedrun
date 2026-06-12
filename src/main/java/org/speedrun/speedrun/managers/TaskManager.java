@@ -161,7 +161,7 @@ public class TaskManager {
                     task.updateCompletionStatus(plugin);
                     if (!wasCompleted && task.isCompleted()) {
                         completedAnyTask[0] = true;
-                        playStructureTaskSound(player);
+                        playStructureTaskSound();
                     }
         });
         return completedAnyTask[0];
@@ -291,8 +291,8 @@ public class TaskManager {
         }
     }
 
-    private void playStructureTaskSound(Player player) {
-        RewardUtil.playStructureTaskCompleteSound(player);
+    private void playStructureTaskSound() {
+        RewardUtil.playStructureTaskCompleteSound(null);
     }
 
     private void populateMaterialSets() {
