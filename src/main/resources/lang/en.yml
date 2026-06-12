@@ -1,0 +1,150 @@
+# English Language File
+#prefix: "&e[Speedrun] &r"
+prefix: "&e&r"
+
+commands:
+  no-permission: "&cYou do not have permission to use this command."
+  player-only: "&cThis command can only be run by a player."
+  reloaded: "&aConfiguration and language files have been reloaded."
+  run-started: "&aThe speedrun has begun!"
+  run-already-started: "&cSpeedrun has already been started."
+  run-paused: "&cSpeedrun paused."
+  run-stopped: "&aSpeedrun has been stopped."
+  run-not-running: "&cSpeedrun is not running."
+  timer-paused: "&eThe speedrun timer has been paused."
+  timer-resumed: "&aThe speedrun timer has been resumed."
+  run-reset: "&cThe speedrun has been reset."
+  stage-skipped: "&eSkipped to the next stage."
+  unknown-subcommand: "&cUnknown subcommand. Use: start, pause, stop, reset, reload, skipstage, status, tasks, new, locate, remove."
+  usage-main: "&aUsage: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove>"
+  usage-new: "&cUsage: /run new <%structures%> [X Y Z]"
+  usage-remove: "&cUsage: /run remove <structure>"
+  invalid-structure: "&cInvalid structure name. Valid: %structures%"
+  location-update-failed: "&cFailed to update location for: %location%"
+  location-updated: "&aLocation updated and re-shown: %location%"
+  structure-hidden: "&aStructure hidden: %structure%"
+  locate-pos1: "&aPosition 1 set to your current location and direction."
+  locate-pos2: "&aPosition 2 set to your current location and direction."
+  locate-invalid-coordinates: "&cInvalid coordinate format. Use numbers."
+  locate-usage: "&aUsage: /run locate <pos1|pos2> or /run locate <x1> <y1> <z1> <x2> <y2> <z2>"
+  locate-header: "&a--- End Portal Location Calculation ---"
+  locate-predicted: "&aPredicted End Portal: &e%coords% &7(Nether: &c%nether_x%, %nether_z%&7)"
+  locate-failed: "&cCould not calculate location. Lines may be parallel."
+  givecompass:
+    no-permission-others: "&cYou don't have permission to give compass to others."
+    player-not-found: "&cPlayer not found: %player%"
+    usage: "&cUsage: /givecompass [player]"
+    received: "&aYou received a Navigation Compass!"
+    gave: "&aGave a Navigation Compass to %player%."
+  status:
+    header: "&6--------- &eSpeedrun Status &6---------"
+    time: "&fTime: &e%time%"
+    running: "&fStatus: &aRunning"
+    paused: "&fStatus: &cPaused"
+    stage: "&fCurrent Stage: &d%stage%"
+    players: "&fPlayers: &b%players%"
+    footer: "&6-----------------------------------"
+  tasks:
+    header: "&6--------- &eCurrent Tasks &6---------"
+    no-tasks: "&7You have no active tasks in this world."
+    task-line: "&7- %task_name%: &f%progress%&7/&f%required%"
+    footer: "&6-----------------------------------"
+
+scoreboard:
+  # To avoid problems, the name should be no longer than 16 characters,
+  # including ‘:’ (it is not mandatory, but serves as a good separator),
+  # i.e. no more than 12-15 characters (spaces also count) per location name (this is a note for translation).
+  title: "&e&lSPEEDRUN"
+  time: "&fTime:"
+  paused: "&c&lPAUSED"
+  s-end: "&c&lSPEEDRUN ENDED"
+  locations-header: "&bLocations:"
+  location-found: "&7%name%: &a%coords%"
+  location-pending: "&7%name%: &c???"
+  village-timer: "&e[%time%]"
+  normal-tasks-header: "&aOverworld:"
+  nether-tasks-header: "&cNether:"
+  end-tasks-header: "&5The End:"
+  task-line: "&7- %name%: &f%progress%&7/&f%required%"
+  task-complete: "&a✔ &m%name%" # Strikethrough when complete
+
+messages:
+  run-started: "&aThe speedrun has begun!"
+  village-timeout: "&cTime's up for the Village! The task has been removed."
+  structure-found: "&b%player% &ffound a &6%structure% &fat &b%coords%&f!"
+  portal-lit: "&b%player% &fhas opened a gateway to the &5Nether&f!"
+  dragon-slain: "&a&lThe Ender Dragon has been slain! Speedrun complete!"
+  final-time: "&a&lFinal Time: %time%"
+  stage-complete: "&d&lStage Complete! &fMoving to the next stage."
+  unknown-structure-name: "&cUnknown structure name or arbitrary location reassignment disabled: %name%"
+  reassigning-disabled: "&cReassigning locations is disabled in the config."
+  portal-reassigned: "&aPortal coordinates have been reset to your current location."
+  use-run-new-nether-portal: "&cUse '/run new nether portal' to reassign the portal."
+
+items:
+  navigation-compass:
+    name: "&6Navigation Compass"
+    lore:
+      - "&7Right-click to open destinations menu."
+
+compass:
+  welcome-received: "&aWelcome! You received a &6Navigation Compass&a."
+  welcome-hint: "&aRight-click it to find important locations!"
+  no-destinations: "&cNo destinations set for this dimension yet!"
+  destination-not-found: "&cError: Destination not found or not available in this dimension."
+  target-set: "&aCompass now pointing to %destination% in %world%!"
+  target-invalid: "&cCould not set compass target. Invalid location."
+  null-world: "&cError: Cannot add destination to a null world."
+  discovered: "&aDiscovered &b%destination%&a! Added to your Navigation Compass."
+  no-target-actionbar: "&7No destination set. Right-click to choose!"
+  other-world-actionbar: "&cTarget (%destination%) in %world%!"
+  target-actionbar: "&bTarget: %destination% (%distance%)"
+  directional-actionbar: "&bPurpose: %destination% &e%arrow% &7(%distance%)"
+  gui:
+    overworld: "&aThe Overworld"
+    nether: "&cThe Nether"
+    destination-name: "&a%destination%"
+    lore-x: "&7X: %x%"
+    lore-y: "&7Y: %y%"
+    lore-z: "&7Z: %z%"
+    lore-world: "&7World: %world%"
+    click-hint: "&eClick to set compass target"
+    custom-location: "a custom location"
+    generic-location: "Location"
+
+protection:
+  structure-marker: "&cThis is part of a structure marker and cannot be destroyed."
+  hidden-lodestone: "&cThis magical stone cannot be destroyed."
+
+# ...
+tasks:
+  OAK_LOG: "Wood"
+  COBBLESTONE: "Cobblestone"
+  IRON_INGOT: "Iron Ingots"
+  BREAD: "Cooked Food"
+
+  ENDER_PEARL: "Ender Pearls"
+  BLAZE_ROD: "Blaze Rods"
+  STRUCTURE_FORTRESS: "Find a Fortress"
+  STRUCTURE_BASTION: "Find a Bastion"
+  STRUCTURE_END_PORTAL: "Find the Stronghold"
+
+stages:
+  1_GETTING_STARTED: "Getting Started"
+  2_IRON_AGE: "Iron Age"
+  3_NETHER_EXPLORATION: "Nether Preparation"
+  4_NETHER_STRUCTURES: "Nether Structures"
+  5_STRONGHOLD: "Stronghold"
+
+structures:
+  SPAWN: "Spawn"
+  NETHER_REFERENCE: "Nether Reference"
+  LAVA_POOL: "Lava Pool"
+  VILLAGE: "Village"
+  NETHER_PORTAL: "Nether Portal"
+
+  FORTRESS: "Fortress"
+  BASTION: "Bastion"
+
+  END_PORTAL: "End Portal"
+# ...

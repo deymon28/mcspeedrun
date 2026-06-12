@@ -1,0 +1,24 @@
+name: Speedrun
+version: '${version}'
+main: org.speedrun.speedrun.Speedrun
+api-version: '1.21'
+author: 'deymon28, Niko'
+description: A speedrun plugin with a timer, location tracking, and tasks.
+
+commands:
+  run:
+    description: Main command for the Speedrun plugin.
+    usage: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove>
+    aliases: [sr]
+    permission: speedrun.player
+  givecompass:
+    description: Gives a special navigation compass to a player.
+    usage: /givecompass [player]
+
+permissions:
+  speedrun.player:
+    description: Allows using basic speedrun commands.
+    default: true
+  speedrun.admin:
+    description: Allows using administrative speedrun commands.
+    default: op
