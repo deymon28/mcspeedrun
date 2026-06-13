@@ -56,6 +56,7 @@ public class GameListener implements Listener {
     private final int NETHER_PORTAL_CHECK_RADIUS; // Radius for checking nearby blocks for portals when lighting
     private final int TELEPORT_PORTAL_SEARCH_RADIUS; // Increased radius for finding portal block after teleportation
     private final AtomicLong portalSearchGeneration = new AtomicLong();
+    private static final String STRUCTURE_MARKER_METADATA = "indestructible";
 
     private static final Set<EntityType> FOOD_MOBS = Set.of(
             EntityType.SHEEP,
@@ -161,6 +162,7 @@ public class GameListener implements Listener {
         Location from = event.getFrom();
         Location to = event.getTo();
         logPlayerBlockMove(event.getPlayer(), from, to);
+        handlePortalBlockMove(event, from, to);
 
         if (!plugin.getConfigManager().isChunkBiomeLoggingEnabled()
                 || to.getWorld().getEnvironment() != World.Environment.NORMAL) {
@@ -203,6 +205,26 @@ public class GameListener implements Listener {
             return;
         }
         gameManager.getLogger().logPlayerBlockPosition(player, to);
+    }
+
+    private void handlePortalBlockMove(PlayerMoveEvent event, Location from, Location to) {
+        if (from.getWorld().equals(to.getWorld())
+                && from.getBlockX() == to.getBlockX()
+                && from.getBlockY() == to.getBlockY()
+                && from.getBlockZ() == to.getBlockZ()) {
+            return;
+        }
+
+        Block destinationBlock = to.getBlock();
+        if (destinationBlock.getType() == Material.END_GATEWAY
+                && destinationBlock.hasMetadata(STRUCTURE_MARKER_METADATA)) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (destinationBlock.getType() == Material.END_PORTAL) {
+            registerEndPortalEntry(event.getPlayer(), destinationBlock.getLocation());
+        }
     }
 
     @EventHandler
@@ -311,7 +333,7 @@ public class GameListener implements Listener {
                 block.getType() == Material.END_GATEWAY ||
                 block.getType() == Material.IRON_BLOCK ||
                 isStainedGlass(type)) &&
-                block.hasMetadata("indestructible")) {
+                block.hasMetadata(STRUCTURE_MARKER_METADATA)) {
             event.setCancelled(true);
             MessageUtil.send(event.getPlayer(), plugin.getConfigManager().getFormatted("protection.structure-marker"));
             return;
@@ -515,6 +537,15 @@ public class GameListener implements Listener {
             return;
         }
 
+        World.Environment fromWorld = event.getFrom().getWorld().getEnvironment();
+        World.Environment toWorld = event.getTo().getWorld().getEnvironment();
+        if (fromWorld == World.Environment.NORMAL && toWorld == World.Environment.THE_END) {
+            gameManager.getLogger().logPlayerPortalFromTo(event.getPlayer().getName(), fromWorld, toWorld);
+            Location portalBlock = findNearbyBlockOfType(event.getFrom(), 2, Material.END_PORTAL);
+            registerEndPortalEntry(event.getPlayer(), portalBlock != null ? portalBlock : event.getFrom());
+            return;
+        }
+
         seedPortalEntry(event);
         Location to = event.getTo();
         long searchGeneration = portalSearchGeneration.incrementAndGet();
@@ -583,6 +614,29 @@ public class GameListener implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPlayerTeleport(PlayerTeleportEvent event) {
+        if (event.getCause() != PlayerTeleportEvent.TeleportCause.END_GATEWAY) {
+            return;
+        }
+
+        Block fromBlock = event.getFrom().getBlock();
+        if (fromBlock.getType() == Material.END_GATEWAY
+                && fromBlock.hasMetadata(STRUCTURE_MARKER_METADATA)) {
+            event.setCancelled(true);
+        }
+    }
+
+    private void registerEndPortalEntry(Player player, Location location) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+            return;
+        }
+        if (plugin.getStructureManager().getFoundStructures().get("END_PORTAL") != null) {
+            return;
+        }
+        plugin.getStructureManager().structureFound(player, "END_PORTAL", location);
+    }
+
     private void seedPortalEntry(PlayerPortalEvent event) {
         World.Environment fromWorld = event.getFrom().getWorld().getEnvironment();
         if (fromWorld != World.Environment.NORMAL && fromWorld != World.Environment.NETHER) {
@@ -637,6 +691,23 @@ public class GameListener implements Listener {
                 for (int z = -searchRadius; z <= searchRadius; z++) {
                     Block block = centerLoc.clone().add(x, y, z).getBlock();
                     if (block.getType() == Material.NETHER_PORTAL) {
+                        return block.getLocation();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private Location findNearbyBlockOfType(Location centerLoc, int searchRadius, Material material) {
+        if (centerLoc == null || centerLoc.getWorld() == null) {
+            return null;
+        }
+        for (int x = -searchRadius; x <= searchRadius; x++) {
+            for (int y = -searchRadius; y <= searchRadius; y++) {
+                for (int z = -searchRadius; z <= searchRadius; z++) {
+                    Block block = centerLoc.clone().add(x, y, z).getBlock();
+                    if (block.getType() == material) {
                         return block.getLocation();
                     }
                 }

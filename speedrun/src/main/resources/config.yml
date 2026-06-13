@@ -113,9 +113,9 @@ casual:
     # EN: Enable or disable structure waypoints in casual mode
     # UA: Увімкнути або вимкнути орієнтири структур у казуальному режимі
     enabled: true
-    # EN: END_GATEWAY avoids beacon block visibility/advancement side effects. BEACON is more visible but can affect gameplay.
-    # UA: END_GATEWAY уникає видимості блоку маяка та побічних досягнень. BEACON помітніший, але може впливати на гру.
-    type: "END_GATEWAY"
+    # EN: BEACON is the safe default. END_GATEWAY is kept for compatibility but can teleport players or trigger vanilla advancements.
+    # UA: BEACON є безпечним стандартом. END_GATEWAY залишено для сумісності, але він може телепортувати гравців або викликати vanilla-досягнення.
+    type: "BEACON"
     # EN: Horizontal offset from the detected structure, so the marker does not overwrite important blocks.
     # UA: Горизонтальний відступ від знайденої структури, щоб маркер не перезаписував важливі блоки.
     offset-blocks: 10

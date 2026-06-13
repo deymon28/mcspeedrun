@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.0-ALPHA`.
+Current plugin version: `26.1.2-3.1.1-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.0-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.1-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.0-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.1-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -90,7 +90,7 @@ Important options include:
 - `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
 - `casual.start-pre-scan.enabled`: pre-scan required structures on Casual run start.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
-- `casual.structure_waypoints`: enable and configure Beacon or End Gateway waypoints.
+- `casual.structure_waypoints`: enable structure waypoints. Beacon is the safe default; End Gateway remains compatible but is not recommended for normal play.
 - `casual.nether_gold_highlight`: highlight gold blocks around Nether players.
 - `progression`: staged item and structure tasks.
 - `rewards`: global reward commands, sounds, and particles.
@@ -114,6 +114,12 @@ Important options include:
 - Scoreboards are reattached on player rejoin.
 - Coordinate display can be `UNIFIED`, `SEPARATE`, or `CONDITIONAL`.
 - Attempt JSON logs include run metadata, Y coordinates, and optional block-level player tracking.
+
+## Notes For 3.1.1 Alpha
+
+- Coordinate display modes no longer add world labels or linked coordinates in brackets.
+- Nether compass actionbar now shows distance without a text direction arrow.
+- End portal entry is detected from the portal block, and End Gateway waypoint side effects are guarded.
 
 ## License
 

@@ -20,7 +20,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.CompassMeta;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 import org.speedrun.speedrun.utils.MessageUtil;
 
 import java.util.ArrayList;
@@ -354,7 +353,7 @@ public class CompassListener implements Listener {
                                         "%world%", targetWorldDisplayName));
                             } else if (player.getWorld().getEnvironment() != World.Environment.NORMAL) {
                                 String label = destinationName != null ? getDestinationDisplayName(destinationName) : plugin.getConfigManager().getLangString("compass.gui.generic-location", "Location");
-                                MessageUtil.actionBar(player, formatDirectionalHud(player, destination, label));
+                                MessageUtil.actionBar(player, formatDistanceHud(player, destination, label));
                             }
                             else {
                                 String distanceString = String.format("%.1f", player.getLocation().distance(destination)) + "m";
@@ -383,52 +382,12 @@ public class CompassListener implements Listener {
         }
     }
 
-    private String formatDirectionalHud(Player player, Location destination, String label) {
-        Vector direction = destination.toVector().subtract(player.getLocation().toVector());
-        direction.setY(0);
-
-        if (direction.lengthSquared() < 0.01) {
-            return plugin.getConfigManager().getFormattedText("compass.directional-actionbar",
-                    "%destination%", label,
-                    "%arrow%", "*",
-                    "%distance%", "0.0m");
-        }
-
-        Vector playerLook = player.getLocation().getDirection();
-        playerLook.setY(0);
-
-        if (playerLook.lengthSquared() < 0.01) {
-            playerLook = new Vector(0, 0, 1);
-        }
-
-        direction.normalize();
-        playerLook.normalize();
-
-        double dot = clamp(playerLook.dot(direction), -1.0, 1.0);
-        double crossY = playerLook.getZ() * direction.getX() - playerLook.getX() * direction.getZ();
-        double angle = Math.toDegrees(Math.atan2(crossY, dot));
-        String arrow = getDirectionArrow(angle);
+    private String formatDistanceHud(Player player, Location destination, String label) {
         String distance = String.format("%.1fm", player.getLocation().distance(destination));
 
-        return plugin.getConfigManager().getFormattedText("compass.directional-actionbar",
+        return plugin.getConfigManager().getFormattedText("compass.target-actionbar",
                 "%destination%", label,
-                "%arrow%", arrow,
                 "%distance%", distance);
-    }
-
-    private String getDirectionArrow(double angle) {
-        double abs = Math.abs(angle);
-        if (abs <= 45.0) {
-            return "↑";
-        }
-        if (abs >= 135.0) {
-            return "↓";
-        }
-        return angle > 0 ? "→" : "←";
-    }
-
-    private double clamp(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
     }
 
     /**

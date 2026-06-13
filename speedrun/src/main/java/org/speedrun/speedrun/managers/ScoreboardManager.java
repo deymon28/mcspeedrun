@@ -162,32 +162,15 @@ public class ScoreboardManager {
                 String displayName = sm.getLocalizedStructureName(key);
                 Location loc = entry.getValue();
 
-                // Special handling for Nether Portal
-                if (key.equals("NETHER_PORTAL")) {
-                    loc = sm.getPortalLocationForWorld(player.getWorld().getEnvironment());
-                }
-
-                // Special handling for End Portal
-                if (key.equals("END_PORTAL") && loc == null) {
-                    Location predictedLoc = sm.getPredictedEndPortalLocation();
-                    if (predictedLoc != null) {
-                        int netherX = predictedLoc.getBlockX() / 8;
-                        int netherZ = predictedLoc.getBlockZ() / 8;
-                        String endPortalLine = "§e" + displayName + ": §6" +
-                                predictedLoc.getBlockX() + ", " + predictedLoc.getBlockZ() +
-                                " §7(§c" + netherX + ", " + netherZ + "§7)";
-                        
-                        // Разбиваем длинную строку End Portal на две части
-                        List<String> splitLines = splitEndPortalLine(endPortalLine);
-                        lines.addAll(splitLines);
-                        continue;
-                    }
+                loc = resolveDisplayLocation(player, key, loc);
+                if (!shouldDisplayLocation(player, key, loc)) {
+                    continue;
                 }
 
                 if (loc != null) {
                     lines.add(cm.getFormattedString("scoreboard.location-found",
                             "%name%", displayName,
-                            "%coords%", formatCoordinates(player, loc)));
+                            "%coords%", formatCoordinates(player, key, loc)));
                 } else {
                     if (key.equals("VILLAGE") && sm.isVillageSearchActive()) {
                         String timer = cm.getFormattedString("scoreboard.village-timer",
@@ -205,20 +188,7 @@ public class ScoreboardManager {
             World.Environment env = player.getWorld().getEnvironment();
             List<Task> tasks = plugin.getTaskManager().getTasksForWorld(env);
             if (!tasks.isEmpty()) {
-                // Проверяем, есть ли разбитая строка End Portal
-                boolean hasSplitEndPortal = false;
-                for (String line : lines) {
-                    if (line.contains("End Portal") && line.contains("§7(") && line.length() > 32) {
-                        hasSplitEndPortal = true;
-                        break;
-                    }
-                }
-                
-                // Добавляем разделитель только если нет разбитой строки End Portal
-                if (!hasSplitEndPortal) {
-                    lines.add(" "); // Separator
-                }
-                
+                lines.add(" "); // Separator
                 lines.add(cm.getFormattedString("scoreboard." + env.name().toLowerCase() + "-tasks-header"));
 
                 for (Task task : tasks) {
@@ -241,21 +211,106 @@ public class ScoreboardManager {
         return lines.size() > 15 ? lines.subList(0, 15) : lines;
     }
 
-    private String formatCoordinates(Player player, Location loc) {
+    private Location resolveDisplayLocation(Player player, String key, Location loc) {
+        StructureManager sm = plugin.getStructureManager();
+        World.Environment playerWorld = player.getWorld().getEnvironment();
+
+        if ("NETHER_PORTAL".equals(key)) {
+            Location sameWorldPortal = sm.getPortalLocationForWorld(playerWorld);
+            if (sameWorldPortal != null) {
+                return sameWorldPortal;
+            }
+            Location knownPortal = sm.getOverworldPortalLocation() != null
+                    ? sm.getOverworldPortalLocation()
+                    : sm.getNetherPortalLocation();
+            return convertToPlayerWorld(player, knownPortal);
+        }
+
+        if ("END_PORTAL".equals(key)) {
+            Location endPortal = loc != null ? loc : sm.getPredictedEndPortalLocation();
+            if (playerWorld == World.Environment.NORMAL || playerWorld == World.Environment.NETHER) {
+                return convertToPlayerWorld(player, endPortal);
+            }
+            return endPortal;
+        }
+
         ConfigManager.CoordinateDisplayMode mode = plugin.getConfigManager().getCoordinateDisplayMode();
-        if (loc.getWorld() == null) {
-            return LocationUtil.format(loc);
+        if (mode == ConfigManager.CoordinateDisplayMode.CONDITIONAL) {
+            return convertToPlayerWorld(player, loc);
         }
-        if (mode == ConfigManager.CoordinateDisplayMode.SEPARATE) {
-            return loc.getWorld().getEnvironment().name() + " " + LocationUtil.format(loc);
+        return loc;
+    }
+
+    private boolean shouldDisplayLocation(Player player, String key, Location loc) {
+        ConfigManager.CoordinateDisplayMode mode = plugin.getConfigManager().getCoordinateDisplayMode();
+        if (mode != ConfigManager.CoordinateDisplayMode.SEPARATE) {
+            return true;
         }
-        if (mode == ConfigManager.CoordinateDisplayMode.UNIFIED) {
-            return LocationUtil.formatWithLinkedWorld(loc);
+
+        World.Environment playerWorld = player.getWorld().getEnvironment();
+        if ("NETHER_PORTAL".equals(key) || "END_PORTAL".equals(key)) {
+            return playerWorld == World.Environment.NORMAL || playerWorld == World.Environment.NETHER;
         }
-        if (loc.getWorld().getEnvironment() != player.getWorld().getEnvironment()) {
-            return loc.getWorld().getEnvironment().name() + " " + LocationUtil.format(loc);
+
+        if (loc == null || loc.getWorld() == null) {
+            World.Environment structureWorld = defaultStructureWorld(key);
+            return structureWorld == null || structureWorld == playerWorld;
         }
-        return LocationUtil.formatWithLinkedWorld(loc);
+
+        return loc.getWorld().getEnvironment() == playerWorld;
+    }
+
+    private World.Environment defaultStructureWorld(String key) {
+        return switch (key) {
+            case "FORTRESS", "BASTION" -> World.Environment.NETHER;
+            case "LAVA_POOL", "VILLAGE" -> World.Environment.NORMAL;
+            default -> null;
+        };
+    }
+
+    private String formatCoordinates(Player player, String key, Location loc) {
+        ConfigManager.CoordinateDisplayMode mode = plugin.getConfigManager().getCoordinateDisplayMode();
+        if (mode == ConfigManager.CoordinateDisplayMode.CONDITIONAL || "NETHER_PORTAL".equals(key) || "END_PORTAL".equals(key)) {
+            Location converted = convertToPlayerWorld(player, loc);
+            return LocationUtil.format(converted != null ? converted : loc);
+        }
+        return LocationUtil.format(loc);
+    }
+
+    private Location convertToPlayerWorld(Player player, Location loc) {
+        if (loc == null || loc.getWorld() == null) {
+            return loc;
+        }
+
+        World.Environment from = loc.getWorld().getEnvironment();
+        World.Environment to = player.getWorld().getEnvironment();
+        if (from == to) {
+            return loc;
+        }
+        if (from != World.Environment.NORMAL && from != World.Environment.NETHER) {
+            return loc;
+        }
+        if (to != World.Environment.NORMAL && to != World.Environment.NETHER) {
+            return loc;
+        }
+
+        World targetWorld = findWorldByEnvironment(to);
+        double scale = from == World.Environment.NORMAL ? 1.0 / 8.0 : 8.0;
+        return new Location(targetWorld != null ? targetWorld : loc.getWorld(),
+                loc.getX() * scale,
+                loc.getY(),
+                loc.getZ() * scale,
+                loc.getYaw(),
+                loc.getPitch());
+    }
+
+    private World findWorldByEnvironment(World.Environment environment) {
+        for (World world : Bukkit.getWorlds()) {
+            if (world.getEnvironment() == environment) {
+                return world;
+            }
+        }
+        return null;
     }
 
     private void setTeamText(@NotNull Team team, @NotNull String text) {
@@ -270,16 +325,18 @@ public class ScoreboardManager {
         } else {
             // Long text: split between prefix (16 chars) and suffix (remaining)
             prefix = cleanText.substring(0, 16);
-
-            // Get the last color code from prefix to maintain formatting
-            String lastColor = getLastColor(prefix);
-
-            // Put remaining text in suffix, preserving color formatting
             String remainingText = cleanText.substring(16);
 
-            // Apply last color to suffix if it doesn't start with a color code
-            if (!remainingText.startsWith("§") && !lastColor.isEmpty()) {
-                suffix = lastColor + remainingText;
+            if (prefix.endsWith("§")) {
+                prefix = prefix.substring(0, prefix.length() - 1);
+                remainingText = "§" + remainingText;
+            }
+
+            String formatting = getActiveFormatting(prefix);
+
+            // Put remaining text in suffix, preserving color formatting
+            if (!remainingText.startsWith("§") && !formatting.isEmpty()) {
+                suffix = formatting + remainingText;
             } else {
                 suffix = remainingText;
             }
@@ -296,48 +353,22 @@ public class ScoreboardManager {
     }
 
 
-    private @NotNull String getLastColor(@NotNull String input) {
-        String lastColor = "";
+    private @NotNull String getActiveFormatting(@NotNull String input) {
+        String color = "";
+        StringBuilder formats = new StringBuilder();
         char[] chars = input.toCharArray();
         for (int i = 0; i < chars.length - 1; i++) {
             if (chars[i] == '§') {
-                lastColor = "§" + chars[i + 1];
+                char code = Character.toLowerCase(chars[i + 1]);
+                if ((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f') || code == 'r') {
+                    color = code == 'r' ? "" : "§" + code;
+                    formats.setLength(0);
+                } else if ("klmno".indexOf(code) >= 0 && formats.indexOf("§" + code) < 0) {
+                    formats.append('§').append(code);
+                }
             }
         }
-        return lastColor;
-    }
-
-    /**
-     * Разбивает длинную строку End Portal на две части для отображения в scoreboard
-     * @param text Исходная строка End Portal
-     * @return Список из двух строк
-     */
-    private @NotNull List<String> splitEndPortalLine(@NotNull String text) {
-        List<String> result = new ArrayList<>();
-        
-        // Если строка не слишком длинная, возвращаем как есть
-        if (text.length() <= 32) {
-            result.add(text);
-            return result;
-        }
-        
-        // Ищем место для разрыва - обычно после координат Overworld
-        int breakPoint = text.indexOf(" §7(");
-        if (breakPoint == -1) {
-            // Если не нашли стандартный разделитель, разбиваем по длине
-            breakPoint = Math.min(32, text.length() - 1);
-        } else {
-            // Разбиваем после координат Overworld, перед координатами Nether
-            breakPoint += 1; // Включаем пробел
-        }
-        
-        String firstLine = text.substring(0, breakPoint);
-        String secondLine = "§7" + text.substring(breakPoint); // Добавляем цвет для второй строки
-        
-        result.add(firstLine);
-        result.add(secondLine);
-        
-        return result;
+        return color + formats;
     }
 
 
