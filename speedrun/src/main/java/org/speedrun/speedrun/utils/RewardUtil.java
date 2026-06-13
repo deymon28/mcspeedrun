@@ -1,6 +1,7 @@
 package org.speedrun.speedrun.utils;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
@@ -73,7 +74,7 @@ public final class RewardUtil {
 
             switch (parts[0].toLowerCase(Locale.ROOT)) {
                 case "sound" -> playConfiguredSound(target, parts);
-                case "particle" -> spawnConfiguredParticle(target, parts);
+                case "particle" -> spawnConfiguredParticle(plugin, target, parts);
                 default -> plugin.getLogger().warning("Unknown API reward command: " + rawCommand);
             }
         } catch (Exception ex) {
@@ -96,7 +97,7 @@ public final class RewardUtil {
         target.playSound(target.getLocation(), sound, SoundCategory.MASTER, volume, pitch);
     }
 
-    private static void spawnConfiguredParticle(Player target, String[] parts) {
+    private static void spawnConfiguredParticle(Speedrun plugin, Player target, String[] parts) {
         if (parts.length < 2) {
             return;
         }
@@ -111,7 +112,64 @@ public final class RewardUtil {
         double offsetY = parts.length > 4 ? Double.parseDouble(parts[4]) : 0.5;
         double offsetZ = parts.length > 5 ? Double.parseDouble(parts[5]) : 0.5;
         double speed = parts.length > 6 ? Double.parseDouble(parts[6]) : 0;
-        target.spawnParticle(particle, target.getLocation().add(0, 1.5, 0), count, offsetX, offsetY, offsetZ, speed);
+        Location location = target.getLocation().add(0, 1.5, 0);
+        Class<?> dataType = particle.getDataType();
+        if (dataType == Void.class) {
+            target.spawnParticle(particle, location, count, offsetX, offsetY, offsetZ, speed);
+            return;
+        }
+
+        Object data = createParticleData(dataType, parts, 7);
+        if (data != null) {
+            target.spawnParticle(particle, location, count, offsetX, offsetY, offsetZ, speed, data);
+            return;
+        }
+
+        plugin.getLogger().warning("Unsupported particle data type for " + parts[1] + ": " + dataType.getName());
+    }
+
+    private static Object createParticleData(Class<?> dataType, String[] parts, int dataStartIndex) {
+        if (dataType == Color.class) {
+            return parseConfiguredColor(parts, dataStartIndex, Color.WHITE);
+        }
+
+        if (dataType == Particle.DustOptions.class) {
+            Color color = parseConfiguredColor(parts, dataStartIndex, Color.RED);
+            float size = parts.length > dataStartIndex + 3 ? Float.parseFloat(parts[dataStartIndex + 3]) : 1.0f;
+            return new Particle.DustOptions(color, size);
+        }
+
+        if (dataType == Particle.DustTransition.class) {
+            Color fromColor = parseConfiguredColor(parts, dataStartIndex, Color.RED);
+            Color toColor = parseConfiguredColor(parts, dataStartIndex + 3, Color.WHITE);
+            float size = parts.length > dataStartIndex + 6 ? Float.parseFloat(parts[dataStartIndex + 6]) : 1.0f;
+            return new Particle.DustTransition(fromColor, toColor, size);
+        }
+
+        return null;
+    }
+
+    private static Color parseConfiguredColor(String[] parts, int startIndex, Color defaultColor) {
+        if (parts.length <= startIndex) {
+            return defaultColor;
+        }
+
+        String rawColor = parts[startIndex].trim();
+        if (rawColor.startsWith("#") && rawColor.length() == 7) {
+            return Color.fromRGB(
+                    Integer.parseInt(rawColor.substring(1, 3), 16),
+                    Integer.parseInt(rawColor.substring(3, 5), 16),
+                    Integer.parseInt(rawColor.substring(5, 7), 16));
+        }
+
+        if (parts.length > startIndex + 2) {
+            return Color.fromRGB(
+                    Integer.parseInt(parts[startIndex]),
+                    Integer.parseInt(parts[startIndex + 1]),
+                    Integer.parseInt(parts[startIndex + 2]));
+        }
+
+        return defaultColor;
     }
 
     /**
