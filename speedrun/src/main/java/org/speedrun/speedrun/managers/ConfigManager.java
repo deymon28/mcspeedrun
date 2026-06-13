@@ -49,6 +49,12 @@ public class ConfigManager {
         END_GATEWAY
     }
 
+    public enum CoordinateDisplayMode {
+        UNIFIED,
+        SEPARATE,
+        CONDITIONAL
+    }
+
     public ConfigManager(Speedrun plugin) {
         this.plugin = plugin;
         reload();
@@ -210,12 +216,40 @@ public class ConfigManager {
         return config.getBoolean("settings.chunk-biome-logging.enabled", true);
     }
 
+    public boolean isPlayerBlockLoggingEnabled() {
+        return config.getBoolean("tracking.player-blocks.enabled", false);
+    }
+
     public boolean isStartPreScanEnabled() {
-        return config.getBoolean("settings.start-pre-scan.enabled", false);
+        return isCasualGameModeEnabled()
+                && config.getBoolean("casual.start-pre-scan.enabled",
+                config.getBoolean("settings.start-pre-scan.enabled", false));
     }
 
     public int getStartPreScanRadius() {
-        return Math.max(1, config.getInt("settings.start-pre-scan.radius", 1000));
+        return Math.max(1, config.getInt("casual.start-pre-scan.radius",
+                config.getInt("settings.start-pre-scan.radius", 1000)));
+    }
+
+    public int getStartPreScanRadiusChunks() {
+        int configuredBlocks = getStartPreScanRadius();
+        int chunks = Math.max(1, (int) Math.ceil(configuredBlocks / 16.0));
+        int maxChunks = Math.max(1, config.getInt("casual.start-pre-scan.max-radius-chunks", 64));
+        return Math.min(chunks, maxChunks);
+    }
+
+    public boolean isStartPreScanLavaEnabled() {
+        return config.getBoolean("casual.start-pre-scan.include-lava-pool", true);
+    }
+
+    public CoordinateDisplayMode getCoordinateDisplayMode() {
+        String rawMode = config.getString("settings.coordinate-display.mode", "CONDITIONAL");
+        try {
+            return CoordinateDisplayMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            plugin.getLogger().warning("Unknown settings.coordinate-display.mode '" + rawMode + "'. Falling back to CONDITIONAL.");
+            return CoordinateDisplayMode.CONDITIONAL;
+        }
     }
 
     /** @return The radius for detecting a lava pool. / Радіус для виявлення озера лави. */
@@ -250,7 +284,7 @@ public class ConfigManager {
 
     /** @return Whether waypoints (beacons) should be created for found structures in casual mode. / Чи створювати вейпоінти (маяки) для знайдених структур у казуальному режимі. */
     public boolean areWaypointsEnabled() {
-        return config.getBoolean("casual.structure_waypoints.enabled", true);
+        return isCasualGameModeEnabled() && config.getBoolean("casual.structure_waypoints.enabled", true);
     }
 
     public WaypointType getWaypointType() {
@@ -273,7 +307,11 @@ public class ConfigManager {
     }
 
     public boolean isNetherGoldHighlightEnabled() {
-        return config.getBoolean("casual.nether_gold_highlight.enabled", true);
+        return isCasualGameModeEnabled() && config.getBoolean("casual.nether_gold_highlight.enabled", true);
+    }
+
+    public boolean isNetherReferenceDestinationEnabled() {
+        return isCasualGameModeEnabled() && config.getBoolean("casual.compass.show-nether-reference", false);
     }
 
     public int getNetherGoldHighlightRadius() {

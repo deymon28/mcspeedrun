@@ -48,6 +48,7 @@ public class GameListener implements Listener {
     // Кулдаун для запобігання спаму взаємодіями з дзвоном.
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private final Set<String> loggedBiomeChunks = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, String> lastLoggedPlayerBlocks = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
 
     // Cached config values for performance.
@@ -82,6 +83,7 @@ public class GameListener implements Listener {
     public void resetRuntimeCaches() {
         invalidatePendingPortalSearches();
         loggedBiomeChunks.clear();
+        lastLoggedPlayerBlocks.clear();
     }
     /**
      * Utility method to create a consistent Navigation Compass.
@@ -152,15 +154,19 @@ public class GameListener implements Listener {
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
-        if (!plugin.getConfigManager().isChunkBiomeLoggingEnabled()
-                || !plugin.getGameManager().isRunning()
-                || event.getTo() == null
-                || event.getTo().getWorld().getEnvironment() != World.Environment.NORMAL) {
+        if (!plugin.getGameManager().isRunning() || event.getTo() == null) {
             return;
         }
 
         Location from = event.getFrom();
         Location to = event.getTo();
+        logPlayerBlockMove(event.getPlayer(), from, to);
+
+        if (!plugin.getConfigManager().isChunkBiomeLoggingEnabled()
+                || to.getWorld().getEnvironment() != World.Environment.NORMAL) {
+            return;
+        }
+
         if (from.getWorld().equals(to.getWorld())
                 && from.getBlockX() >> 4 == to.getBlockX() >> 4
                 && from.getBlockZ() >> 4 == to.getBlockZ() >> 4) {
@@ -179,6 +185,24 @@ public class GameListener implements Listener {
         int sampleY = to.getWorld().getHighestBlockYAt(sampleX, sampleZ);
         String biome = to.getWorld().getBlockAt(sampleX, sampleY, sampleZ).getBiome().toString();
         gameManager.getLogger().logChunkBiome(event.getPlayer(), chunkX, chunkZ, biome);
+    }
+
+    private void logPlayerBlockMove(Player player, Location from, Location to) {
+        if (!plugin.getConfigManager().isPlayerBlockLoggingEnabled()) {
+            return;
+        }
+        if (from.getWorld().equals(to.getWorld())
+                && from.getBlockX() == to.getBlockX()
+                && from.getBlockY() == to.getBlockY()
+                && from.getBlockZ() == to.getBlockZ()) {
+            return;
+        }
+
+        String key = to.getWorld().getUID() + ":" + to.getBlockX() + ":" + to.getBlockY() + ":" + to.getBlockZ();
+        if (key.equals(lastLoggedPlayerBlocks.put(player.getUniqueId(), key))) {
+            return;
+        }
+        gameManager.getLogger().logPlayerBlockPosition(player, to);
     }
 
     @EventHandler
@@ -460,26 +484,26 @@ public class GameListener implements Listener {
         if (plugin.getConfigManager().isHardcoreModeEnabled()) {
             return;
         }
-        // Only react to direct player ignition. Fire spread near an existing portal must not count.
-        if (event.getPlayer() == null) {
+        BlockIgniteEvent.IgniteCause cause = event.getCause();
+        if (cause != BlockIgniteEvent.IgniteCause.FLINT_AND_STEEL
+                && cause != BlockIgniteEvent.IgniteCause.FIREBALL
+                && cause != BlockIgniteEvent.IgniteCause.LAVA
+                && cause != BlockIgniteEvent.IgniteCause.SPREAD) {
             return;
         }
 
-        if (event.getCause() == BlockIgniteEvent.IgniteCause.FLINT_AND_STEEL
-                || event.getCause() == BlockIgniteEvent.IgniteCause.FIREBALL) {
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    for (Block nearby : getNearbyBlocks(event.getBlock(), 2)) {
-                        if (nearby.getType() == Material.NETHER_PORTAL) {
-                            plugin.getStructureManager().portalLit(event.getPlayer(), nearby.getLocation());
-                            cancel();
-                            return;
-                        }
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Block nearby : getNearbyBlocks(event.getBlock(), NETHER_PORTAL_CHECK_RADIUS)) {
+                    if (nearby.getType() == Material.NETHER_PORTAL) {
+                        plugin.getStructureManager().portalLit(event.getPlayer(), nearby.getLocation());
+                        cancel();
+                        return;
                     }
                 }
-            }.runTaskLater(plugin, 2L);
-        }
+            }
+        }.runTaskLater(plugin, 2L);
     }
 
     @EventHandler
@@ -487,12 +511,11 @@ public class GameListener implements Listener {
         if (plugin.getConfigManager().isHardcoreModeEnabled()) {
             return;
         }
-        // This logic is for finding the *exit* of a portal to get precise, linked coordinates.
-        // Ця логіка призначена для пошуку *виходу* з порталу для отримання точних, пов'язаних координат.
-        if (!plugin.getStructureManager().isPortalPartiallyFound()) {
+        if (event.getTo() == null) {
             return;
         }
 
+        seedPortalEntry(event);
         Location to = event.getTo();
         long searchGeneration = portalSearchGeneration.incrementAndGet();
 
@@ -558,6 +581,24 @@ public class GameListener implements Listener {
                 plugin.getStructureManager().portalExitFound(finalLocation);
             }
         }
+    }
+
+    private void seedPortalEntry(PlayerPortalEvent event) {
+        World.Environment fromWorld = event.getFrom().getWorld().getEnvironment();
+        if (fromWorld != World.Environment.NORMAL && fromWorld != World.Environment.NETHER) {
+            return;
+        }
+
+        Location known = fromWorld == World.Environment.NORMAL
+                ? plugin.getStructureManager().getOverworldPortalLocation()
+                : plugin.getStructureManager().getNetherPortalLocation();
+        if (known != null) {
+            return;
+        }
+
+        Location preciseEntry = findPortalBlockSync(event.getFrom(), NETHER_PORTAL_CHECK_RADIUS);
+        Location entryLocation = preciseEntry != null ? preciseEntry : event.getFrom();
+        plugin.getStructureManager().portalLit(event.getPlayer(), entryLocation);
     }
 
     // =========================================================================================

@@ -143,6 +143,7 @@ public class GameManager {
             proximityScannerTask.cancel();
             proximityScannerTask = null;
         }
+        plugin.getStructureManager().cancelPreScan();
         casualModeStructureManager.clearWaypoints();
         if (plugin.getGameListener() != null) {
             plugin.getGameListener().resetRuntimeCaches();

@@ -51,11 +51,10 @@ settings:
     # UA: Логує кожен відвіданий чанк Overworld один раз з біомом для аналізу карти активності.
     enabled: true
 
-  start-pre-scan:
-    # EN: Finds selected structure coordinates when a run starts. This can be expensive; keep disabled on weak servers.
-    # UA: Шукає координати вибраних структур на старті забігу. Це може бути важко для сервера; на слабких серверах краще вимкнути.
-    enabled: false
-    radius: 1000
+  coordinate-display:
+    # EN: UNIFIED shows linked Overworld/Nether coordinates together, SEPARATE adds the source world, CONDITIONAL changes by player dimension.
+    # UA: UNIFIED показує пов'язані координати Верхнього світу/Незеру разом, SEPARATE додає світ-джерело, CONDITIONAL змінює вигляд залежно від виміру гравця.
+    mode: "CONDITIONAL"
 
   # EN: Settings for the automatic structure scanner
   # UA: Налаштування для автоматичного сканера структур
@@ -84,19 +83,39 @@ settings:
     portal-search-timeout: 15
 
 # ----------------------------------------------------------------
+# Tracking and logging options
+# ----------------------------------------------------------------
+tracking:
+  player-blocks:
+    # EN: Logs player block coordinates on movement for future map/video playback analysis. Can produce large JSON logs.
+    # UA: Логує блокові координати гравця під час руху для майбутнього аналізу карти/відеоповтору. Може створювати великі JSON-логи.
+    enabled: false
+
+# ----------------------------------------------------------------
 # CASUAL MODE SETTINGS
 # ----------------------------------------------------------------
 casual:
   enabled: true
+  start-pre-scan:
+    # EN: Finds selected structure coordinates when a Casual run starts. Radius is configured in blocks and capped in chunks for Paper locate calls.
+    # UA: Шукає координати вибраних структур на старті Casual-забігу. Радіус заданий у блоках і обмежується чанками для Paper locate-викликів.
+    enabled: false
+    radius: 1000
+    max-radius-chunks: 64
+    include-lava-pool: true
+  compass:
+    # EN: Shows the old test-only Nether Reference destination. Disabled by default because it is not tied to actual run state.
+    # UA: Показує старий тестовий пункт Nether Reference. Вимкнено за замовчуванням, бо він не прив'язаний до реального стану забігу.
+    show-nether-reference: false
   # EN: Optional waypoints for navigating the world (no nether, no end).
   # UA: Опціональні орієнтири для навігації світом (без незеру, без енду).
   structure_waypoints:
     # EN: Enable or disable structure waypoints in casual mode
     # UA: Увімкнути або вимкнути орієнтири структур у казуальному режимі
     enabled: true
-    # EN: BEACON or END_GATEWAY. End gateway is lighter; beacon is more visible.
-    # UA: BEACON або END_GATEWAY. End gateway легший; beacon помітніший.
-    type: "BEACON"
+    # EN: END_GATEWAY avoids beacon block visibility/advancement side effects. BEACON is more visible but can affect gameplay.
+    # UA: END_GATEWAY уникає видимості блоку маяка та побічних досягнень. BEACON помітніший, але може впливати на гру.
+    type: "END_GATEWAY"
     # EN: Horizontal offset from the detected structure, so the marker does not overwrite important blocks.
     # UA: Горизонтальний відступ від знайденої структури, щоб маркер не перезаписував важливі блоки.
     offset-blocks: 10

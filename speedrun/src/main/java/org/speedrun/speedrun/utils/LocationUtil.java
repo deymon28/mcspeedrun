@@ -1,6 +1,7 @@
 package org.speedrun.speedrun.utils;
 
 import org.bukkit.Location;
+import org.bukkit.World;
 
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.Nullable;
@@ -26,6 +27,18 @@ public final class LocationUtil {
     public static String format(Location loc) {
         if (loc == null) return "???";
         return String.format("%d, %d, %d", loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+    }
+
+    public static String formatWithLinkedWorld(Location loc) {
+        if (loc == null || loc.getWorld() == null) return format(loc);
+        World.Environment environment = loc.getWorld().getEnvironment();
+        if (environment == World.Environment.NORMAL) {
+            return String.format("%s (N: %d, %d)", format(loc), loc.getBlockX() / 8, loc.getBlockZ() / 8);
+        }
+        if (environment == World.Environment.NETHER) {
+            return String.format("%s (O: %d, %d)", format(loc), loc.getBlockX() * 8, loc.getBlockZ() * 8);
+        }
+        return format(loc);
     }
 
     /**

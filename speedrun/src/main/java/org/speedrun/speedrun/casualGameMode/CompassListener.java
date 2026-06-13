@@ -73,7 +73,9 @@ public class CompassListener implements Listener {
         }
         if (nether != null) {
             Map<String, Location> netherDestinations = new HashMap<>();
-            netherDestinations.put("NETHER_REFERENCE", new Location(nether, 100, 70, 50));
+            if (plugin.getConfigManager().isNetherReferenceDestinationEnabled()) {
+                netherDestinations.put("NETHER_REFERENCE", new Location(nether, 100, 70, 50));
+            }
             predefinedDestinationsByWorld.put(nether, netherDestinations);
         }
     }

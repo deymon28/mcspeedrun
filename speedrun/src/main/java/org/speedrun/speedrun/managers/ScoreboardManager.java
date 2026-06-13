@@ -32,6 +32,9 @@ public class ScoreboardManager {
                 player.setScoreboard(newBoard);
                 return newBoard;
             });
+            if (player.getScoreboard() != board) {
+                player.setScoreboard(board);
+            }
 
             Objective objective = board.getObjective("speedrun");
             if (objective == null) {
@@ -184,7 +187,7 @@ public class ScoreboardManager {
                 if (loc != null) {
                     lines.add(cm.getFormattedString("scoreboard.location-found",
                             "%name%", displayName,
-                            "%coords%", LocationUtil.format(loc)));
+                            "%coords%", formatCoordinates(player, loc)));
                 } else {
                     if (key.equals("VILLAGE") && sm.isVillageSearchActive()) {
                         String timer = cm.getFormattedString("scoreboard.village-timer",
@@ -236,6 +239,23 @@ public class ScoreboardManager {
 
         // Ensure we don't exceed 15 lines
         return lines.size() > 15 ? lines.subList(0, 15) : lines;
+    }
+
+    private String formatCoordinates(Player player, Location loc) {
+        ConfigManager.CoordinateDisplayMode mode = plugin.getConfigManager().getCoordinateDisplayMode();
+        if (loc.getWorld() == null) {
+            return LocationUtil.format(loc);
+        }
+        if (mode == ConfigManager.CoordinateDisplayMode.SEPARATE) {
+            return loc.getWorld().getEnvironment().name() + " " + LocationUtil.format(loc);
+        }
+        if (mode == ConfigManager.CoordinateDisplayMode.UNIFIED) {
+            return LocationUtil.formatWithLinkedWorld(loc);
+        }
+        if (loc.getWorld().getEnvironment() != player.getWorld().getEnvironment()) {
+            return loc.getWorld().getEnvironment().name() + " " + LocationUtil.format(loc);
+        }
+        return LocationUtil.formatWithLinkedWorld(loc);
     }
 
     private void setTeamText(@NotNull Team team, @NotNull String text) {

@@ -1,6 +1,7 @@
 package org.speedrun.speedrun.managers;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.Material;
@@ -8,6 +9,7 @@ import org.bukkit.block.Block;
 import org.bukkit.generator.structure.Structure;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.StructureSearchResult;
 import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.utils.MessageUtil;
@@ -32,6 +34,8 @@ public class StructureManager {
     private final Map<String, Location> hiddenLodestones = new LinkedHashMap<>();
     private final Map<String, Material> hiddenLodestonePreviousBlocks = new HashMap<>();
     private final Set<String> disabledSearches = new HashSet<>();
+    private BukkitTask preScanTask;
+    private long preScanGeneration = 0;
 
     public boolean villageSearchFailed = false;
 
@@ -57,6 +61,7 @@ public class StructureManager {
      * Викликається на початку нового спідрану.
      */
     public void reset() {
+        cancelPreScan();
         clearAllHiddenLodestones();
         foundLocations.clear();
         hiddenStructures.clear();
@@ -78,40 +83,73 @@ public class StructureManager {
     }
 
     public void preScanRequiredStructures() {
-        int radius = plugin.getConfigManager().getStartPreScanRadius();
+        cancelPreScan();
+        long generation = preScanGeneration;
+
+        List<Runnable> scans = new ArrayList<>();
         World overworld = getWorld(World.Environment.NORMAL);
         World nether = getWorld(World.Environment.NETHER);
 
         if (overworld != null) {
-            Location origin = overworld.getSpawnLocation();
-            Location village = locateNearest(origin, radius,
-                    Structure.VILLAGE_PLAINS,
-                    Structure.VILLAGE_DESERT,
-                    Structure.VILLAGE_SAVANNA,
-                    Structure.VILLAGE_SNOWY,
-                    Structure.VILLAGE_TAIGA);
-            if (village != null) {
-                structureFound(null, "VILLAGE", village);
-            }
+            Location origin = getPreScanOrigin(overworld);
+            scans.add(() -> {
+                Location village = locateNearest(origin,
+                        Structure.VILLAGE_PLAINS,
+                        Structure.VILLAGE_DESERT,
+                        Structure.VILLAGE_SAVANNA,
+                        Structure.VILLAGE_SNOWY,
+                        Structure.VILLAGE_TAIGA);
+                if (village != null) {
+                    registerPreScannedStructure(generation, "VILLAGE", village);
+                }
+            });
 
-            Location stronghold = locateNearest(origin, radius, Structure.STRONGHOLD);
-            if (stronghold != null) {
-                structureFound(null, "END_PORTAL", stronghold);
+            scans.add(() -> {
+                Location stronghold = locateNearest(origin, Structure.STRONGHOLD);
+                if (stronghold != null) {
+                    registerPreScannedStructure(generation, "END_PORTAL", stronghold);
+                }
+            });
+
+            if (plugin.getConfigManager().isStartPreScanLavaEnabled()) {
+                scans.add(() -> {
+                    Location lavaPool = findLoadedLavaPool(origin);
+                    if (lavaPool != null) {
+                        registerPreScannedStructure(generation, "LAVA_POOL", lavaPool);
+                    }
+                });
             }
         }
 
         if (nether != null) {
-            Location origin = nether.getSpawnLocation();
-            Location fortress = locateNearest(origin, radius, Structure.FORTRESS);
-            if (fortress != null) {
-                structureFound(null, "FORTRESS", fortress);
-            }
+            Location origin = getPreScanOrigin(nether);
+            scans.add(() -> {
+                Location fortress = locateNearest(origin, Structure.FORTRESS);
+                if (fortress != null) {
+                    registerPreScannedStructure(generation, "FORTRESS", fortress);
+                }
+            });
 
-            Location bastion = locateNearest(origin, radius, Structure.BASTION_REMNANT);
-            if (bastion != null) {
-                structureFound(null, "BASTION", bastion);
-            }
+            scans.add(() -> {
+                Location bastion = locateNearest(origin, Structure.BASTION_REMNANT);
+                if (bastion != null) {
+                    registerPreScannedStructure(generation, "BASTION", bastion);
+                }
+            });
         }
+
+        if (scans.isEmpty()) {
+            return;
+        }
+
+        Iterator<Runnable> iterator = scans.iterator();
+        preScanTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!iterator.hasNext()) {
+                cancelPreScan();
+                return;
+            }
+            iterator.next().run();
+        }, 1L, 20L);
     }
 
     private World getWorld(World.Environment environment) {
@@ -123,7 +161,8 @@ public class StructureManager {
         return null;
     }
 
-    private Location locateNearest(Location origin, int radius, Structure... structures) {
+    private Location locateNearest(Location origin, Structure... structures) {
+        int radius = plugin.getConfigManager().getStartPreScanRadiusChunks();
         Location nearest = null;
         double nearestDistanceSquared = Double.MAX_VALUE;
 
@@ -141,6 +180,103 @@ public class StructureManager {
         }
 
         return nearest;
+    }
+
+    private void registerPreScannedStructure(long generation, String key, Location location) {
+        if (generation != preScanGeneration || location == null || location.getWorld() == null) {
+            return;
+        }
+
+        if (location.getBlockY() != 0) {
+            structureFound(null, key, location);
+            return;
+        }
+
+        World world = location.getWorld();
+        int chunkX = location.getBlockX() >> 4;
+        int chunkZ = location.getBlockZ() >> 4;
+        world.getChunkAtAsync(chunkX, chunkZ).thenAccept((Chunk ignored) ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (generation != preScanGeneration || !plugin.getGameManager().isRunning()) {
+                        return;
+                    }
+                    Location adjusted = location.clone();
+                    adjusted.setY(world.getHighestBlockYAt(adjusted) + 1);
+                    structureFound(null, key, adjusted);
+                })
+        ).exceptionally(ex -> {
+            plugin.getLogger().warning("Failed to resolve Y for pre-scanned " + key + ": " + ex.getMessage());
+            return null;
+        });
+    }
+
+    private Location getPreScanOrigin(World world) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getWorld().getEnvironment() == world.getEnvironment()) {
+                return player.getLocation();
+            }
+        }
+        return world.getSpawnLocation();
+    }
+
+    private Location findLoadedLavaPool(Location origin) {
+        World world = origin.getWorld();
+        if (world == null) {
+            return null;
+        }
+        int radiusBlocks = plugin.getConfigManager().getStartPreScanRadius();
+        int radiusChunks = Math.min(plugin.getConfigManager().getStartPreScanRadiusChunks(), 16);
+        int centerChunkX = origin.getBlockX() >> 4;
+        int centerChunkZ = origin.getBlockZ() >> 4;
+        int requiredSources = plugin.getConfigManager().getLavaPoolRequiredSources();
+
+        for (int chunkX = centerChunkX - radiusChunks; chunkX <= centerChunkX + radiusChunks; chunkX++) {
+            for (int chunkZ = centerChunkZ - radiusChunks; chunkZ <= centerChunkZ + radiusChunks; chunkZ++) {
+                if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                    continue;
+                }
+                Location candidate = findLavaClusterInChunk(world, chunkX, chunkZ, origin, radiusBlocks, requiredSources);
+                if (candidate != null) {
+                    return candidate;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Location findLavaClusterInChunk(World world, int chunkX, int chunkZ, Location origin, int radiusBlocks, int requiredSources) {
+        int minY = Math.max(world.getMinHeight(), origin.getBlockY() - 32);
+        int maxY = Math.min(world.getMaxHeight() - 1, origin.getBlockY() + 32);
+        int count = 0;
+        Location first = null;
+
+        for (int x = chunkX << 4; x < (chunkX << 4) + 16; x++) {
+            for (int z = chunkZ << 4; z < (chunkZ << 4) + 16; z++) {
+                if (Math.abs(x - origin.getBlockX()) > radiusBlocks || Math.abs(z - origin.getBlockZ()) > radiusBlocks) {
+                    continue;
+                }
+                for (int y = minY; y <= maxY; y++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (block.getType() == Material.LAVA) {
+                        if (first == null) {
+                            first = block.getLocation();
+                        }
+                        if (++count >= requiredSources) {
+                            return first;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void cancelPreScan() {
+        preScanGeneration++;
+        if (preScanTask != null) {
+            preScanTask.cancel();
+            preScanTask = null;
+        }
     }
 
     /**
@@ -474,6 +610,9 @@ public class StructureManager {
             lodestoneLocation.setY(minHeight);
         }
 
+        if (!world.isChunkLoaded(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4)) {
+            return;
+        }
         Block block = lodestoneLocation.getBlock();
         hiddenLodestonePreviousBlocks.put(key, block.getType());
         block.setType(Material.LODESTONE, false);
@@ -488,6 +627,9 @@ public class StructureManager {
             return;
         }
 
+        if (!lodestoneLocation.getWorld().isChunkLoaded(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4)) {
+            return;
+        }
         Block block = lodestoneLocation.getBlock();
         if (block.hasMetadata(HIDDEN_LODESTONE_METADATA)) {
             block.removeMetadata(HIDDEN_LODESTONE_METADATA, plugin);

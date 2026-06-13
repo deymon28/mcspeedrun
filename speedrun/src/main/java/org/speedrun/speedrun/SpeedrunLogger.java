@@ -63,6 +63,7 @@ public class SpeedrunLogger {
 
 
             info("================ SPEEDRUN LOG SESSION STARTED ================");
+            logRunMetadata();
         } catch (IOException e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to initialize speedrun logger!", e);
             this.active = false;
@@ -128,6 +129,24 @@ public class SpeedrunLogger {
             }
         }
         log(Level.INFO, "------------------------------------------");
+    }
+
+    private void logRunMetadata() {
+        JSONObject json = new JSONObject();
+        json.put("event", "run_metadata");
+        json.put("minecraft_version", Bukkit.getMinecraftVersion());
+        json.put("bukkit_version", Bukkit.getVersion());
+        if (!Bukkit.getWorlds().isEmpty()) {
+            World world = Bukkit.getWorlds().get(0);
+            json.put("world", world.getName());
+            json.put("seed", world.getSeed());
+        }
+        logStructuredEvent(json);
+        info("Minecraft version: " + Bukkit.getMinecraftVersion());
+        if (!Bukkit.getWorlds().isEmpty()) {
+            World world = Bukkit.getWorlds().get(0);
+            info("World seed (" + world.getName() + "): " + world.getSeed());
+        }
     }
 
     /**
@@ -208,6 +227,7 @@ public class SpeedrunLogger {
         json.put("player", name);
         json.put("structure", structureKey);
         json.put("x", location.getX());
+        json.put("y", location.getY());
         json.put("z", location.getZ());
         json.put("world", location.getWorld().getName());
 
@@ -223,6 +243,7 @@ public class SpeedrunLogger {
         json.put("player", name);
         json.put("death_by", deathCause);
         json.put("x", loc.getX());
+        json.put("y", loc.getY());
         json.put("z", loc.getZ());
         json.put("world", world);
 
@@ -237,6 +258,7 @@ public class SpeedrunLogger {
         json.put("player", killer.getName());
         json.put("mob", mob);
         json.put("x", loc.getX());
+        json.put("y", loc.getY());
         json.put("z", loc.getZ());
         json.put("world", world);
 
@@ -287,6 +309,20 @@ public class SpeedrunLogger {
         json.put("chunk_x", chunkX);
         json.put("chunk_z", chunkZ);
         json.put("biome", biome);
+
+        logStructuredEvent(json);
+    }
+
+    public void logPlayerBlockPosition(Player player, Location loc) {
+        JSONObject json = new JSONObject();
+        json.put("event", "player_block_position");
+        json.put("player", player.getName());
+        json.put("world", loc.getWorld().getName());
+        json.put("x", loc.getBlockX());
+        json.put("y", loc.getBlockY());
+        json.put("z", loc.getBlockZ());
+        json.put("chunk_x", loc.getBlockX() >> 4);
+        json.put("chunk_z", loc.getBlockZ() >> 4);
 
         logStructuredEvent(json);
     }

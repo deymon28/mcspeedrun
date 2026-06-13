@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.0.1-ALPHA`.
+Current plugin version: `26.1.2-3.1.0-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.0.1-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.0-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.0.1-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.0-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -88,7 +88,7 @@ Main settings are in `speedrun/src/main/resources/config.yml` and are copied to 
 Important options include:
 
 - `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
-- `settings.start-pre-scan.enabled`: pre-scan required structures on run start.
+- `casual.start-pre-scan.enabled`: pre-scan required structures on Casual run start.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
 - `casual.structure_waypoints`: enable and configure Beacon or End Gateway waypoints.
 - `casual.nether_gold_highlight`: highlight gold blocks around Nether players.
@@ -105,6 +105,15 @@ Important options include:
 - Fixed Nether portal fire-spread false positives.
 - Fixed village timeout/reset behavior.
 - Added exact Nether portal search timeout fallback to approximate coordinates.
+
+## Notes For 3.1.0 Alpha
+
+- Start pre-scan now belongs to `casual.start-pre-scan` and is ignored outside Casual mode.
+- Structure pre-scan is staggered and treats the configured radius as blocks, with a chunk cap for Paper locate calls.
+- Portal entry now records missing source-side coordinates before searching the destination side.
+- Scoreboards are reattached on player rejoin.
+- Coordinate display can be `UNIFIED`, `SEPARATE`, or `CONDITIONAL`.
+- Attempt JSON logs include run metadata, Y coordinates, and optional block-level player tracking.
 
 ## License
 
