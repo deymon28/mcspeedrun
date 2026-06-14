@@ -1,14 +1,18 @@
 package org.speedrun.speedrun.managers;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.generator.structure.GeneratedStructure;
+import org.bukkit.generator.structure.Structure;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BoundingBox;
 import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.utils.MessageUtil;
 import org.speedrun.speedrun.utils.PaperCheckUtil;
@@ -120,6 +124,8 @@ public class StructureManager {
             return;
         }
 
+        scanGeneratedStructuresInChunk(player, world, chunkX, chunkZ);
+
         if (world.getEnvironment() != World.Environment.NORMAL) {
             return;
         }
@@ -130,6 +136,61 @@ public class StructureManager {
         }
 
         scanLoadedChunkSynchronously(player, world, chunkX, chunkZ);
+    }
+
+    private void scanGeneratedStructuresInChunk(Player player, World world, int chunkX, int chunkZ) {
+        Chunk chunk = world.getChunkAt(chunkX, chunkZ);
+        if (!chunk.isGenerated()) {
+            return;
+        }
+
+        for (GeneratedStructure generatedStructure : chunk.getStructures()) {
+            String key = structureKeyFor(generatedStructure.getStructure(), world.getEnvironment());
+            if (key == null || !isStructureSearchActive(key)) {
+                continue;
+            }
+            structureFound(player, key, centerOf(generatedStructure, world));
+        }
+    }
+
+    private String structureKeyFor(Structure structure, World.Environment environment) {
+        if (environment == World.Environment.NETHER) {
+            if (structure == Structure.FORTRESS) {
+                return "FORTRESS";
+            }
+            if (structure == Structure.BASTION_REMNANT) {
+                return "BASTION";
+            }
+            return null;
+        }
+
+        if (environment == World.Environment.NORMAL) {
+            if (structure == Structure.STRONGHOLD) {
+                return "END_PORTAL";
+            }
+            if (structure == Structure.VILLAGE_PLAINS
+                    || structure == Structure.VILLAGE_DESERT
+                    || structure == Structure.VILLAGE_SAVANNA
+                    || structure == Structure.VILLAGE_SNOWY
+                    || structure == Structure.VILLAGE_TAIGA) {
+                return "VILLAGE";
+            }
+        }
+        return null;
+    }
+
+    private boolean isStructureSearchActive(String key) {
+        return foundLocations.containsKey(key)
+                && foundLocations.get(key) == null
+                && !disabledSearches.contains(key);
+    }
+
+    private Location centerOf(GeneratedStructure structure, World world) {
+        BoundingBox box = structure.getBoundingBox();
+        return new Location(world,
+                (box.getMinX() + box.getMaxX()) / 2.0,
+                (box.getMinY() + box.getMaxY()) / 2.0,
+                (box.getMinZ() + box.getMaxZ()) / 2.0);
     }
 
     private void scanLoadedChunkSynchronously(Player player, World world, int chunkX, int chunkZ) {
