@@ -26,6 +26,7 @@ public class Task {
     public int requiredAmount; // The scaled amount based on player count. / Масштабована кількість, що залежить від числа гравців.
     public int progress = 0;
     public boolean completed = false;
+    private long completedAtMillis = 0L;
     final World.Environment world; // The world where this task is active. / Світ, у якому це завдання активне.
     private final boolean srbpEnabled; // srbp = Scale Resources By Playercount. / srbp = Масштабувати Ресурси відносно кількості Гравців.
 
@@ -113,6 +114,7 @@ public class Task {
         if (completed) return;
 
         completed = true;
+        completedAtMillis = System.currentTimeMillis();
         progress = requiredAmount; // Cap progress at the required amount. / Обмежуємо прогрес необхідною кількістю.
 
         plugin.getGameManager().getLogger().logCompletedTask(displayName, progress);
@@ -150,6 +152,7 @@ public class Task {
     public String getKey() { return key; }
     public int getRequiredAmount() { return requiredAmount; }
     public int getProgress() { return progress; }
+    public long getCompletedAtMillis() { return completedAtMillis; }
     public World.Environment getWorld() { return world; }
     public Type getTaskType() { return taskType; }
     public boolean isSrbpEnabled() { return srbpEnabled; }

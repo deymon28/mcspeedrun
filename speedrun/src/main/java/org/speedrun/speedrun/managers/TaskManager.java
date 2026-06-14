@@ -180,9 +180,12 @@ public class TaskManager {
      * Returns visible tasks for the player's current world according to the configured display mode.
      */
     public List<Task> getTasksForWorld(World.Environment world) {
-        if (plugin.getConfigManager().getTaskDisplayMode() == ConfigManager.TaskDisplayMode.ALL_STAGES) {
+        ConfigManager.TaskDisplayMode displayMode = plugin.getConfigManager().getTaskDisplayMode();
+        if (displayMode == ConfigManager.TaskDisplayMode.ALL_STAGES
+                || displayMode == ConfigManager.TaskDisplayMode.ALL_GAME_STAGES) {
             return allTasks.stream()
                     .filter(task -> task.getWorld() == world)
+                    .filter(this::shouldDisplayTask)
                     .toList();
         }
 
@@ -195,7 +198,18 @@ public class TaskManager {
             return Collections.emptyList();
         }
 
-        return currentStage.tasks();
+        return currentStage.tasks().stream()
+                .filter(this::shouldDisplayTask)
+                .toList();
+    }
+
+    private boolean shouldDisplayTask(Task task) {
+        if (!task.isCompleted() || !plugin.getConfigManager().isCompletedTaskHideEnabled()) {
+            return true;
+        }
+        long completedAt = task.getCompletedAtMillis();
+        return completedAt <= 0
+                || System.currentTimeMillis() - completedAt < plugin.getConfigManager().getCompletedTaskHideTimeoutMillis();
     }
 
     public Optional<String> getCurrentStageName() {

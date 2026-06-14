@@ -140,9 +140,14 @@ casual:
 # ----------------------------------------------------------------
 progression:
   settings:
-    # EN: ACTIVE_STAGE shows only the current stage. ALL_STAGES shows all tasks for the player's current world.
-    # UA: ACTIVE_STAGE показує лише поточний етап. ALL_STAGES показує всі завдання для поточного світу гравця.
+    # EN: ACTIVE_STAGE shows only the current stage. ALL_STAGES shows all tasks for the player's current world. ALL_GAME_STAGES groups all tasks by world on the scoreboard.
+    # UA: ACTIVE_STAGE показує лише поточний етап. ALL_STAGES показує всі завдання для поточного світу гравця. ALL_GAME_STAGES групує всі завдання за світами на скорборді.
     task-display-mode: "ACTIVE_STAGE"
+    completed-task-hide:
+      # EN: If enabled, completed tasks disappear from task displays after timeout-seconds.
+      # UA: Якщо увімкнено, завершені завдання зникають з відображення після timeout-seconds.
+      enabled: false
+      timeout-seconds: 10
 
   # EN: Stage 1: Basic setup - Initial resource gathering phase
   # UA: Етап 1: Базова підготовка - фаза початкового збору ресурсів

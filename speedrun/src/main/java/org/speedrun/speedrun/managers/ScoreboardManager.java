@@ -189,24 +189,7 @@ public class ScoreboardManager {
                 }
             }
 
-            // Tasks Section
-            World.Environment env = player.getWorld().getEnvironment();
-            List<Task> tasks = plugin.getTaskManager().getTasksForWorld(env);
-            if (!tasks.isEmpty()) {
-                lines.add(" "); // Separator
-                lines.add(cm.getFormattedString("scoreboard." + env.name().toLowerCase() + "-tasks-header"));
-
-                for (Task task : tasks) {
-                    if (task.isCompleted()) {
-                        lines.add(cm.getFormattedString("scoreboard.task-complete", "%name%", task.displayName));
-                    } else {
-                        lines.add(cm.getFormattedString("scoreboard.task-line",
-                                "%name%", task.displayName,
-                                "%progress%", String.valueOf(task.progress),
-                                "%required%", String.valueOf(task.requiredAmount)));
-                    }
-                }
-            }
+            addTaskLines(player, lines, cm);
         } catch (Exception e) {
             plugin.getLogger().severe("Error building scoreboard lines");
             lines = Arrays.asList("§cScoreboard Error", "§7Check console logs");
@@ -214,6 +197,55 @@ public class ScoreboardManager {
 
         // Ensure we don't exceed 15 lines
         return lines.size() > 15 ? lines.subList(0, 15) : lines;
+    }
+
+    private void addTaskLines(Player player, List<String> lines, ConfigManager cm) {
+        if (cm.getTaskDisplayMode() == ConfigManager.TaskDisplayMode.ALL_GAME_STAGES) {
+            boolean addedAny = false;
+            for (World.Environment env : List.of(World.Environment.NORMAL, World.Environment.NETHER, World.Environment.THE_END)) {
+                List<Task> tasks = plugin.getTaskManager().getTasksForWorld(env);
+                if (tasks.isEmpty()) {
+                    continue;
+                }
+                if (!addedAny) {
+                    lines.add(" ");
+                    addedAny = true;
+                }
+                addTaskWorldSection(lines, cm, env, tasks);
+            }
+            return;
+        }
+
+        World.Environment env = player.getWorld().getEnvironment();
+        List<Task> tasks = plugin.getTaskManager().getTasksForWorld(env);
+        if (!tasks.isEmpty()) {
+            lines.add(" ");
+            addTaskWorldSection(lines, cm, env, tasks);
+        }
+    }
+
+    private void addTaskWorldSection(List<String> lines, ConfigManager cm, World.Environment env, List<Task> tasks) {
+        lines.add(cm.getFormattedString(taskHeaderKey(env)));
+
+        for (Task task : tasks) {
+            if (task.isCompleted()) {
+                lines.add(cm.getFormattedString("scoreboard.task-complete", "%name%", task.displayName));
+            } else {
+                lines.add(cm.getFormattedString("scoreboard.task-line",
+                        "%name%", task.displayName,
+                        "%progress%", String.valueOf(task.progress),
+                        "%required%", String.valueOf(task.requiredAmount)));
+            }
+        }
+    }
+
+    private String taskHeaderKey(World.Environment env) {
+        return "scoreboard." + switch (env) {
+            case NORMAL -> "normal";
+            case NETHER -> "nether";
+            case THE_END -> "end";
+            default -> env.name().toLowerCase(Locale.ROOT);
+        } + "-tasks-header";
     }
 
     private Location resolveDisplayLocation(Player player, String key, Location loc) {

@@ -57,7 +57,8 @@ public class ConfigManager {
 
     public enum TaskDisplayMode {
         ACTIVE_STAGE,
-        ALL_STAGES
+        ALL_STAGES,
+        ALL_GAME_STAGES
     }
 
     public ConfigManager(Speedrun plugin) {
@@ -210,6 +211,15 @@ public class ConfigManager {
             plugin.getLogger().warning("Unknown progression.settings.task-display-mode '" + rawMode + "'. Falling back to ACTIVE_STAGE.");
             return TaskDisplayMode.ACTIVE_STAGE;
         }
+    }
+
+    public boolean isCompletedTaskHideEnabled() {
+        return config.getBoolean("progression.settings.completed-task-hide.enabled", false);
+    }
+
+    public long getCompletedTaskHideTimeoutMillis() {
+        int seconds = Math.max(0, config.getInt("progression.settings.completed-task-hide.timeout-seconds", 10));
+        return seconds * 1000L;
     }
 
     /** @return Whether resource requirements for tasks should scale with the player count. / Чи повинні вимоги до ресурсів для завдань масштабуватися з кількістю гравців. */
