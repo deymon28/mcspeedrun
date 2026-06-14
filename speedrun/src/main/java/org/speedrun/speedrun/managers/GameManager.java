@@ -237,6 +237,9 @@ public class GameManager {
                 if (!needsVillage && !needsLava) return;
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (plugin.getConfigManager().isStartPreScanEnabled()) {
+                        plugin.getStructureManager().scanLoadedPlayerChunk(player);
+                    }
                     if (needsVillage) findNearbyBell(player);
                     if (needsLava) findNearbyLavaPool(player);
                 }

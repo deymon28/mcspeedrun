@@ -58,6 +58,11 @@ messages:
   final-time: "&a&lФінальний час: %time%"
   stage-complete: "&d&lЕтап завершено! &fПерехід до наступного етапу."
 
+compass:
+  gui:
+    death-location-name: "&cОстання смерть %player%"
+    death-click-hint: "&eНатисніть, щоб відстежити точку смерті"
+
 # ...
 tasks:
   OAK_LOG: "Колода"
@@ -68,6 +73,8 @@ tasks:
   ENDER_PEARL: "Перлини Кінця"
   BLAZE_ROD: "Стрижні пломеня"
 structures:
+  SPAWN: "Спавн"
+  NETHER_REFERENCE: "Орієнтир Незеру"
   LAVA_POOL: "Лавовий басейн"
   VILLAGE: "Село"
   NETHER_PORTAL: "Портал в Пекло"
@@ -76,4 +83,5 @@ structures:
   BASTION: "Оплот"
 
   END_PORTAL: "Кінець порталу"
+  PLAYER_DEATH: "Остання смерть"
 # ...

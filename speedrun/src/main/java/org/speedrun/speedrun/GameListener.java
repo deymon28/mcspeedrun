@@ -126,6 +126,9 @@ public class GameListener implements Listener {
         if (plugin.getConfigManager().isStartOnFirstJoin() && !plugin.getGameManager().isRunning()) {
             if (Bukkit.getOnlinePlayers().size() == 1) {
                 plugin.getGameManager().startRun();
+                if (plugin.getConfigManager().isResetTimeOnJoinEnabled()) {
+                    Bukkit.getWorlds().forEach(world -> world.setTime(1000L));
+                }
             }
         }
 
@@ -268,6 +271,11 @@ public class GameListener implements Listener {
         }
 
         logger.logPlayerDeath(player, deathCause, player.getLocation());
+        if (plugin.getCasualGameModeManager().isCasualModeActive()
+                && plugin.getConfigManager().isDeathLocationCompassEnabled()
+                && gameManager.getCompassListener() != null) {
+            gameManager.getCompassListener().recordPlayerDeathLocation(player, player.getLocation());
+        }
 
         increment(player.getName() + "_deaths");
     }

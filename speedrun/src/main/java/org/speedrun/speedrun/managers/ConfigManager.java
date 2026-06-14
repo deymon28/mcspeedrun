@@ -193,6 +193,10 @@ public class ConfigManager {
         return config.getBoolean("settings.start-on-first-join", true);
     }
 
+    public boolean isResetTimeOnJoinEnabled() {
+        return config.getBoolean("settings.reset_time_on_join", false);
+    }
+
     /** @return The time limit in seconds for the village search task. / Ліміт часу в секундах для завдання з пошуку села. */
     public long getVillageTimeout() {
         return config.getLong("settings.village-search-timeout", 600);
@@ -265,6 +269,15 @@ public class ConfigManager {
 
     public boolean isStartPreScanLavaEnabled() {
         return config.getBoolean("casual.start-pre-scan.include-lava-pool", true);
+    }
+
+    public int getLoadedChunkScanRadius() {
+        return Math.max(0, config.getInt("casual.start-pre-scan.loaded-chunk-radius", 1));
+    }
+
+    public boolean isDeathLocationCompassEnabled() {
+        return isCasualGameModeEnabled()
+                && config.getBoolean("casual.compass.death-location.enabled", true);
     }
 
     public CoordinateDisplayMode getCoordinateDisplayMode() {

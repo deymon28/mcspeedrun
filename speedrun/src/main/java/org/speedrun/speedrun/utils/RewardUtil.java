@@ -51,9 +51,18 @@ public final class RewardUtil {
 
         for (Player target : targets) {
             for (String rawCommand : commands) {
+                if ("on-stage-complete".equals(key) && isLegacyStageCompleteTellraw(rawCommand)) {
+                    continue;
+                }
                 executeRewardCommand(plugin, target, rawCommand);
             }
         }
+    }
+
+    private static boolean isLegacyStageCompleteTellraw(String rawCommand) {
+        String normalized = rawCommand.toLowerCase(Locale.ROOT).replace(" ", "");
+        return normalized.startsWith("tellraw@a")
+                && normalized.contains("\"text\":\"stagecomplete!\"");
     }
 
     private static void executeRewardCommand(Speedrun plugin, Player target, String rawCommand) {

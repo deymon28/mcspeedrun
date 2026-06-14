@@ -1,18 +1,17 @@
 package org.speedrun.speedrun.managers;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
+import org.bukkit.ChunkSnapshot;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.generator.structure.Structure;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.StructureSearchResult;
 import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.utils.MessageUtil;
+import org.speedrun.speedrun.utils.PaperCheckUtil;
 import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.events.StructureFoundEvent;
 
@@ -34,6 +33,7 @@ public class StructureManager {
     private final Map<String, Location> hiddenLodestones = new LinkedHashMap<>();
     private final Map<String, Material> hiddenLodestonePreviousBlocks = new HashMap<>();
     private final Set<String> disabledSearches = new HashSet<>();
+    private final Set<String> liveScannedChunks = new HashSet<>();
     private BukkitTask preScanTask;
     private long preScanGeneration = 0;
 
@@ -67,6 +67,7 @@ public class StructureManager {
         foundLocations.clear();
         hiddenStructures.clear();
         disabledSearches.clear();
+        liveScannedChunks.clear();
         predictedEndPortalLocation = null;
         predictedEndPortalApproximate = false;
         overworldPortalLocation = null;
@@ -86,164 +87,100 @@ public class StructureManager {
 
     public void preScanRequiredStructures() {
         cancelPreScan();
-        long generation = preScanGeneration;
-
-        List<Runnable> scans = new ArrayList<>();
-        World overworld = getWorld(World.Environment.NORMAL);
-        World nether = getWorld(World.Environment.NETHER);
-
-        if (overworld != null) {
-            Location origin = getPreScanOrigin(overworld);
-            scans.add(() -> {
-                Location village = locateNearest(origin,
-                        Structure.VILLAGE_PLAINS,
-                        Structure.VILLAGE_DESERT,
-                        Structure.VILLAGE_SAVANNA,
-                        Structure.VILLAGE_SNOWY,
-                        Structure.VILLAGE_TAIGA);
-                if (village != null) {
-                    registerPreScannedStructure(generation, "VILLAGE", village);
-                }
-            });
-
-            scans.add(() -> {
-                Location stronghold = locateNearest(origin, Structure.STRONGHOLD);
-                if (stronghold != null) {
-                    registerPreScannedStructure(generation, "END_PORTAL", stronghold);
-                }
-            });
-
-            if (plugin.getConfigManager().isStartPreScanLavaEnabled()) {
-                scans.add(() -> {
-                    Location lavaPool = findLoadedLavaPool(origin);
-                    if (lavaPool != null) {
-                        registerPreScannedStructure(generation, "LAVA_POOL", lavaPool);
-                    }
-                });
-            }
-        }
-
-        if (nether != null) {
-            Location origin = getPreScanOrigin(nether);
-            scans.add(() -> {
-                Location fortress = locateNearest(origin, Structure.FORTRESS);
-                if (fortress != null) {
-                    registerPreScannedStructure(generation, "FORTRESS", fortress);
-                }
-            });
-
-            scans.add(() -> {
-                Location bastion = locateNearest(origin, Structure.BASTION_REMNANT);
-                if (bastion != null) {
-                    registerPreScannedStructure(generation, "BASTION", bastion);
-                }
-            });
-        }
-
-        if (scans.isEmpty()) {
-            return;
-        }
-
-        Iterator<Runnable> iterator = scans.iterator();
+        plugin.getLogger().info("Casual start pre-scan is using loaded-chunk live discovery; blocking structure locate calls are disabled.");
         preScanTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            if (!iterator.hasNext()) {
-                cancelPreScan();
+            if (!plugin.getGameManager().isRunning() || plugin.getGameManager().isPaused()) {
                 return;
             }
-            iterator.next().run();
-        }, 1L, 20L);
+            Bukkit.getOnlinePlayers().forEach(this::scanLoadedPlayerChunk);
+        }, 1L, 40L);
     }
 
-    private World getWorld(World.Environment environment) {
-        for (World world : Bukkit.getWorlds()) {
-            if (world.getEnvironment() == environment) {
-                return world;
+    public void scanLoadedPlayerChunk(Player player) {
+        if (player == null || player.getWorld() == null || plugin.getConfigManager().isHardcoreModeEnabled()) {
+            return;
+        }
+        World world = player.getWorld();
+        int centerChunkX = player.getLocation().getBlockX() >> 4;
+        int centerChunkZ = player.getLocation().getBlockZ() >> 4;
+        int chunkRadius = plugin.getConfigManager().getLoadedChunkScanRadius();
+        for (int chunkX = centerChunkX - chunkRadius; chunkX <= centerChunkX + chunkRadius; chunkX++) {
+            for (int chunkZ = centerChunkZ - chunkRadius; chunkZ <= centerChunkZ + chunkRadius; chunkZ++) {
+                scanLoadedChunk(player, world, chunkX, chunkZ);
             }
         }
-        return null;
     }
 
-    private Location locateNearest(Location origin, Structure... structures) {
-        int radius = plugin.getConfigManager().getStartPreScanRadiusChunks();
-        Location nearest = null;
-        double nearestDistanceSquared = Double.MAX_VALUE;
-
-        for (Structure structure : structures) {
-            StructureSearchResult result = origin.getWorld().locateNearestStructure(origin, structure, radius, false);
-            if (result == null || result.getLocation() == null) {
-                continue;
-            }
-
-            double distanceSquared = origin.distanceSquared(result.getLocation());
-            if (distanceSquared < nearestDistanceSquared) {
-                nearestDistanceSquared = distanceSquared;
-                nearest = result.getLocation();
-            }
+    private void scanLoadedChunk(Player player, World world, int chunkX, int chunkZ) {
+        if (!world.isChunkLoaded(chunkX, chunkZ)) {
+            return;
         }
-
-        return nearest;
-    }
-
-    private void registerPreScannedStructure(long generation, String key, Location location) {
-        if (generation != preScanGeneration || location == null || location.getWorld() == null) {
+        String key = world.getUID() + ":" + chunkX + ":" + chunkZ;
+        if (!liveScannedChunks.add(key)) {
             return;
         }
 
-        if (location.getBlockY() != 0) {
-            structureFound(null, key, location);
+        if (world.getEnvironment() != World.Environment.NORMAL) {
             return;
         }
 
-        World world = location.getWorld();
-        int chunkX = location.getBlockX() >> 4;
-        int chunkZ = location.getBlockZ() >> 4;
-        world.getChunkAtAsync(chunkX, chunkZ).thenAccept((Chunk ignored) ->
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (generation != preScanGeneration || !plugin.getGameManager().isRunning()) {
-                        return;
-                    }
-                    Location adjusted = location.clone();
-                    adjusted.setY(world.getHighestBlockYAt(adjusted) + 1);
-                    structureFound(null, key, adjusted);
-                })
-        ).exceptionally(ex -> {
-            plugin.getLogger().warning("Failed to resolve Y for pre-scanned " + key + ": " + ex.getMessage());
-            return null;
-        });
+        if (PaperCheckUtil.IsPaper()) {
+            scanLoadedChunkSnapshotAsync(player, world, chunkX, chunkZ);
+            return;
+        }
+
+        scanLoadedChunkSynchronously(player, world, chunkX, chunkZ);
     }
 
-    private Location getPreScanOrigin(World world) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getWorld().getEnvironment() == world.getEnvironment()) {
-                return player.getLocation();
+    private void scanLoadedChunkSynchronously(Player player, World world, int chunkX, int chunkZ) {
+        if (isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled()) {
+            Location lavaPool = findLavaClusterInChunk(world, chunkX, chunkZ, player.getLocation(),
+                    plugin.getConfigManager().getStartPreScanRadius(),
+                    plugin.getConfigManager().getLavaPoolRequiredSources());
+            if (lavaPool != null) {
+                structureFound(player, "LAVA_POOL", lavaPool);
             }
         }
-        return world.getSpawnLocation();
+        if (isVillageSearchActive()) {
+            Location bell = findBlockInChunk(world, chunkX, chunkZ, Material.BELL);
+            if (bell != null) {
+                structureFound(player, "VILLAGE", bell);
+            }
+        }
     }
 
-    private Location findLoadedLavaPool(Location origin) {
-        World world = origin.getWorld();
-        if (world == null) {
-            return null;
-        }
-        int radiusBlocks = plugin.getConfigManager().getStartPreScanRadius();
-        int radiusChunks = Math.min(plugin.getConfigManager().getStartPreScanRadiusChunks(), 16);
-        int centerChunkX = origin.getBlockX() >> 4;
-        int centerChunkZ = origin.getBlockZ() >> 4;
+    private void scanLoadedChunkSnapshotAsync(Player player, World world, int chunkX, int chunkZ) {
+        ChunkSnapshot snapshot = world.getChunkAt(chunkX, chunkZ).getChunkSnapshot(true, false, false);
+        Location origin = player.getLocation().clone();
+        boolean scanLava = isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled();
+        boolean scanVillage = isVillageSearchActive();
+        int radius = plugin.getConfigManager().getStartPreScanRadius();
         int requiredSources = plugin.getConfigManager().getLavaPoolRequiredSources();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            Location lavaPool = null;
+            Location bell = null;
 
-        for (int chunkX = centerChunkX - radiusChunks; chunkX <= centerChunkX + radiusChunks; chunkX++) {
-            for (int chunkZ = centerChunkZ - radiusChunks; chunkZ <= centerChunkZ + radiusChunks; chunkZ++) {
-                if (!world.isChunkLoaded(chunkX, chunkZ)) {
-                    continue;
-                }
-                Location candidate = findLavaClusterInChunk(world, chunkX, chunkZ, origin, radiusBlocks, requiredSources);
-                if (candidate != null) {
-                    return candidate;
-                }
+            if (scanLava) {
+                lavaPool = findLavaClusterInSnapshot(snapshot, world, origin, radius, requiredSources);
             }
-        }
-        return null;
+            if (scanVillage) {
+                bell = findBlockInSnapshot(snapshot, world, Material.BELL);
+            }
+
+            Location finalLavaPool = lavaPool;
+            Location finalBell = bell;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!plugin.getGameManager().isRunning()) {
+                    return;
+                }
+                if (finalLavaPool != null && isLavaPoolSearchActive()) {
+                    structureFound(player, "LAVA_POOL", finalLavaPool);
+                }
+                if (finalBell != null && isVillageSearchActive()) {
+                    structureFound(player, "VILLAGE", finalBell);
+                }
+            });
+        });
     }
 
     private Location findLavaClusterInChunk(World world, int chunkX, int chunkZ, Location origin, int radiusBlocks, int requiredSources) {
@@ -266,6 +203,74 @@ public class StructureManager {
                         if (++count >= requiredSources) {
                             return first;
                         }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private Location findLavaClusterInSnapshot(ChunkSnapshot snapshot, World world, Location origin, int radiusBlocks, int requiredSources) {
+        int minY = Math.max(world.getMinHeight(), origin.getBlockY() - 32);
+        int maxY = Math.min(world.getMaxHeight() - 1, origin.getBlockY() + 32);
+        int chunkBlockX = snapshot.getX() << 4;
+        int chunkBlockZ = snapshot.getZ() << 4;
+        int count = 0;
+        Location first = null;
+
+        for (int x = 0; x < 16; x++) {
+            int worldX = chunkBlockX + x;
+            if (Math.abs(worldX - origin.getBlockX()) > radiusBlocks) {
+                continue;
+            }
+            for (int z = 0; z < 16; z++) {
+                int worldZ = chunkBlockZ + z;
+                if (Math.abs(worldZ - origin.getBlockZ()) > radiusBlocks) {
+                    continue;
+                }
+                for (int y = minY; y <= maxY; y++) {
+                    if (snapshot.getBlockType(x, y, z) == Material.LAVA) {
+                        if (first == null) {
+                            first = new Location(world, worldX, y, worldZ);
+                        }
+                        if (++count >= requiredSources) {
+                            return first;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private Location findBlockInChunk(World world, int chunkX, int chunkZ, Material material) {
+        int minY = world.getMinHeight();
+        int maxY = world.getMaxHeight() - 1;
+
+        for (int x = chunkX << 4; x < (chunkX << 4) + 16; x++) {
+            for (int z = chunkZ << 4; z < (chunkZ << 4) + 16; z++) {
+                for (int y = minY; y <= maxY; y++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (block.getType() == material) {
+                        return block.getLocation();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private Location findBlockInSnapshot(ChunkSnapshot snapshot, World world, Material material) {
+        int minY = world.getMinHeight();
+        int maxY = world.getMaxHeight() - 1;
+        int chunkBlockX = snapshot.getX() << 4;
+        int chunkBlockZ = snapshot.getZ() << 4;
+
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                for (int y = minY; y <= maxY; y++) {
+                    if (snapshot.getBlockType(x, y, z) == material) {
+                        return new Location(world, chunkBlockX + x, y, chunkBlockZ + z);
                     }
                 }
             }

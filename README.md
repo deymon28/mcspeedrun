@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.9-ALPHA`.
+Current plugin version: `26.1.2-3.1.10-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.9-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.10-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.9-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.10-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -88,9 +88,11 @@ Main settings are in `speedrun/src/main/resources/config.yml` and are copied to 
 Important options include:
 
 - `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
+- `settings.reset_time_on_join`: optionally set loaded worlds to day when the first join starts the run.
 - `progression.settings.task-display-mode`: `ACTIVE_STAGE`, `ALL_STAGES`, or `ALL_GAME_STAGES` task display.
 - `progression.settings.completed-task-hide`: optionally hide completed tasks after a timeout.
-- `casual.start-pre-scan.enabled`: pre-scan required structures on Casual run start.
+- `casual.start-pre-scan.enabled`: enable safe loaded-chunk live discovery on Casual run start.
+- `casual.compass.death-location.enabled`: add each player's own last death point to their compass menu.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
 - `casual.structure_waypoints`: enable structure waypoints. Beacon is the safe default; End Gateway remains compatible but is not recommended for normal play.
 - `casual.nether_gold_highlight`: highlight gold blocks around Nether players.
@@ -159,6 +161,13 @@ Important options include:
 ## Notes For 3.1.9 Alpha
 
 - Default progression no longer auto-generates Fortress, Bastion, or Stronghold structure tasks.
+
+## Notes For 3.1.10 Alpha
+
+- Casual start pre-scan no longer calls blocking structure locate APIs; it uses loaded-chunk live discovery instead.
+- Added `settings.reset_time_on_join` for first-join run starts.
+- Removed the default duplicate `Stage Complete` tellraw reward and filters the legacy default command at runtime.
+- Casual compass can show each player's own last death location as a private destination.
 
 ## License
 

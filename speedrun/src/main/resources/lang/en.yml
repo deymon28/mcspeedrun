@@ -104,12 +104,14 @@ compass:
   gui:
     overworld: "&aThe Overworld"
     nether: "&cThe Nether"
+    death-location-name: "&c%player%'s Last Death"
     destination-name: "&a%destination%"
     lore-x: "&7X: %x%"
     lore-y: "&7Y: %y%"
     lore-z: "&7Z: %z%"
     lore-world: "&7World: %world%"
     click-hint: "&eClick to set compass target"
+    death-click-hint: "&eClick to track your death point"
     custom-location: "a custom location"
     generic-location: "Location"
 
@@ -148,4 +150,5 @@ structures:
   BASTION: "Bastion"
 
   END_PORTAL: "End Portal"
+  PLAYER_DEATH: "Last Death"
 # ...

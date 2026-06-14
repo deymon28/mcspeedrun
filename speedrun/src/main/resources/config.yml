@@ -17,6 +17,10 @@ settings:
   # UA: Таймер запуститься автоматично, коли перший гравець приєднається до сервера. При 'false' таймер іде з моменту запуску сервера.
   start-on-first-join: true
 
+  # EN: When start-on-first-join starts the run, also set loaded worlds to day time.
+  # UA: Коли start-on-first-join запускає забіг, також встановити день у завантажених світах.
+  reset_time_on_join: false
+
   # EN: The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
   # UA: Можливість перепризначити координати будь-якої локації за допомогою команди '/run new LOC_NAME'. Якщо 'False', працює лише для 'Nether portal'.
   allow-reassigning-locations: true
@@ -97,16 +101,20 @@ tracking:
 casual:
   enabled: true
   start-pre-scan:
-    # EN: Finds selected structure coordinates when a Casual run starts. Radius is configured in blocks and capped in chunks for Paper locate calls.
-    # UA: Шукає координати вибраних структур на старті Casual-забігу. Радіус заданий у блоках і обмежується чанками для Paper locate-викликів.
+    # EN: Enables live discovery in already-loaded player chunks when a Casual run starts. It does not call blocking structure locate APIs.
+    # UA: Вмикає live-пошук у вже завантажених гравцями чанках на старті Casual-забігу. Не викликає блокуючі API пошуку структур.
     enabled: false
     radius: 1000
-    max-radius-chunks: 64
+    loaded-chunk-radius: 1
     include-lava-pool: true
   compass:
     # EN: Shows the old test-only Nether Reference destination. Disabled by default because it is not tied to actual run state.
     # UA: Показує старий тестовий пункт Nether Reference. Вимкнено за замовчуванням, бо він не прив'язаний до реального стану забігу.
     show-nether-reference: false
+    death-location:
+      # EN: Adds the player's own last death location to their compass menu.
+      # UA: Додає власну останню точку смерті гравця у його меню компаса.
+      enabled: true
   # EN: Optional waypoints for navigating the world (no nether, no end).
   # UA: Опціональні орієнтири для навігації світом (без незеру, без енду).
   structure_waypoints:
@@ -213,7 +221,6 @@ rewards:
   # EN: Commands to run when an entire stage is completed
   # UA: Команди для виконання, коли весь етап завершено
   on-stage-complete:
-    - "tellraw @a [{\"text\":\"Stage Complete!\",\"color\":\"gold\",\"bold\":true}]"  # EN: Announce stage completion / UA: Оголосити завершення етапу
     - "api:sound minecraft:block.end_portal.spawn 1.0 1.0"     # EN: End portal spawn sound / UA: Звук появи енд порталу
     - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"       # EN: Spark particles / UA: Частки іскор
     - "api:particle minecraft:flash 1 0 0 0 0"                 # EN: Flash particle / UA: Частка спалаху

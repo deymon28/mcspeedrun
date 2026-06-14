@@ -13,18 +13,20 @@ public class PaperCheckUtil {
     // Static initializer block to check for the Paper class only once when PaperCheckUtil is loaded.
     // Статичний блок ініціалізації для перевірки наявності класу Paper лише один раз при завантаженні PaperCheckUtil.
     private static boolean isServerPaper() {
-        try {
-            // Attempt to find a class that only exists on Paper servers.
-            // If this succeeds, we are on Paper.
-            // Спроба знайти клас, який існує лише на серверах Paper.
-            // Якщо це вдається, ми на Paper.
-            Class.forName("com.destroystokyo.paper.PaperConfig");
-            return true;
-        } catch (ClassNotFoundException e) {
-            // If the class is not found, we are on a non-Paper server (e.g., Spigot, Bukkit).
-            // Якщо клас не знайдено, ми на сервері, що не є Paper (напр., Spigot, Bukkit).
-            return false;
+        String[] paperOnlyClasses = {
+                "com.destroystokyo.paper.PaperConfig",
+                "io.papermc.paper.configuration.GlobalConfiguration",
+                "io.papermc.paper.threadedregions.scheduler.AsyncScheduler"
+        };
+        for (String className : paperOnlyClasses) {
+            try {
+                Class.forName(className);
+                return true;
+            } catch (ClassNotFoundException ignored) {
+                // Try the next known Paper-only class; class names move between Paper generations.
+            }
         }
+        return false;
     }
 
     /**

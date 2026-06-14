@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +42,7 @@ public class CompassListener implements Listener {
     private final Map<Player, DestinationSelection> playerDestinations = new HashMap<>();
     private final Map<World, Map<String, Location>> predefinedDestinationsByWorld = new HashMap<>();
     private final Map<String, Material> customDestinationIcons = new HashMap<>();
+    private final Map<UUID, DeathDestination> playerDeathDestinations = new HashMap<>();
 
     private final List<Player> playersInMenu = new ArrayList<>();
     private static final String GUI_TITLE_PREFIX = ChatColor.DARK_BLUE + "Destinations - ";
@@ -88,6 +90,7 @@ public class CompassListener implements Listener {
         customDestinationIcons.put("VILLAGE", Material.BELL);
         customDestinationIcons.put("NETHER_PORTAL", Material.OBSIDIAN);
         customDestinationIcons.put("END_PORTAL", Material.END_PORTAL_FRAME);
+        customDestinationIcons.put("PLAYER_DEATH", Material.SKELETON_SKULL);
     }
 
     private Material getIconForDestinationName(String destinationName) {
@@ -184,13 +187,17 @@ public class CompassListener implements Listener {
         World playerWorld = player.getWorld();
         refreshSpawnDestination(playerWorld);
         Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(playerWorld);
+        DeathDestination deathDestination = getDeathDestination(player);
 
-        if (destinationsForWorld == null || destinationsForWorld.isEmpty()) {
+        if ((destinationsForWorld == null || destinationsForWorld.isEmpty()) && deathDestination == null) {
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.no-destinations"));
             return;
         }
 
-        int numDestinations = destinationsForWorld.size();
+        int numDestinations = destinationsForWorld != null ? destinationsForWorld.size() : 0;
+        if (deathDestination != null) {
+            numDestinations++;
+        }
         int rows = (int) Math.ceil(numDestinations / 9.0);
         if (rows == 0) rows = 1;
         int size = rows * 9;
@@ -206,12 +213,17 @@ public class CompassListener implements Listener {
         }
 
         int slot = 0;
-        List<Map.Entry<String, Location>> sortedDestinations = destinationsForWorld.entrySet().stream()
+        List<Map.Entry<String, Location>> sortedDestinations = destinationsForWorld == null
+                ? Collections.emptyList()
+                : destinationsForWorld.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .collect(Collectors.toList());
 
         for (Map.Entry<String, Location> entry : sortedDestinations) {
             if (slot >= size) break;
+            if (deathDestination != null && slot == size - 1) {
+                break;
+            }
             String name = entry.getKey();
             Location loc = entry.getValue();
 
@@ -232,9 +244,32 @@ public class CompassListener implements Listener {
             }
             menu.setItem(slot++, item);
         }
+        if (deathDestination != null) {
+            menu.setItem(size - 1, createDeathDestinationItem(deathDestination));
+        }
 
         player.openInventory(menu);
         playersInMenu.add(player);
+    }
+
+    private ItemStack createDeathDestinationItem(DeathDestination deathDestination) {
+        Location loc = deathDestination.location();
+        ItemStack item = new ItemStack(getIconForDestinationName("PLAYER_DEATH"));
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(plugin.getConfigManager().getFormattedText("compass.gui.death-location-name",
+                    "%player%", deathDestination.playerName()));
+            meta.setLore(Arrays.asList(
+                    plugin.getConfigManager().getFormattedText("compass.gui.lore-x", "%x%", String.valueOf(loc.getBlockX())),
+                    plugin.getConfigManager().getFormattedText("compass.gui.lore-y", "%y%", String.valueOf(loc.getBlockY())),
+                    plugin.getConfigManager().getFormattedText("compass.gui.lore-z", "%z%", String.valueOf(loc.getBlockZ())),
+                    plugin.getConfigManager().getFormattedText("compass.gui.lore-world", "%world%", loc.getWorld().getName()),
+                    "",
+                    plugin.getConfigManager().getFormattedText("compass.gui.death-click-hint")
+            ));
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     @EventHandler
@@ -268,6 +303,16 @@ public class CompassListener implements Listener {
             World playerWorld = player.getWorld();
             refreshSpawnDestination(playerWorld);
             Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(playerWorld);
+            DeathDestination deathDestination = getDeathDestination(player);
+
+            if (deathDestination != null
+                    && ChatColor.stripColor(clickedItemMeta.getDisplayName()).equals(ChatColor.stripColor(
+                    plugin.getConfigManager().getFormattedText("compass.gui.death-location-name",
+                            "%player%", deathDestination.playerName())))) {
+                setPlayerDestination(player, "PLAYER_DEATH", deathDestination.location());
+                player.closeInventory();
+                return;
+            }
 
             if (destinationsForWorld != null && destinationsForWorld.containsKey(destinationName)) {
                 setPlayerDestination(player, destinationName, destinationsForWorld.get(destinationName));
@@ -315,6 +360,13 @@ public class CompassListener implements Listener {
         player.setCompassTarget(targetLocation);
     }
 
+    public void recordPlayerDeathLocation(Player player, Location location) {
+        if (player == null || location == null || location.getWorld() == null) {
+            return;
+        }
+        playerDeathDestinations.put(player.getUniqueId(), new DeathDestination(player.getName(), location.clone()));
+    }
+
 
     private void startCompassUpdateTask() {
         compassUpdateTask = new BukkitRunnable() {
@@ -346,7 +398,9 @@ public class CompassListener implements Listener {
                         DestinationSelection selection = playerDestinations.get(player);
                         Location destination = resolveSelectedDestination(selection);
                         if (destination != null) {
-                            player.setCompassTarget(destination);
+                            if (player.getWorld().equals(destination.getWorld())) {
+                                player.setCompassTarget(destination);
+                            }
 
                             String destinationName = selection.destinationKey() != null
                                     ? selection.destinationKey()
@@ -445,6 +499,7 @@ public class CompassListener implements Listener {
         stopCompassUpdateTask();
         playerDestinations.clear();
         predefinedDestinationsByWorld.clear();
+        playerDeathDestinations.clear();
         initializePredefinedDestinations();
 
         plugin.getLogger().info("Compass data and task reset.");
@@ -457,7 +512,9 @@ public class CompassListener implements Listener {
     private void giveConfiguredCompass(Player player, Location targetLocation, @Nullable Location lodestoneLocation) {
         ItemStack configuredCompass = createNavigationCompass(targetLocation, lodestoneLocation);
         replaceOrAddCompass(player, configuredCompass);
-        player.setCompassTarget(targetLocation);
+        if (player.getWorld().equals(targetLocation.getWorld())) {
+            player.setCompassTarget(targetLocation);
+        }
     }
 
     private void replaceOrAddCompass(Player player, ItemStack compass) {
@@ -531,6 +588,9 @@ public class CompassListener implements Listener {
     }
 
     private String getDestinationDisplayName(String key) {
+        if ("PLAYER_DEATH".equals(key)) {
+            return plugin.getConfigManager().getLangString("structures.PLAYER_DEATH", "Last Death");
+        }
         return plugin.getConfigManager().getLangString("structures." + key, key);
     }
 
@@ -581,6 +641,16 @@ public class CompassListener implements Listener {
         return new Location(world, spawn.getX(), spawn.getY(), spawn.getZ(), 0.0f, 0.0f);
     }
 
+    private DeathDestination getDeathDestination(Player player) {
+        if (!plugin.getConfigManager().isDeathLocationCompassEnabled()) {
+            return null;
+        }
+        return playerDeathDestinations.get(player.getUniqueId());
+    }
+
     private record DestinationSelection(String destinationKey, Location fallbackLocation) {
+    }
+
+    private record DeathDestination(String playerName, Location location) {
     }
 }
