@@ -62,6 +62,7 @@ public class TaskManager {
         }
 
         List<String> sortedStageKeys = new ArrayList<>(progressionSection.getKeys(false));
+        sortedStageKeys.remove("settings");
         sortedStageKeys.sort(String::compareTo);
 
         for (String stageKey : sortedStageKeys) {
@@ -176,9 +177,15 @@ public class TaskManager {
     }
 
     /**
-     * Returns visible tasks for the player's current world, restricted to the active stage.
+     * Returns visible tasks for the player's current world according to the configured display mode.
      */
     public List<Task> getTasksForWorld(World.Environment world) {
+        if (plugin.getConfigManager().getTaskDisplayMode() == ConfigManager.TaskDisplayMode.ALL_STAGES) {
+            return allTasks.stream()
+                    .filter(task -> task.getWorld() == world)
+                    .toList();
+        }
+
         if (isProgressionComplete()) {
             return Collections.emptyList();
         }

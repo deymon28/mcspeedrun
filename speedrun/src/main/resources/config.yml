@@ -139,6 +139,11 @@ casual:
 # UA: Плагін буде переходити з одного етапу до наступного, коли всі завдання виконані.
 # ----------------------------------------------------------------
 progression:
+  settings:
+    # EN: ACTIVE_STAGE shows only the current stage. ALL_STAGES shows all tasks for the player's current world.
+    # UA: ACTIVE_STAGE показує лише поточний етап. ALL_STAGES показує всі завдання для поточного світу гравця.
+    task-display-mode: "ACTIVE_STAGE"
+
   # EN: Stage 1: Basic setup - Initial resource gathering phase
   # UA: Етап 1: Базова підготовка - фаза початкового збору ресурсів
   1_GETTING_STARTED:

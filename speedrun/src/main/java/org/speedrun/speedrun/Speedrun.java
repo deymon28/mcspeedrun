@@ -85,6 +85,7 @@ public final class Speedrun extends JavaPlugin {
                 + ", casual-active=" + configManager.isCasualGameModeEnabled()
                 + ", hardcore=" + configManager.isHardcoreModeEnabled()
                 + ", coordinate-display=" + configManager.getCoordinateDisplayMode()
+                + ", task-display=" + configManager.getTaskDisplayMode()
                 + ", waypoint-type=" + configManager.getWaypointType()
                 + ", waypoints-enabled=" + configManager.areWaypointsEnabled()
                 + ", start-pre-scan=" + configManager.isStartPreScanEnabled()

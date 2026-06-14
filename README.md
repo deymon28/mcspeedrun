@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.6-ALPHA`.
+Current plugin version: `26.1.2-3.1.7-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.6-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.7-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.6-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.7-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -88,6 +88,7 @@ Main settings are in `speedrun/src/main/resources/config.yml` and are copied to 
 Important options include:
 
 - `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
+- `progression.settings.task-display-mode`: `ACTIVE_STAGE` or `ALL_STAGES` task display.
 - `casual.start-pre-scan.enabled`: pre-scan required structures on Casual run start.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
 - `casual.structure_waypoints`: enable structure waypoints. Beacon is the safe default; End Gateway remains compatible but is not recommended for normal play.
@@ -143,6 +144,11 @@ Important options include:
 ## Notes For 3.1.6 Alpha
 
 - Server startup logs now include the plugin version, gamemode, and key runtime settings.
+
+## Notes For 3.1.7 Alpha
+
+- Approximate End Portal coordinates now convert correctly for Nether scoreboards.
+- Task display can now show either the active stage or all configured stages for the player's world.
 
 ## License
 

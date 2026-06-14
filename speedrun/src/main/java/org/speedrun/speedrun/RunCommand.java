@@ -430,6 +430,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         send(player, message("commands.locate-header"));
 
         if (predicted != null) {
+            predicted.setWorld(findWorldByEnvironment(World.Environment.NORMAL, player.getWorld()));
             plugin.getStructureManager().setPredictedEndPortalLocation(predicted);
             int netherX = predicted.getBlockX() / 8;
             int netherZ = predicted.getBlockZ() / 8;
@@ -440,6 +441,15 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         } else {
             send(player, message("commands.locate-failed"));
         }
+    }
+
+    private World findWorldByEnvironment(World.Environment environment, World fallback) {
+        for (World world : Bukkit.getWorlds()) {
+            if (world.getEnvironment() == environment) {
+                return world;
+            }
+        }
+        return fallback;
     }
 
     private boolean handleGiveCompassCommand(Player sender, String[] args) {

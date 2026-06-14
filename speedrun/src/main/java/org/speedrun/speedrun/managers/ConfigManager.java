@@ -55,6 +55,11 @@ public class ConfigManager {
         CONDITIONAL
     }
 
+    public enum TaskDisplayMode {
+        ACTIVE_STAGE,
+        ALL_STAGES
+    }
+
     public ConfigManager(Speedrun plugin) {
         this.plugin = plugin;
         reload();
@@ -195,6 +200,16 @@ public class ConfigManager {
     /** @return The currently configured resource tracking mode. / Поточний налаштований режим відстеження ресурсів. */
     public TrackingMode getTrackingMode() {
         return TrackingMode.valueOf(config.getString("settings.task-tracking-mode", "INVENTORY").toUpperCase());
+    }
+
+    public TaskDisplayMode getTaskDisplayMode() {
+        String rawMode = config.getString("progression.settings.task-display-mode", "ACTIVE_STAGE");
+        try {
+            return TaskDisplayMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            plugin.getLogger().warning("Unknown progression.settings.task-display-mode '" + rawMode + "'. Falling back to ACTIVE_STAGE.");
+            return TaskDisplayMode.ACTIVE_STAGE;
+        }
     }
 
     /** @return Whether resource requirements for tasks should scale with the player count. / Чи повинні вимоги до ресурсів для завдань масштабуватися з кількістю гравців. */
