@@ -62,7 +62,7 @@ public class CompassListener implements Listener {
         Map<String, Location> overworldDestinations = new HashMap<>();
         World overworld = findWorldByEnvironment(World.Environment.NORMAL);
         if (overworld != null) {
-            overworldDestinations.put("SPAWN", overworld.getSpawnLocation());
+            overworldDestinations.put("SPAWN", resolveWorldSpawn(overworld));
             predefinedDestinationsByWorld.put(overworld, overworldDestinations);
         }
 
@@ -182,6 +182,7 @@ public class CompassListener implements Listener {
 
     private void openDestinationMenu(Player player) {
         World playerWorld = player.getWorld();
+        refreshSpawnDestination(playerWorld);
         Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(playerWorld);
 
         if (destinationsForWorld == null || destinationsForWorld.isEmpty()) {
@@ -265,6 +266,7 @@ public class CompassListener implements Listener {
             String destinationName = resolveDestinationKey(player.getWorld(), ChatColor.stripColor(clickedItemMeta.getDisplayName()));
 
             World playerWorld = player.getWorld();
+            refreshSpawnDestination(playerWorld);
             Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(playerWorld);
 
             if (destinationsForWorld != null && destinationsForWorld.containsKey(destinationName)) {
@@ -491,12 +493,7 @@ public class CompassListener implements Listener {
             destinationKey = getKeyByValue(destinationsForWorld, targetLocation);
         }
 
-        if (destinationKey == null) {
-            return targetLocation;
-        }
-
-        Location lodestone = plugin.getStructureManager().getHiddenLodestone(destinationKey);
-        return lodestone;
+        return destinationKey != null ? plugin.getStructureManager().getHiddenLodestone(destinationKey) : null;
     }
 
     private String resolveDestinationKey(Location targetLocation) {
@@ -519,6 +516,7 @@ public class CompassListener implements Listener {
         if (world == null) {
             return selection.fallbackLocation();
         }
+        refreshSpawnDestination(world);
         Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(world);
         if (destinationsForWorld == null) {
             return selection.fallbackLocation();
@@ -561,6 +559,20 @@ public class CompassListener implements Listener {
             }
         }
         return null;
+    }
+
+    private void refreshSpawnDestination(World world) {
+        if (world == null || world.getEnvironment() != World.Environment.NORMAL) {
+            return;
+        }
+        predefinedDestinationsByWorld
+                .computeIfAbsent(world, ignored -> new HashMap<>())
+                .put("SPAWN", resolveWorldSpawn(world));
+    }
+
+    private Location resolveWorldSpawn(World world) {
+        Location spawn = world.getSpawnLocation();
+        return new Location(world, spawn.getX(), spawn.getY(), spawn.getZ(), 0.0f, 0.0f);
     }
 
     private record DestinationSelection(String destinationKey, Location fallbackLocation) {

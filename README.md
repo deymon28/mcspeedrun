@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.2-ALPHA`.
+Current plugin version: `26.1.2-3.1.3-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.2-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.3-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.2-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.3-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -126,6 +126,11 @@ Important options include:
 - Predicted End Portal coordinates from `/run locate` stay yellow until confirmed.
 - The compass Spawn destination now uses the world's actual spawn location.
 - Navigation compasses only use lodestone tracking when a hidden lodestone exists, and `/run givecompass` replaces the old top-level command.
+
+## Notes For 3.1.3 Alpha
+
+- Spawn compass targeting now refreshes from the live Overworld spawn instead of relying on a cached menu entry.
+- Normal coordinate targets no longer receive invalid lodestone compass metadata.
 
 ## License
 
