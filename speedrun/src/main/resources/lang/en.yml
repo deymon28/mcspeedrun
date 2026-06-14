@@ -68,6 +68,9 @@ scoreboard:
   end-tasks-header: "&5The End:"
   task-line: "&7- %name%: &f%progress%&7/&f%required%"
   task-complete: "&a✔ &m%name%" # Strikethrough when complete
+  team-progress: "&aTeam: &f%completed%&7/&f%total%"
+  current-stage: "&dStage: &f%stage%"
+  compass-roadmap-hint: "&7Compass: roadmap"
 
 messages:
   run-started: "&aThe speedrun has begun!"
@@ -86,7 +89,7 @@ items:
   navigation-compass:
     name: "&6Navigation Compass"
     lore:
-      - "&7Right-click to open destinations menu."
+      - "&7Right-click to open navigation menu."
 
 compass:
   welcome-received: "&aWelcome! You received a &6Navigation Compass&a."
@@ -102,8 +105,33 @@ compass:
   target-actionbar: "&bTarget: %destination% (%distance%)"
   directional-actionbar: "&bPurpose: %destination% &e%arrow% &7(%distance%)"
   gui:
+    main-title: "&1Navigation Compass"
+    roadmap-title: "&1Team Roadmap"
+    personal-title: "&1My Checklist"
     overworld: "&aThe Overworld"
     nether: "&cThe Nether"
+    locations-menu: "&aLocations"
+    team-roadmap: "&eTeam Roadmap"
+    personal-roadmap: "&bMy Checklist"
+    locations-lore:
+      - "&7Choose a tracked location"
+      - "&7for the compass target."
+    team-roadmap-lore:
+      - "&7Shared server progress"
+      - "&7grouped by game stage."
+    personal-roadmap-lore:
+      - "&7Your current inventory"
+      - "&7against team needs."
+    stage-header: "&6%stage%"
+    stage-active: "&eCurrent stage"
+    stage-complete: "&aStage complete"
+    stage-pending: "&7Upcoming stage"
+    empty-stage: "&8No tasks configured"
+    task-world: "&7World: %world%"
+    task-progress: "&7Progress: &f%progress%&7/&f%required%"
+    task-personal-progress: "&8Personal inventory count"
+    task-completed: "&aCompleted"
+    task-open: "&eStill needed"
     destination-name: "&a%destination%"
     lore-x: "&7X: %x%"
     lore-y: "&7Y: %y%"

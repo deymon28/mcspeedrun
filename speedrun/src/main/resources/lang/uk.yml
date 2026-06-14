@@ -48,6 +48,9 @@ scoreboard:
   end-tasks-header: "&5Край:"
   task-line: "&7- %name%: &f%progress%&7/&f%required%"
   task-complete: "&a✔ &m%name%"
+  team-progress: "&aКоманда: &f%completed%&7/&f%total%"
+  current-stage: "&dЕтап: &f%stage%"
+  compass-roadmap-hint: "&7Компас: план"
 
 messages:
   run-started: "&aСпідран розпочато!"
@@ -57,6 +60,60 @@ messages:
   dragon-slain: "&a&lДракона Краю переможено! Спідран завершено!"
   final-time: "&a&lФінальний час: %time%"
   stage-complete: "&d&lЕтап завершено! &fПерехід до наступного етапу."
+
+items:
+  navigation-compass:
+    name: "&6Навігаційний компас"
+    lore:
+      - "&7ПКМ, щоб відкрити меню навігації."
+
+compass:
+  no-destinations: "&cУ цьому вимірі ще немає точок."
+  destination-not-found: "&cПомилка: точку не знайдено або вона недоступна в цьому вимірі."
+  target-set: "&aКомпас тепер вказує на %destination% у %world%!"
+  target-invalid: "&cНе вдалося встановити ціль компаса."
+  null-world: "&cПомилка: неможливо додати точку без світу."
+  discovered: "&aЗнайдено &b%destination%&a! Додано до навігаційного компаса."
+  no-target-actionbar: "&7Ціль не вибрано. Натисніть ПКМ для вибору."
+  other-world-actionbar: "&cЦіль (%destination%) у %world%!"
+  target-actionbar: "&bЦіль: %destination% (%distance%)"
+  directional-actionbar: "&bЦіль: %destination% &e%arrow% &7(%distance%)"
+  gui:
+    main-title: "&1Навігаційний компас"
+    roadmap-title: "&1Командний план"
+    personal-title: "&1Мій список"
+    overworld: "&aВерхній світ"
+    nether: "&cНижній світ"
+    locations-menu: "&aЛокації"
+    team-roadmap: "&eКомандний план"
+    personal-roadmap: "&bМій список"
+    locations-lore:
+      - "&7Вибрати відстежувану"
+      - "&7точку для компаса."
+    team-roadmap-lore:
+      - "&7Спільний прогрес сервера"
+      - "&7за етапами гри."
+    personal-roadmap-lore:
+      - "&7Ваш поточний інвентар"
+      - "&7порівняно з потребами команди."
+    stage-header: "&6%stage%"
+    stage-active: "&eПоточний етап"
+    stage-complete: "&aЕтап виконано"
+    stage-pending: "&7Майбутній етап"
+    empty-stage: "&8Завдань не налаштовано"
+    task-world: "&7Світ: %world%"
+    task-progress: "&7Прогрес: &f%progress%&7/&f%required%"
+    task-personal-progress: "&8Підрахунок з вашого інвентаря"
+    task-completed: "&aВиконано"
+    task-open: "&eЩе потрібно"
+    destination-name: "&a%destination%"
+    lore-x: "&7X: %x%"
+    lore-y: "&7Y: %y%"
+    lore-z: "&7Z: %z%"
+    lore-world: "&7Світ: %world%"
+    click-hint: "&eНатисніть, щоб вибрати ціль"
+    custom-location: "власну точку"
+    generic-location: "Локація"
 
 # ...
 tasks:

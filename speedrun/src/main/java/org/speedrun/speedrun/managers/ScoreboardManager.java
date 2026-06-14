@@ -200,52 +200,19 @@ public class ScoreboardManager {
     }
 
     private void addTaskLines(Player player, List<String> lines, ConfigManager cm) {
-        if (cm.getTaskDisplayMode() == ConfigManager.TaskDisplayMode.ALL_GAME_STAGES) {
-            boolean addedAny = false;
-            for (World.Environment env : List.of(World.Environment.NORMAL, World.Environment.NETHER, World.Environment.THE_END)) {
-                List<Task> tasks = plugin.getTaskManager().getTasksForWorld(env);
-                if (tasks.isEmpty()) {
-                    continue;
-                }
-                if (!addedAny) {
-                    lines.add(" ");
-                    addedAny = true;
-                }
-                addTaskWorldSection(lines, cm, env, tasks);
-            }
+        List<Task> allTasks = plugin.getTaskManager().getAllTasks();
+        if (allTasks.isEmpty()) {
             return;
         }
 
-        World.Environment env = player.getWorld().getEnvironment();
-        List<Task> tasks = plugin.getTaskManager().getTasksForWorld(env);
-        if (!tasks.isEmpty()) {
-            lines.add(" ");
-            addTaskWorldSection(lines, cm, env, tasks);
-        }
-    }
-
-    private void addTaskWorldSection(List<String> lines, ConfigManager cm, World.Environment env, List<Task> tasks) {
-        lines.add(cm.getFormattedString(taskHeaderKey(env)));
-
-        for (Task task : tasks) {
-            if (task.isCompleted()) {
-                lines.add(cm.getFormattedString("scoreboard.task-complete", "%name%", task.displayName));
-            } else {
-                lines.add(cm.getFormattedString("scoreboard.task-line",
-                        "%name%", task.displayName,
-                        "%progress%", String.valueOf(task.progress),
-                        "%required%", String.valueOf(task.requiredAmount)));
-            }
-        }
-    }
-
-    private String taskHeaderKey(World.Environment env) {
-        return "scoreboard." + switch (env) {
-            case NORMAL -> "normal";
-            case NETHER -> "nether";
-            case THE_END -> "end";
-            default -> env.name().toLowerCase(Locale.ROOT);
-        } + "-tasks-header";
+        long completed = allTasks.stream().filter(Task::isCompleted).count();
+        lines.add(" ");
+        lines.add(cm.getFormattedString("scoreboard.team-progress",
+                "%completed%", String.valueOf(completed),
+                "%total%", String.valueOf(allTasks.size())));
+        plugin.getTaskManager().getCurrentStageName().ifPresent(stage -> lines.add(
+                cm.getFormattedString("scoreboard.current-stage", "%stage%", stage)));
+        lines.add(cm.getFormattedString("scoreboard.compass-roadmap-hint"));
     }
 
     private Location resolveDisplayLocation(Player player, String key, Location loc) {

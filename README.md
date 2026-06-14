@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.9-ALPHA`.
+Current plugin version: `26.1.2-3.2.0-TASKRELOAD`.
 
 ## Features
 
@@ -10,6 +10,7 @@ Current plugin version: `26.1.2-3.1.9-ALPHA`.
 - Location tracking for lava pools, villages, Nether portals, fortresses, bastions, and strongholds.
 - Native lodestone compass support for stable navigation, including Nether tracking.
 - Casual mode with navigation compass, structure waypoints, Nether gold highlighting, and tab-list coordinates.
+- Compass roadmap menus for team progress and player-specific inventory needs.
 - Hardcore mode that disables assistance and keeps the UI focused on the timer.
 - Staged task progression with configurable item and structure tasks.
 - Optional start pre-scan for required structure coordinates.
@@ -50,13 +51,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.9-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.2.0-TASKRELOAD.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.9-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.2.0-TASKRELOAD.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -159,6 +160,12 @@ Important options include:
 ## Notes For 3.1.9 Alpha
 
 - Default progression no longer auto-generates Fortress, Bastion, or Stronghold structure tasks.
+
+## Notes For 3.2.0 TASKRELOAD
+
+- The navigation compass now opens a main menu with Locations, Team Roadmap, and My Checklist.
+- Team Roadmap shows configured stages and shared task progress in a larger inventory UI.
+- My Checklist compares the player's current inventory against item tasks without changing team progress.
 
 ## License
 

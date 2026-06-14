@@ -2,6 +2,7 @@ package org.speedrun.speedrun.casualGameMode;
 
 import org.jetbrains.annotations.Nullable;
 import org.speedrun.speedrun.Speedrun;
+import org.speedrun.speedrun.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -20,6 +21,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.CompassMeta;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.speedrun.speedrun.managers.TaskManager;
 import org.speedrun.speedrun.utils.MessageUtil;
 
 import java.util.ArrayList;
@@ -173,11 +175,35 @@ public class CompassListener implements Listener {
                             meta.getDisplayName().equals(getCompassDisplayName())) {
 
                         event.setCancelled(true);
-                        openDestinationMenu(player);
+                        openCompassMainMenu(player);
                     }
                 }
             }
         }
+    }
+
+    private void openCompassMainMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 27, getMainMenuTitle());
+        ItemStack filler = createMenuItem(Material.BLACK_STAINED_GLASS_PANE, ChatColor.RESET.toString(), Collections.emptyList());
+        for (int i = 0; i < menu.getSize(); i++) {
+            menu.setItem(i, filler);
+        }
+
+        menu.setItem(11, createMenuItem(
+                Material.COMPASS,
+                plugin.getConfigManager().getFormattedText("compass.gui.locations-menu"),
+                plugin.getConfigManager().getFormattedTextList("compass.gui.locations-lore")));
+        menu.setItem(13, createMenuItem(
+                Material.WRITABLE_BOOK,
+                plugin.getConfigManager().getFormattedText("compass.gui.team-roadmap"),
+                plugin.getConfigManager().getFormattedTextList("compass.gui.team-roadmap-lore")));
+        menu.setItem(15, createMenuItem(
+                Material.PLAYER_HEAD,
+                plugin.getConfigManager().getFormattedText("compass.gui.personal-roadmap"),
+                plugin.getConfigManager().getFormattedTextList("compass.gui.personal-roadmap-lore")));
+
+        player.openInventory(menu);
+        trackMenuOpen(player);
     }
 
     private void openDestinationMenu(Player player) {
@@ -234,7 +260,106 @@ public class CompassListener implements Listener {
         }
 
         player.openInventory(menu);
-        playersInMenu.add(player);
+        trackMenuOpen(player);
+    }
+
+    private void openTeamRoadmapMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 54, getTeamRoadmapTitle());
+        populateRoadmapMenu(menu, player, false);
+        player.openInventory(menu);
+        trackMenuOpen(player);
+    }
+
+    private void openPersonalRoadmapMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 54, getPersonalRoadmapTitle());
+        populateRoadmapMenu(menu, player, true);
+        player.openInventory(menu);
+        trackMenuOpen(player);
+    }
+
+    private void populateRoadmapMenu(Inventory menu, Player player, boolean personal) {
+        ItemStack filler = createMenuItem(Material.GRAY_STAINED_GLASS_PANE, ChatColor.RESET.toString(), Collections.emptyList());
+        for (int i = 0; i < menu.getSize(); i++) {
+            menu.setItem(i, filler);
+        }
+
+        int row = 0;
+        for (TaskManager.StageView stage : plugin.getTaskManager().getStageViews()) {
+            int rowStart = row * 9;
+            if (rowStart >= menu.getSize()) {
+                break;
+            }
+
+            menu.setItem(rowStart, createStageItem(stage));
+            if (stage.tasks().isEmpty()) {
+                menu.setItem(rowStart + 1, createMenuItem(
+                        Material.LIGHT_GRAY_STAINED_GLASS_PANE,
+                        plugin.getConfigManager().getFormattedText("compass.gui.empty-stage"),
+                        Collections.emptyList()));
+            } else {
+                int slot = rowStart + 1;
+                for (Task task : stage.tasks()) {
+                    if (slot >= rowStart + 9 || slot >= menu.getSize()) {
+                        break;
+                    }
+                    menu.setItem(slot++, createTaskItem(task, player, personal));
+                }
+            }
+            row++;
+        }
+    }
+
+    private ItemStack createStageItem(TaskManager.StageView stage) {
+        Material material = switch (stage.world()) {
+            case NETHER -> Material.NETHERRACK;
+            case THE_END -> Material.END_STONE;
+            default -> Material.GRASS_BLOCK;
+        };
+        String status = stage.complete()
+                ? plugin.getConfigManager().getFormattedText("compass.gui.stage-complete")
+                : stage.active()
+                ? plugin.getConfigManager().getFormattedText("compass.gui.stage-active")
+                : plugin.getConfigManager().getFormattedText("compass.gui.stage-pending");
+
+        return createMenuItem(material,
+                plugin.getConfigManager().getFormattedText("compass.gui.stage-header",
+                        "%stage%", stage.displayName()),
+                Arrays.asList(
+                        plugin.getConfigManager().getFormattedText("compass.gui.task-world",
+                                "%world%", getEnvironmentDisplayName(stage.world())),
+                        status));
+    }
+
+    private ItemStack createTaskItem(Task task, Player player, boolean personal) {
+        int progress = personal ? plugin.getTaskManager().getPersonalProgress(task, player) : task.getProgress();
+        int cappedProgress = Math.min(progress, task.getRequiredAmount());
+        List<String> lore = new ArrayList<>();
+        lore.add(plugin.getConfigManager().getFormattedText("compass.gui.task-world",
+                "%world%", getEnvironmentDisplayName(task.getWorld())));
+        lore.add(plugin.getConfigManager().getFormattedText("compass.gui.task-progress",
+                "%progress%", String.valueOf(cappedProgress),
+                "%required%", String.valueOf(task.getRequiredAmount())));
+        if (personal && task.getTaskType() == Task.Type.ITEM) {
+            lore.add(plugin.getConfigManager().getFormattedText("compass.gui.task-personal-progress"));
+        }
+        lore.add(task.isCompleted()
+                ? plugin.getConfigManager().getFormattedText("compass.gui.task-completed")
+                : plugin.getConfigManager().getFormattedText("compass.gui.task-open"));
+
+        return createMenuItem(getRoadmapTaskMaterial(task, progress), getTaskDisplayName(task), lore);
+    }
+
+    private Material getRoadmapTaskMaterial(Task task, int progress) {
+        if (task.isCompleted()) {
+            return Material.LIME_STAINED_GLASS_PANE;
+        }
+        if (progress > 0) {
+            return Material.YELLOW_STAINED_GLASS_PANE;
+        }
+        if (task.getTaskType() == Task.Type.STRUCTURE) {
+            return Material.ENDER_EYE;
+        }
+        return Material.PAPER;
     }
 
     @EventHandler
@@ -242,8 +367,30 @@ public class CompassListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
 
         Player player = (Player) event.getWhoClicked();
+        String title = event.getView().getTitle();
 
-        if (event.getView().getTitle().startsWith(GUI_TITLE_PREFIX)) {
+        if (title.equals(getMainMenuTitle())) {
+            event.setCancelled(true);
+            ItemStack clickedItem = event.getCurrentItem();
+            if (clickedItem == null || clickedItem.getType() == Material.AIR) {
+                return;
+            }
+            switch (event.getRawSlot()) {
+                case 11 -> openDestinationMenu(player);
+                case 13 -> openTeamRoadmapMenu(player);
+                case 15 -> openPersonalRoadmapMenu(player);
+                default -> {
+                }
+            }
+            return;
+        }
+
+        if (title.equals(getTeamRoadmapTitle()) || title.equals(getPersonalRoadmapTitle())) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (title.startsWith(GUI_TITLE_PREFIX)) {
             event.setCancelled(true);
 
             if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) {
@@ -283,7 +430,11 @@ public class CompassListener implements Listener {
         if (!(event.getPlayer() instanceof Player)) return;
 
         Player player = (Player) event.getPlayer();
-        if (event.getView().getTitle().startsWith(GUI_TITLE_PREFIX)) {
+        String title = event.getView().getTitle();
+        if (title.startsWith(GUI_TITLE_PREFIX)
+                || title.equals(getMainMenuTitle())
+                || title.equals(getTeamRoadmapTitle())
+                || title.equals(getPersonalRoadmapTitle())) {
             playersInMenu.remove(player);
         }
     }
@@ -480,6 +631,47 @@ public class CompassListener implements Listener {
 
     private String getCompassDisplayName() {
         return plugin.getConfigManager().getFormattedText("items.navigation-compass.name");
+    }
+
+    private void trackMenuOpen(Player player) {
+        if (!playersInMenu.contains(player)) {
+            playersInMenu.add(player);
+        }
+    }
+
+    private ItemStack createMenuItem(Material material, String displayName, List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(displayName);
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private String getTaskDisplayName(Task task) {
+        return plugin.getConfigManager().getLangString("tasks." + task.getKey(), task.getKey());
+    }
+
+    private String getMainMenuTitle() {
+        return plugin.getConfigManager().getFormattedText("compass.gui.main-title");
+    }
+
+    private String getTeamRoadmapTitle() {
+        return plugin.getConfigManager().getFormattedText("compass.gui.roadmap-title");
+    }
+
+    private String getPersonalRoadmapTitle() {
+        return plugin.getConfigManager().getFormattedText("compass.gui.personal-title");
+    }
+
+    private String getEnvironmentDisplayName(World.Environment environment) {
+        return switch (environment) {
+            case NETHER -> plugin.getConfigManager().getFormattedText("scoreboard.nether-tasks-header");
+            case THE_END -> plugin.getConfigManager().getFormattedText("scoreboard.end-tasks-header");
+            default -> plugin.getConfigManager().getFormattedText("scoreboard.normal-tasks-header");
+        };
     }
 
     private Location findLodestoneForDestination(Location targetLocation) {

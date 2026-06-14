@@ -176,6 +176,36 @@ public class TaskManager {
         return Collections.unmodifiableList(allTasks);
     }
 
+    public List<StageView> getStageViews() {
+        List<StageView> views = new ArrayList<>();
+        for (int index = 0; index < stages.size(); index++) {
+            StageDefinition stage = stages.get(index);
+            boolean complete = stage.tasks().stream().allMatch(Task::isCompleted);
+            views.add(new StageView(
+                    stage.key(),
+                    stage.displayName(),
+                    stage.world(),
+                    Collections.unmodifiableList(stage.tasks()),
+                    index == currentStageIndex && !isProgressionComplete(),
+                    complete));
+        }
+        return Collections.unmodifiableList(views);
+    }
+
+    public int getPersonalProgress(Task task, Player player) {
+        if (task.getTaskType() != Task.Type.ITEM) {
+            return task.getProgress();
+        }
+
+        int progress = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && matchesTaskMaterial(task, item.getType())) {
+                progress += item.getAmount();
+            }
+        }
+        return progress;
+    }
+
     /**
      * Returns visible tasks for the player's current world according to the configured display mode.
      */
@@ -336,5 +366,14 @@ public class TaskManager {
     }
 
     private record StageDefinition(String key, String displayName, World.Environment world, List<Task> tasks) {
+    }
+
+    public record StageView(
+            String key,
+            String displayName,
+            World.Environment world,
+            List<Task> tasks,
+            boolean active,
+            boolean complete) {
     }
 }
