@@ -63,6 +63,7 @@ public final class Speedrun extends JavaPlugin {
         } else {
             getLogger().info("Casual Game Mode is disabled in config.yml. Some features will not be active.");
         }
+        logStartupSettings();
 
         // Register event listeners and command handlers.
         // Реєстрація слухачів подій та обробників команд.
@@ -76,6 +77,18 @@ public final class Speedrun extends JavaPlugin {
         tabCoords.enable();
 
         getLogger().info("Speedrun plugin has been enabled.");
+    }
+
+    private void logStartupSettings() {
+        getLogger().info("Startup settings: version=" + getDescription().getVersion()
+                + ", gamemode=" + configManager.getGameMode()
+                + ", casual-active=" + configManager.isCasualGameModeEnabled()
+                + ", hardcore=" + configManager.isHardcoreModeEnabled()
+                + ", coordinate-display=" + configManager.getCoordinateDisplayMode()
+                + ", waypoint-type=" + configManager.getWaypointType()
+                + ", waypoints-enabled=" + configManager.areWaypointsEnabled()
+                + ", start-pre-scan=" + configManager.isStartPreScanEnabled()
+                + ", nether-gold-highlight=" + configManager.isNetherGoldHighlightEnabled());
     }
 
     /**

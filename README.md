@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.5-ALPHA`.
+Current plugin version: `26.1.2-3.1.6-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.5-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.6-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.5-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.6-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -139,6 +139,10 @@ Important options include:
 ## Notes For 3.1.5 Alpha
 
 - Beacon waypoints now try nearby safe footprints before falling back to legacy placement.
+
+## Notes For 3.1.6 Alpha
+
+- Server startup logs now include the plugin version, gamemode, and key runtime settings.
 
 ## License
 
