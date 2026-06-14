@@ -11,15 +11,28 @@ import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.utils.RewardUtil;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Manages configurable casual-mode structure waypoints.
  */
 public class CasualModeStructureManager {
     private static final String WAYPOINT_METADATA = "indestructible";
+    private static final int SAFE_BEACON_SEARCH_RADIUS = 6;
+    private static final Set<Material> SAFE_REPLACEABLE_BLOCKS = EnumSet.of(
+            Material.AIR,
+            Material.CAVE_AIR,
+            Material.VOID_AIR,
+            Material.SHORT_GRASS,
+            Material.TALL_GRASS,
+            Material.FERN,
+            Material.LARGE_FERN,
+            Material.SNOW
+    );
 
     private final Speedrun plugin;
     private final Map<String, Waypoint> waypoints = new LinkedHashMap<>();
@@ -112,15 +125,22 @@ public class CasualModeStructureManager {
 
     private List<MarkerBlock> createBeaconWaypoint(Location beaconLoc, String structureKey) {
         List<MarkerBlock> placedBlocks = new ArrayList<>();
+        Location placementLocation = findSafeBeaconLocation(beaconLoc);
+        if (placementLocation == null) {
+            plugin.getLogger().warning("No safe beacon waypoint footprint found near "
+                    + formatBlockLocation(beaconLoc)
+                    + "; placing waypoint with legacy overwrite behavior.");
+            placementLocation = beaconLoc;
+        }
 
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
-                placeMarkerBlock(beaconLoc.clone().add(x, -1, z), Material.IRON_BLOCK, placedBlocks);
+                placeMarkerBlock(placementLocation.clone().add(x, -1, z), Material.IRON_BLOCK, placedBlocks);
             }
         }
 
-        Block beaconBlock = placeMarkerBlock(beaconLoc, Material.BEACON, placedBlocks);
-        placeMarkerBlock(beaconLoc.clone().add(0, 1, 0), getBeaconColor(structureKey), placedBlocks);
+        Block beaconBlock = placeMarkerBlock(placementLocation, Material.BEACON, placedBlocks);
+        placeMarkerBlock(placementLocation.clone().add(0, 1, 0), getBeaconColor(structureKey), placedBlocks);
 
         if (beaconBlock.getState() instanceof Beacon beacon) {
             beacon.setPrimaryEffect(null);
@@ -128,6 +148,62 @@ public class CasualModeStructureManager {
         }
 
         return placedBlocks;
+    }
+
+    private Location findSafeBeaconLocation(Location preferredLocation) {
+        Location preferredSafeLocation = resolveSafeBeaconLocation(preferredLocation);
+        if (isSafeBeaconFootprint(preferredSafeLocation)) {
+            return preferredSafeLocation;
+        }
+
+        for (int radius = 1; radius <= SAFE_BEACON_SEARCH_RADIUS; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (Math.abs(dx) != radius && Math.abs(dz) != radius) {
+                        continue;
+                    }
+                    Location candidate = preferredLocation.clone().add(dx, 0, dz);
+                    candidate = resolveSafeBeaconLocation(candidate);
+                    if (isSafeBeaconFootprint(candidate)) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private Location resolveSafeBeaconLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return location;
+        }
+
+        Location safeLocation = location.clone();
+        // Safe placement floats the 3x3 base above the surface, avoiding terrain/building replacement.
+        safeLocation.setY(safeLocation.getWorld().getHighestBlockYAt(safeLocation) + 2);
+        return safeLocation;
+    }
+
+    private boolean isSafeBeaconFootprint(Location beaconLoc) {
+        if (beaconLoc == null || beaconLoc.getWorld() == null) {
+            return false;
+        }
+
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) {
+                if (!canReplaceForWaypoint(beaconLoc.clone().add(x, -1, z).getBlock())) {
+                    return false;
+                }
+            }
+        }
+
+        return canReplaceForWaypoint(beaconLoc.getBlock())
+                && canReplaceForWaypoint(beaconLoc.clone().add(0, 1, 0).getBlock());
+    }
+
+    private boolean canReplaceForWaypoint(Block block) {
+        return block.hasMetadata(WAYPOINT_METADATA) || SAFE_REPLACEABLE_BLOCKS.contains(block.getType());
     }
 
     private List<MarkerBlock> createEndGatewayWaypoint(Location markerLoc) {
@@ -175,6 +251,19 @@ public class CasualModeStructureManager {
             case "END_PORTAL" -> Material.LIGHT_BLUE_STAINED_GLASS;
             default -> Material.ORANGE_STAINED_GLASS;
         };
+    }
+
+    private String formatBlockLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return "unknown";
+        }
+        return location.getWorld().getName()
+                + " "
+                + location.getBlockX()
+                + ", "
+                + location.getBlockY()
+                + ", "
+                + location.getBlockZ();
     }
 
     private record Waypoint(Location structureLocation, List<MarkerBlock> blocks) {
