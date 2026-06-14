@@ -10,6 +10,14 @@ commands:
   timer-resumed: "&eТаймер спідрану відновлено."
   run-reset: "&cСпідран було скинуто."
   stage-skipped: "&eПерехід до наступного етапу."
+  unknown-subcommand: "&cНевідома підкоманда. Використовуйте: start, pause, stop, reset, reload, skipstage, status, tasks, new, locate, remove, givecompass."
+  usage-main: "&aВикористання: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove|givecompass>"
+  givecompass:
+    no-permission-others: "&cУ вас немає дозволу видавати компас іншим гравцям."
+    player-not-found: "&cГравця не знайдено: %player%"
+    usage: "&cВикористання: /run givecompass [player]"
+    received: "&aВи отримали навігаційний компас!"
+    gave: "&aВидано навігаційний компас гравцю %player%."
   status:
     header: "&6--------- &eСтатус спідрану &6---------"
     time: "&fЧас: &e%time%"
@@ -31,6 +39,7 @@ scoreboard:
   s-end: "&c&lСПІДРАН ЗАВЕРШЕНО"
   locations-header: "&bЛокації:"
   location-found: "&7%name%: &a%coords%"
+  location-approximate: "&7%name%: &e%coords%"
   location-pending: "&7%name%: &c???"
   village-timer: "&e[%time%]"
   #  overworld-tasks-header: "&aВерхній світ:"

@@ -45,6 +45,7 @@ public class StructureManager {
     private Location netherPortalLocation;
 
     private Location predictedEndPortalLocation;
+    private boolean predictedEndPortalApproximate;
 
     private final Set<String> hiddenStructures = new HashSet<>();
 
@@ -67,6 +68,7 @@ public class StructureManager {
         hiddenStructures.clear();
         disabledSearches.clear();
         predictedEndPortalLocation = null;
+        predictedEndPortalApproximate = false;
         overworldPortalLocation = null;
         netherPortalLocation = null;
 
@@ -300,6 +302,10 @@ public class StructureManager {
         if (key.equals("VILLAGE")) {
             villageSearchFailed = false;
             plugin.getGameManager().villageTimeElapsed = 0;
+        }
+        if (key.equals("END_PORTAL")) {
+            predictedEndPortalLocation = null;
+            predictedEndPortalApproximate = false;
         }
 
         foundLocations.put(key, loc);
@@ -579,9 +585,15 @@ public class StructureManager {
         return predictedEndPortalLocation;
     }
 
+    /** @return True while the End Portal location is only a triangulated estimate. / True, якщо локація порталу Краю є лише приблизною. */
+    public boolean isPredictedEndPortalApproximate() {
+        return predictedEndPortalApproximate;
+    }
+
     /** Sets the predicted location of the End Portal. / Встановлює передбачену локацію порталу в Край. */
     public void setPredictedEndPortalLocation(Location location) {
         this.predictedEndPortalLocation = location;
+        this.predictedEndPortalApproximate = location != null;
     }
 
     public Location getHiddenLodestone(String key) {

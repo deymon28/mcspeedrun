@@ -15,8 +15,8 @@ commands:
   timer-resumed: "&aThe speedrun timer has been resumed."
   run-reset: "&cThe speedrun has been reset."
   stage-skipped: "&eSkipped to the next stage."
-  unknown-subcommand: "&cUnknown subcommand. Use: start, pause, stop, reset, reload, skipstage, status, tasks, new, locate, remove."
-  usage-main: "&aUsage: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove>"
+  unknown-subcommand: "&cUnknown subcommand. Use: start, pause, stop, reset, reload, skipstage, status, tasks, new, locate, remove, givecompass."
+  usage-main: "&aUsage: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove|givecompass>"
   usage-new: "&cUsage: /run new <%structures%> [X Y Z]"
   usage-remove: "&cUsage: /run remove <structure>"
   invalid-structure: "&cInvalid structure name. Valid: %structures%"
@@ -33,7 +33,7 @@ commands:
   givecompass:
     no-permission-others: "&cYou don't have permission to give compass to others."
     player-not-found: "&cPlayer not found: %player%"
-    usage: "&cUsage: /givecompass [player]"
+    usage: "&cUsage: /run givecompass [player]"
     received: "&aYou received a Navigation Compass!"
     gave: "&aGave a Navigation Compass to %player%."
   status:
@@ -60,6 +60,7 @@ scoreboard:
   s-end: "&c&lSPEEDRUN ENDED"
   locations-header: "&bLocations:"
   location-found: "&7%name%: &a%coords%"
+  location-approximate: "&7%name%: &e%coords%"
   location-pending: "&7%name%: &c???"
   village-timer: "&e[%time%]"
   normal-tasks-header: "&aOverworld:"

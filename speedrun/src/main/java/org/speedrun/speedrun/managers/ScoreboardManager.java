@@ -161,6 +161,10 @@ public class ScoreboardManager {
 
                 String displayName = sm.getLocalizedStructureName(key);
                 Location loc = entry.getValue();
+                boolean approximate = "END_PORTAL".equals(key)
+                        && loc == null
+                        && sm.isPredictedEndPortalApproximate()
+                        && sm.getPredictedEndPortalLocation() != null;
 
                 loc = resolveDisplayLocation(player, key, loc);
                 if (!shouldDisplayLocation(player, key, loc)) {
@@ -168,7 +172,8 @@ public class ScoreboardManager {
                 }
 
                 if (loc != null) {
-                    lines.add(cm.getFormattedString("scoreboard.location-found",
+                    String lineKey = approximate ? "scoreboard.location-approximate" : "scoreboard.location-found";
+                    lines.add(cm.getFormattedString(lineKey,
                             "%name%", displayName,
                             "%coords%", formatCoordinates(player, key, loc)));
                 } else {

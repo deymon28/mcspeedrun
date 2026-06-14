@@ -8,6 +8,9 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.Material;
 import org.jetbrains.annotations.NotNull;
 import org.speedrun.speedrun.managers.ConfigManager;
 import org.speedrun.speedrun.managers.GameManager;
@@ -190,6 +193,9 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     }
                     return handleLocateCommand(player, args);
 
+                case "givecompass":
+                    return handleGiveCompassCommand(player, args);
+
                 case "remove":
                     if (args.length < 2) {
                         send(player, message("commands.usage-remove"));
@@ -240,7 +246,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             // Suggest all subcommands.
             // Пропонуємо всі підкоманди.
-            String[] subcommands = {"start", "pause", "stop", "reset", "reload", "skipstage", "status", "tasks", "new", "locate", "remove"};
+            String[] subcommands = {"start", "pause", "stop", "reset", "reload", "skipstage", "status", "tasks", "new", "locate", "remove", "givecompass"};
             for (String sub : subcommands) {
                 if (sub.startsWith(args[0].toLowerCase())) {
                     completions.add(sub);
@@ -264,6 +270,12 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                 }
                 if ("pos2".startsWith(currentArg)) {
                     completions.add("pos2");
+                }
+            } else if (subCommand.equals("givecompass") && sender.hasPermission("speedrun.admin")) {
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (online.getName().toLowerCase(Locale.ROOT).startsWith(currentArg)) {
+                        completions.add(online.getName());
+                    }
                 }
             }
         }
@@ -428,6 +440,48 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         } else {
             send(player, message("commands.locate-failed"));
         }
+    }
+
+    private boolean handleGiveCompassCommand(Player sender, String[] args) {
+        Player targetPlayer = sender;
+        if (args.length == 2) {
+            if (!sender.hasPermission("speedrun.admin")) {
+                send(sender, message("commands.givecompass.no-permission-others"));
+                return true;
+            }
+            Player specifiedPlayer = Bukkit.getPlayer(args[1]);
+            if (specifiedPlayer == null) {
+                send(sender, message("commands.givecompass.player-not-found", "%player%", args[1]));
+                return true;
+            }
+            targetPlayer = specifiedPlayer;
+        } else if (args.length > 2) {
+            send(sender, message("commands.givecompass.usage"));
+            return true;
+        }
+
+        ItemStack compass = plugin.getCasualGameModeManager() != null
+                && plugin.getCasualGameModeManager().getCompassListener() != null
+                ? plugin.getCasualGameModeManager().getCompassListener().createNavigationCompass(null, null)
+                : createLegacyCompass();
+
+        targetPlayer.getInventory().addItem(compass);
+        MessageUtil.send(targetPlayer, plugin.getConfigManager().getFormatted("commands.givecompass.received"));
+        if (!sender.equals(targetPlayer)) {
+            send(sender, message("commands.givecompass.gave", "%player%", targetPlayer.getName()));
+        }
+        return true;
+    }
+
+    private ItemStack createLegacyCompass() {
+        ItemStack compass = new ItemStack(Material.COMPASS);
+        ItemMeta meta = compass.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(plugin.getConfigManager().getFormattedText("items.navigation-compass.name"));
+            meta.setLore(plugin.getConfigManager().getFormattedTextList("items.navigation-compass.lore"));
+            compass.setItemMeta(meta);
+        }
+        return compass;
     }
 
     private String message(String key, String... replacements) {

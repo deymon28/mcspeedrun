@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.1-ALPHA`.
+Current plugin version: `26.1.2-3.1.2-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.1-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.2-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.1-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.2-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -74,7 +74,7 @@ This alpha version has been verified to load on Paper `26.1.2-69`.
 - `/run new <location> [x y z]` - set a tracked location, optionally at custom coordinates.
 - `/run remove <location>` - hide a tracked location and stop its related search state.
 - `/run locate ...` - stronghold/end portal triangulation helper.
-- `/givecompass [player]` - give the navigation compass.
+- `/run givecompass [player]` - give the navigation compass.
 
 ## Permissions
 
@@ -120,6 +120,12 @@ Important options include:
 - Coordinate display modes no longer add world labels or linked coordinates in brackets.
 - Nether compass actionbar now shows distance without a text direction arrow.
 - End portal entry is detected from the portal block, and End Gateway waypoint side effects are guarded.
+
+## Notes For 3.1.2 Alpha
+
+- Predicted End Portal coordinates from `/run locate` stay yellow until confirmed.
+- The compass Spawn destination now uses the world's actual spawn location.
+- Navigation compasses only use lodestone tracking when a hidden lodestone exists, and `/run givecompass` replaces the old top-level command.
 
 ## License
 

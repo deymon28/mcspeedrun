@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 public class CompassListener implements Listener {
 
     private final Speedrun plugin;
-    private final Map<Player, Location> playerDestinations = new HashMap<>();
+    private final Map<Player, DestinationSelection> playerDestinations = new HashMap<>();
     private final Map<World, Map<String, Location>> predefinedDestinationsByWorld = new HashMap<>();
     private final Map<String, Material> customDestinationIcons = new HashMap<>();
 
@@ -62,7 +62,7 @@ public class CompassListener implements Listener {
         Map<String, Location> overworldDestinations = new HashMap<>();
         World overworld = findWorldByEnvironment(World.Environment.NORMAL);
         if (overworld != null) {
-            overworldDestinations.put("SPAWN", new Location(overworld, 0, 70, 0));
+            overworldDestinations.put("SPAWN", overworld.getSpawnLocation());
             predefinedDestinationsByWorld.put(overworld, overworldDestinations);
         }
 
@@ -142,11 +142,12 @@ public class CompassListener implements Listener {
             meta.setDisplayName(getCompassDisplayName());
             meta.setLore(plugin.getConfigManager().getFormattedTextList("items.navigation-compass.lore"));
             if (meta instanceof CompassMeta compassMeta) {
-                compassMeta.setLodestoneTracked(true);
                 if (lodestoneLocation != null) {
                     compassMeta.setLodestone(lodestoneLocation);
-                } else if (targetLocation != null) {
-                    compassMeta.setLodestone(targetLocation);
+                    compassMeta.setLodestoneTracked(true);
+                } else {
+                    compassMeta.setLodestone(null);
+                    compassMeta.setLodestoneTracked(false);
                 }
                 compass.setItemMeta(compassMeta);
             } else {
@@ -267,7 +268,7 @@ public class CompassListener implements Listener {
             Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(playerWorld);
 
             if (destinationsForWorld != null && destinationsForWorld.containsKey(destinationName)) {
-                setPlayerDestination(player, destinationsForWorld.get(destinationName));
+                setPlayerDestination(player, destinationName, destinationsForWorld.get(destinationName));
                 player.closeInventory();
             } else {
                 MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.destination-not-found"));
@@ -286,18 +287,18 @@ public class CompassListener implements Listener {
     }
 
     public void setPlayerDestination(Player player, Location targetLocation) {
+        setPlayerDestination(player, resolveDestinationKey(targetLocation), targetLocation);
+    }
+
+    private void setPlayerDestination(Player player, String destinationKey, Location targetLocation) {
         if (targetLocation != null) {
-            playerDestinations.put(player, targetLocation);
+            playerDestinations.put(player, new DestinationSelection(destinationKey, targetLocation));
             Location lodestoneLocation = findLodestoneForDestination(targetLocation);
-            String destinationName = null;
-            if (predefinedDestinationsByWorld.containsKey(targetLocation.getWorld())) {
-                destinationName = getKeyByValue(predefinedDestinationsByWorld.get(targetLocation.getWorld()), targetLocation);
-            }
 
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-set",
-                    "%destination%", destinationName != null ? getDestinationDisplayName(destinationName) : plugin.getConfigManager().getLangString("compass.gui.custom-location", "a custom location"),
+                    "%destination%", destinationKey != null ? getDestinationDisplayName(destinationKey) : plugin.getConfigManager().getLangString("compass.gui.custom-location", "a custom location"),
                     "%world%", targetLocation.getWorld().getName()));
-            giveConfiguredCompassToAllPlayers(targetLocation, lodestoneLocation);
+            giveConfiguredCompass(player, targetLocation, lodestoneLocation);
         } else {
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-invalid"));
         }
@@ -340,11 +341,14 @@ public class CompassListener implements Listener {
                     }
 
                     if (isHoldingCompass) {
-                        Location destination = playerDestinations.get(player);
+                        DestinationSelection selection = playerDestinations.get(player);
+                        Location destination = resolveSelectedDestination(selection);
                         if (destination != null) {
                             player.setCompassTarget(destination);
 
-                            String destinationName = getKeyByValue(predefinedDestinationsByWorld.getOrDefault(destination.getWorld(), Collections.emptyMap()), destination);
+                            String destinationName = selection.destinationKey() != null
+                                    ? selection.destinationKey()
+                                    : getKeyByValue(predefinedDestinationsByWorld.getOrDefault(destination.getWorld(), Collections.emptyMap()), destination);
                             String targetWorldDisplayName = getWorldDisplayName(destination.getWorld());
 
                             if (!player.getWorld().equals(destination.getWorld())) {
@@ -423,7 +427,7 @@ public class CompassListener implements Listener {
      * @return The Location of the player's current destination, or null if none is set.
      */
     public Location getPlayerDestination(Player player) {
-        return playerDestinations.get(player);
+        return resolveSelectedDestination(playerDestinations.get(player));
     }
 
     private <T, E> T getKeyByValue(Map<T, E> map, E value) {
@@ -448,12 +452,10 @@ public class CompassListener implements Listener {
         }
     }
 
-    private void giveConfiguredCompassToAllPlayers(Location targetLocation, @Nullable Location lodestoneLocation) {
+    private void giveConfiguredCompass(Player player, Location targetLocation, @Nullable Location lodestoneLocation) {
         ItemStack configuredCompass = createNavigationCompass(targetLocation, lodestoneLocation);
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            replaceOrAddCompass(online, configuredCompass.clone());
-            online.setCompassTarget(targetLocation);
-        }
+        replaceOrAddCompass(player, configuredCompass);
+        player.setCompassTarget(targetLocation);
     }
 
     private void replaceOrAddCompass(Player player, ItemStack compass) {
@@ -494,7 +496,34 @@ public class CompassListener implements Listener {
         }
 
         Location lodestone = plugin.getStructureManager().getHiddenLodestone(destinationKey);
-        return lodestone != null ? lodestone : targetLocation;
+        return lodestone;
+    }
+
+    private String resolveDestinationKey(Location targetLocation) {
+        if (targetLocation == null || targetLocation.getWorld() == null) {
+            return null;
+        }
+
+        Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(targetLocation.getWorld());
+        return destinationsForWorld != null ? getKeyByValue(destinationsForWorld, targetLocation) : null;
+    }
+
+    private Location resolveSelectedDestination(@Nullable DestinationSelection selection) {
+        if (selection == null) {
+            return null;
+        }
+        if (selection.destinationKey() == null) {
+            return selection.fallbackLocation();
+        }
+        World world = selection.fallbackLocation().getWorld();
+        if (world == null) {
+            return selection.fallbackLocation();
+        }
+        Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(world);
+        if (destinationsForWorld == null) {
+            return selection.fallbackLocation();
+        }
+        return destinationsForWorld.getOrDefault(selection.destinationKey(), selection.fallbackLocation());
     }
 
     private String getDestinationDisplayName(String key) {
@@ -532,5 +561,8 @@ public class CompassListener implements Listener {
             }
         }
         return null;
+    }
+
+    private record DestinationSelection(String destinationKey, Location fallbackLocation) {
     }
 }

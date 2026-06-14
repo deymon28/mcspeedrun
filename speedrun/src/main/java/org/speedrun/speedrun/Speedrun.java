@@ -1,7 +1,6 @@
 package org.speedrun.speedrun;
 
 import org.bukkit.plugin.java.JavaPlugin;
-import org.speedrun.speedrun.casualGameMode.GiveCompassCommand;
 import org.speedrun.speedrun.managers.*;
 import org.speedrun.speedrun.utils.TabCoordinateDisplay;
 
@@ -75,8 +74,6 @@ public final class Speedrun extends JavaPlugin {
         Objects.requireNonNull(getCommand("run")).setTabCompleter(runCommand);
 
         tabCoords.enable();
-
-        Objects.requireNonNull(this.getCommand("givecompass")).setExecutor(new GiveCompassCommand(this));
 
         getLogger().info("Speedrun plugin has been enabled.");
     }
