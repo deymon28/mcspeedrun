@@ -604,6 +604,11 @@ public class StructureManager {
         return Collections.unmodifiableMap(hiddenLodestones);
     }
 
+    public Location ensureHiddenLodestone(String key, Location structureLocation) {
+        registerHiddenLodestone(key, structureLocation);
+        return hiddenLodestones.get(key);
+    }
+
     private void registerHiddenLodestone(String key, Location structureLocation) {
         if (structureLocation == null || structureLocation.getWorld() == null) {
             return;

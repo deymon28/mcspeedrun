@@ -493,7 +493,13 @@ public class CompassListener implements Listener {
             destinationKey = getKeyByValue(destinationsForWorld, targetLocation);
         }
 
-        return destinationKey != null ? plugin.getStructureManager().getHiddenLodestone(destinationKey) : null;
+        if (destinationKey == null) {
+            return null;
+        }
+        if ("SPAWN".equals(destinationKey)) {
+            return plugin.getStructureManager().ensureHiddenLodestone(destinationKey, targetLocation);
+        }
+        return plugin.getStructureManager().getHiddenLodestone(destinationKey);
     }
 
     private String resolveDestinationKey(Location targetLocation) {
