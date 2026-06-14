@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.8-ALPHA`.
+Current plugin version: `26.1.2-3.1.9-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.8-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.9-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.8-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.9-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -155,6 +155,10 @@ Important options include:
 
 - Task display can now group all configured tasks by world with `ALL_GAME_STAGES`.
 - Completed tasks can optionally disappear from task displays after a configured timeout.
+
+## Notes For 3.1.9 Alpha
+
+- Default progression no longer auto-generates Fortress, Bastion, or Stronghold structure tasks.
 
 ## License
 

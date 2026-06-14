@@ -185,15 +185,12 @@ progression:
   4_NETHER_STRUCTURES:
     display-name: "Nether Structures"
     world: "NETHER"
-    tasks:
-      STRUCTURE_FORTRESS: { display-name: "Find a Fortress" }
-      STRUCTURE_BASTION: { display-name: "Find a Bastion" }
+    tasks: {}
 
   5_STRONGHOLD:
     display-name: "Stronghold"
     world: "NORMAL"
-    tasks:
-      STRUCTURE_END_PORTAL: { display-name: "Find the Stronghold" }
+    tasks: {}
 
 # ----------------------------------------------------------------
 # Optional cosmetic rewards for completing tasks or stages.
