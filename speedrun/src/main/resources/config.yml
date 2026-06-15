@@ -19,7 +19,7 @@ settings:
 
   # EN: When start-on-first-join starts the run, also set loaded worlds to day time.
   # UA: Коли start-on-first-join запускає забіг, також встановити день у завантажених світах.
-  reset_time_on_join: false
+  reset_time_on_join: true
 
   # EN: The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
   # UA: Можливість перепризначити координати будь-якої локації за допомогою команди '/run new LOC_NAME'. Якщо 'False', працює лише для 'Nether portal'.
@@ -188,9 +188,9 @@ casual:
     # EN: Enable or disable structure waypoints in casual mode
     # UA: Увімкнути або вимкнути орієнтири структур у казуальному режимі
     enabled: true
-    # EN: BEACON is the safe default. END_GATEWAY is kept for compatibility but can teleport players or trigger vanilla advancements.
-    # UA: BEACON є безпечним стандартом. END_GATEWAY залишено для сумісності, але він може телепортувати гравців або викликати vanilla-досягнення.
-    type: "BEACON"
+    # EN: END_GATEWAY is the default compact beam marker. BEACON remains available as an alternate marker type.
+    # UA: END_GATEWAY є стандартним компактним маркером з променем. BEACON лишається доступним альтернативним типом маркера.
+    type: "END_GATEWAY"
     # EN: Horizontal offset from the detected structure, so the marker does not overwrite important blocks.
     # UA: Горизонтальний відступ від знайденої структури, щоб маркер не перезаписував важливі блоки.
     offset-blocks: 10
@@ -217,11 +217,11 @@ progression:
   settings:
     # EN: ACTIVE_STAGE shows only the current stage. ALL_STAGES shows all tasks for the player's current world. ALL_GAME_STAGES groups all tasks by world on the scoreboard.
     # UA: ACTIVE_STAGE показує лише поточний етап. ALL_STAGES показує всі завдання для поточного світу гравця. ALL_GAME_STAGES групує всі завдання за світами на скорборді.
-    task-display-mode: "ACTIVE_STAGE"
+    task-display-mode: "ALL_GAME_STAGES"
     completed-task-hide:
       # EN: If enabled, completed tasks disappear from task displays after timeout-seconds.
       # UA: Якщо увімкнено, завершені завдання зникають з відображення після timeout-seconds.
-      enabled: false
+      enabled: true
       timeout-seconds: 10
 
   # EN: Stage 1: Basic setup - Initial resource gathering phase

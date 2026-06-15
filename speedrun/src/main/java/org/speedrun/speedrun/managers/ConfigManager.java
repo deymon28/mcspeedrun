@@ -201,7 +201,7 @@ public class ConfigManager {
     }
 
     public boolean isResetTimeOnJoinEnabled() {
-        return config.getBoolean("settings.reset_time_on_join", false);
+        return config.getBoolean("settings.reset_time_on_join", true);
     }
 
     /** @return The time limit in seconds for the village search task. / Ліміт часу в секундах для завдання з пошуку села. */
@@ -215,11 +215,11 @@ public class ConfigManager {
     }
 
     public TaskDisplayMode getTaskDisplayMode() {
-        String rawMode = config.getString("progression.settings.task-display-mode", "ACTIVE_STAGE");
+        String rawMode = config.getString("progression.settings.task-display-mode", "ALL_GAME_STAGES");
         TaskDisplayMode mode = parseTaskDisplayMode(rawMode, null);
         if (mode == null) {
-            plugin.getLogger().warning("Unknown progression.settings.task-display-mode '" + rawMode + "'. Falling back to ACTIVE_STAGE.");
-            return TaskDisplayMode.ACTIVE_STAGE;
+            plugin.getLogger().warning("Unknown progression.settings.task-display-mode '" + rawMode + "'. Falling back to ALL_GAME_STAGES.");
+            return TaskDisplayMode.ALL_GAME_STAGES;
         }
         return mode;
     }
@@ -233,7 +233,7 @@ public class ConfigManager {
     }
 
     public boolean isCompletedTaskHideEnabled() {
-        return config.getBoolean("progression.settings.completed-task-hide.enabled", false);
+        return config.getBoolean("progression.settings.completed-task-hide.enabled", true);
     }
 
     public long getCompletedTaskHideTimeoutMillis() {
@@ -482,18 +482,18 @@ public class ConfigManager {
         return config.getInt("settings.proximity-scanner.nether-portal.search-radius", 90);
     }
 
-    /** @return Whether waypoints (beacons) should be created for found structures in casual mode. / Чи створювати вейпоінти (маяки) для знайдених структур у казуальному режимі. */
+    /** @return Whether waypoints should be created for found structures in casual mode. / Чи створювати вейпоінти для знайдених структур у казуальному режимі. */
     public boolean areWaypointsEnabled() {
         return isCasualGameModeEnabled() && config.getBoolean("casual.structure_waypoints.enabled", true);
     }
 
     public WaypointType getWaypointType() {
-        String rawType = config.getString("casual.structure_waypoints.type", "BEACON");
+        String rawType = config.getString("casual.structure_waypoints.type", "END_GATEWAY");
         try {
             return WaypointType.valueOf(rawType.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            plugin.getLogger().warning("Unknown casual.structure_waypoints.type '" + rawType + "'. Falling back to BEACON.");
-            return WaypointType.BEACON;
+            plugin.getLogger().warning("Unknown casual.structure_waypoints.type '" + rawType + "'. Falling back to END_GATEWAY.");
+            return WaypointType.END_GATEWAY;
         }
     }
 

@@ -60,6 +60,17 @@ class ConfigurationResourceTest {
     }
 
     @Test
+    void configUsesRequestedRuntimeDefaults() {
+        YamlConfiguration config = loadYaml("src/main/resources/config.yml");
+
+        assertTrue(config.getBoolean("settings.reset_time_on_join"));
+        assertEquals("END_GATEWAY", config.getString("casual.structure_waypoints.type"));
+        assertEquals("ALL_GAME_STAGES", config.getString("progression.settings.task-display-mode"));
+        assertTrue(config.getBoolean("progression.settings.completed-task-hide.enabled"));
+        assertEquals(10, config.getInt("progression.settings.completed-task-hide.timeout-seconds"));
+    }
+
+    @Test
     void langFilesContainCompassDeathAndApproximateKeys() {
         for (String langPath : List.of("src/main/resources/lang/en.yml", "src/main/resources/lang/uk.yml")) {
             YamlConfiguration lang = loadYaml(langPath);

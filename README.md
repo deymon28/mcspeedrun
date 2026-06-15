@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.4.0-ALPHA`.
+Current plugin version: `26.1.2-3.4.1-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.4.0-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.4.1-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.4.0-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.4.1-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -88,16 +88,16 @@ Main settings are in `speedrun/src/main/resources/config.yml` and are copied to 
 Important options include:
 
 - `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
-- `settings.reset_time_on_join`: optionally set loaded worlds to day when the first join starts the run.
-- `progression.settings.task-display-mode`: `ACTIVE_STAGE`, `ALL_STAGES`, or `ALL_GAME_STAGES` task display.
-- `progression.settings.completed-task-hide`: optionally hide completed tasks after a timeout.
+- `settings.reset_time_on_join`: set loaded worlds to day when the first join starts the run.
+- `progression.settings.task-display-mode`: `ACTIVE_STAGE`, `ALL_STAGES`, or `ALL_GAME_STAGES` task display. Default is `ALL_GAME_STAGES`.
+- `progression.settings.completed-task-hide`: hide completed tasks after a timeout. Default is enabled with a 10 second timeout.
 - `casual.start-pre-scan.enabled`: enable controlled Casual live/background discovery.
 - `casual.start-pre-scan.mode`: `SAFE`, `BALANCED`, `AGGRESSIVE`, or `LOCATE` scanner profile.
 - `casual.start-pre-scan.safety`: hard caps for background chunk queue load.
 - `casual.compass.death-location.enabled`: add each player's own last death point to their compass menu.
 - `diagnostics.trace.enabled`: write detailed JSONL runtime traces for bug reproduction.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
-- `casual.structure_waypoints`: enable structure waypoints. Beacon is the safe default; End Gateway remains compatible but is not recommended for normal play.
+- `casual.structure_waypoints`: enable structure waypoints. End Gateway is the default marker type; Beacon remains available.
 - `casual.nether_gold_highlight`: highlight gold blocks around Nether players.
 - `progression`: staged item and structure tasks.
 - `rewards`: global reward commands, sounds, and particles.
@@ -239,6 +239,10 @@ Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to writ
 - Added `LOCATE` start pre-scan mode for bounded one-shot structure locate API calls with loaded-chunk fallback.
 - Added hard safety caps for background pre-scan chunk load rate and queue size, so oversized configs cannot generate tens of thousands of chunks unchecked.
 - Documented that oversized `AGGRESSIVE` settings can cause long shutdown saves and Nether chunk loading stalls.
+
+## Notes For 3.4.1 Alpha
+
+- Updated generated config defaults for reset-time-on-join, End Gateway waypoints, all-game-stage task display, and completed-task hiding.
 
 ## License
 
