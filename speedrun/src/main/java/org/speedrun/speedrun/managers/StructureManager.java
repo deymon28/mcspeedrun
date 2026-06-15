@@ -528,6 +528,11 @@ public class StructureManager {
             return;
         }
 
+        Location previousLocation = foundLocations.get(key);
+        boolean confirmsApproximateLocation = previousLocation != null
+                && !approximate
+                && approximateStructures.contains(key);
+
         if (key.equals("VILLAGE")) {
             villageSearchFailed = false;
             plugin.getGameManager().villageTimeElapsed = 0;
@@ -549,9 +554,11 @@ public class StructureManager {
         plugin.getGameManager().getLogger().info("Structure '" + key + "' found/updated by " + playerName + " at " + LocationUtil.format(loc));
 
         Bukkit.getPluginManager().callEvent(new StructureFoundEvent(player, key, loc));
-        boolean completedActiveStructureTask = plugin.getTaskManager().onStructureFound(key, player);
-        if (!completedActiveStructureTask) {
-            plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
+        if (!confirmsApproximateLocation) {
+            boolean completedActiveStructureTask = plugin.getTaskManager().onStructureFound(key, player);
+            if (!completedActiveStructureTask) {
+                plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
+            }
         }
 
         String displayName = getLocalizedStructureName(key);
@@ -610,6 +617,8 @@ public class StructureManager {
         } else {
             return; // Portals in other dimensions are not tracked. / Портали в інших вимірах не відстежуються.
         }
+
+        clearHiddenLodestone("NETHER_PORTAL");
 
         // Update the placeholder for scoreboard display.
         // Оновлюємо плейсхолдер для відображення на скорборді.
@@ -803,7 +812,9 @@ public class StructureManager {
 
     /** @return True if the plugin is currently actively searching for a village. / True, якщо плагін наразі активно шукає село. */
     public boolean isVillageSearchActive() {
-        return foundLocations.get("VILLAGE") == null
+        Location villageLocation = foundLocations.get("VILLAGE");
+        boolean needsExactBellLocation = villageLocation == null || approximateStructures.contains("VILLAGE");
+        return needsExactBellLocation
                 && !disabledSearches.contains("VILLAGE")
                 && plugin.getGameManager().getVillageTimeElapsed() < plugin.getConfigManager().getVillageTimeout()
                 && !villageSearchFailed;
@@ -843,13 +854,17 @@ public class StructureManager {
         return hiddenLodestones.get(key);
     }
 
+    public Location getHiddenLodestone(String key, Location targetLocation) {
+        return hiddenLodestones.get(hiddenLodestoneStorageKey(key, targetLocation));
+    }
+
     public Map<String, Location> getHiddenLodestones() {
         return Collections.unmodifiableMap(hiddenLodestones);
     }
 
     public Location ensureHiddenLodestone(String key, Location structureLocation) {
         registerHiddenLodestone(key, structureLocation);
-        return hiddenLodestones.get(key);
+        return getHiddenLodestone(key, structureLocation);
     }
 
     public void clearHiddenLodestoneForKey(String key) {
@@ -861,7 +876,8 @@ public class StructureManager {
             return;
         }
 
-        clearHiddenLodestone(key);
+        String storageKey = hiddenLodestoneStorageKey(key, structureLocation);
+        clearHiddenLodestoneStorageKey(storageKey);
 
         Location lodestoneLocation = structureLocation.clone().add(0, -5, 0);
         World world = lodestoneLocation.getWorld();
@@ -878,15 +894,27 @@ public class StructureManager {
             return;
         }
         Block block = lodestoneLocation.getBlock();
-        hiddenLodestonePreviousBlocks.put(key, block.getType());
+        hiddenLodestonePreviousBlocks.put(storageKey, block.getType());
         block.setType(Material.LODESTONE, false);
         block.setMetadata(HIDDEN_LODESTONE_METADATA, new FixedMetadataValue(plugin, true));
-        hiddenLodestones.put(key, lodestoneLocation);
+        hiddenLodestones.put(storageKey, lodestoneLocation);
     }
 
     private void clearHiddenLodestone(String key) {
-        Location lodestoneLocation = hiddenLodestones.remove(key);
-        Material previousType = hiddenLodestonePreviousBlocks.remove(key);
+        if ("NETHER_PORTAL".equals(key)) {
+            for (String storageKey : new ArrayList<>(hiddenLodestones.keySet())) {
+                if (storageKey.equals(key) || storageKey.startsWith(key + ":")) {
+                    clearHiddenLodestoneStorageKey(storageKey);
+                }
+            }
+            return;
+        }
+        clearHiddenLodestoneStorageKey(key);
+    }
+
+    private void clearHiddenLodestoneStorageKey(String storageKey) {
+        Location lodestoneLocation = hiddenLodestones.remove(storageKey);
+        Material previousType = hiddenLodestonePreviousBlocks.remove(storageKey);
         if (lodestoneLocation == null || lodestoneLocation.getWorld() == null) {
             return;
         }
@@ -906,8 +934,22 @@ public class StructureManager {
 
     private void clearAllHiddenLodestones() {
         for (String key : new ArrayList<>(hiddenLodestones.keySet())) {
-            clearHiddenLodestone(key);
+            clearHiddenLodestoneStorageKey(key);
         }
+    }
+
+    private String hiddenLodestoneStorageKey(String key, Location structureLocation) {
+        UUID worldId = structureLocation != null && structureLocation.getWorld() != null
+                ? structureLocation.getWorld().getUID()
+                : null;
+        return hiddenLodestoneStorageKey(key, worldId);
+    }
+
+    static String hiddenLodestoneStorageKey(String key, UUID worldId) {
+        if ("NETHER_PORTAL".equals(key) && worldId != null) {
+            return key + ":" + worldId;
+        }
+        return key;
     }
 
     private record SearchChunk(World world, int chunkX, int chunkZ, boolean playerDriven) {

@@ -479,9 +479,9 @@ public class GameListener implements Listener {
         if (plugin.getConfigManager().isHardcoreModeEnabled()) {
             return;
         }
-        // Manual village detection by right-clicking a bell.
-        // Ручне виявлення села через правий клік по дзвону.
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK
+        // Manual village detection by interacting with a bell.
+        // Ручне виявлення села через взаємодію з дзвоном.
+        if ((event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK)
                 && event.getClickedBlock() != null
                 && event.getClickedBlock().getType() == Material.BELL) {
 
@@ -489,8 +489,10 @@ public class GameListener implements Listener {
             long now = System.currentTimeMillis();
             if (lastBellInteract.getOrDefault(player.getUniqueId(), 0L) + BELL_COOLDOWN > now) return;
 
+            Location villageLocation = plugin.getStructureManager().getFoundStructures().get("VILLAGE");
             if (!plugin.getStructureManager().getFoundStructures().containsKey("VILLAGE")
-                    || plugin.getStructureManager().getFoundStructures().get("VILLAGE") == null) {
+                    || villageLocation == null
+                    || plugin.getStructureManager().isApproximateStructure("VILLAGE")) {
                 plugin.getStructureManager().villageSearchFailed = false;  // reset the failed flag
                 plugin.getStructureManager().structureFound(player, "VILLAGE", event.getClickedBlock().getLocation());
                 lastBellInteract.put(player.getUniqueId(), now);

@@ -254,7 +254,8 @@ public class GameManager {
     private void findNearbyBell(Player player) {
         // Already found?  Stop scanning.
         if (plugin.getStructureManager().getFoundStructures().containsKey("VILLAGE")
-                && plugin.getStructureManager().getFoundStructures().get("VILLAGE") != null) {
+                && plugin.getStructureManager().getFoundStructures().get("VILLAGE") != null
+                && !plugin.getStructureManager().isApproximateStructure("VILLAGE")) {
             return;
         }
         scanForBlock(player, plugin.getConfigManager().getVillageBellRadius(), Material.BELL, "VILLAGE");

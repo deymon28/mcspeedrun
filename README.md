@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.2.0-ALPHA`.
+Current plugin version: `26.1.2-3.2.1-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.2.0-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.2.1-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.2.0-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.2.1-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -205,6 +205,11 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1
 - Added a JUnit 5 test suite for utility logic, task scaling, config/profile parsing, command aliases, resource defaults, and plugin metadata.
 - Added a Paper smoke-test script that boots real temporary Paper servers across the main runtime configuration profiles.
 - Extracted linked Overworld/Nether coordinate scaling into a testable utility used by the scoreboard.
+
+## Notes For 3.2.1 Alpha
+
+- Approximate Village coordinates can now be confirmed by finding or interacting with a Bell.
+- Nether Portal compass tracking now keeps separate hidden lodestones for each portal side/world.
 
 ## License
 

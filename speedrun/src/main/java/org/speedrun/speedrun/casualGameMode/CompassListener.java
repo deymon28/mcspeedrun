@@ -576,7 +576,7 @@ public class CompassListener implements Listener {
         if ("SPAWN".equals(resolvedDestinationKey)) {
             return plugin.getStructureManager().ensureHiddenLodestone(resolvedDestinationKey, targetLocation);
         }
-        return plugin.getStructureManager().getHiddenLodestone(resolvedDestinationKey);
+        return plugin.getStructureManager().getHiddenLodestone(resolvedDestinationKey, targetLocation);
     }
 
     private String resolveDestinationKey(Location targetLocation) {
