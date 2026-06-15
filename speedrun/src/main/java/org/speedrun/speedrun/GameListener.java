@@ -79,6 +79,8 @@ public class GameListener implements Listener {
 
     public void invalidatePendingPortalSearches() {
         portalSearchGeneration.incrementAndGet();
+        plugin.getTraceLogger().trace("portal", "pending_portal_searches_invalidated",
+                "generation", portalSearchGeneration.get());
     }
 
     public void resetRuntimeCaches() {
@@ -312,6 +314,10 @@ public class GameListener implements Listener {
         if (plugin.getConfigManager().isHardcoreModeEnabled()) {
             return;
         }
+        plugin.getTraceLogger().trace("structure", "structure_found_event",
+                "player", event.getPlayer(),
+                "key", event.getStructureKey(),
+                "location", event.getLocation());
 
         plugin.getSpeedrunLogger().logStructureFound(
                 event.getPlayer(),
@@ -558,11 +564,21 @@ public class GameListener implements Listener {
             return;
         }
         if (event.getTo() == null) {
+            plugin.getTraceLogger().trace("portal", "player_portal_skipped",
+                    "player", event.getPlayer(),
+                    "from", event.getFrom(),
+                    "reason", "null_destination");
             return;
         }
 
         World.Environment fromWorld = event.getFrom().getWorld().getEnvironment();
         World.Environment toWorld = event.getTo().getWorld().getEnvironment();
+        plugin.getTraceLogger().trace("portal", "player_portal_event",
+                "player", event.getPlayer(),
+                "from", event.getFrom(),
+                "to", event.getTo(),
+                "from_environment", fromWorld,
+                "to_environment", toWorld);
         if (fromWorld == World.Environment.NORMAL && toWorld == World.Environment.THE_END) {
             gameManager.getLogger().logPlayerPortalFromTo(event.getPlayer().getName(), fromWorld, toWorld);
             Location portalBlock = findNearbyBlockOfType(event.getFrom(), 2, Material.END_PORTAL);
@@ -583,6 +599,10 @@ public class GameListener implements Listener {
             }
             if (handled.compareAndSet(false, true)) {
                 plugin.getLogger().warning("Portal search timeout, using approximate location");
+                plugin.getTraceLogger().trace("portal", "portal_search_timeout",
+                        "player", event.getPlayer(),
+                        "fallback", to,
+                        "generation", searchGeneration);
                 handlePortalLogic(event, to);
             }
         }, timeout);
@@ -600,8 +620,14 @@ public class GameListener implements Listener {
                         if (handled.compareAndSet(false, true)) {
                             timeoutTask.cancel();
                             Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
-                            plugin.getServer().getScheduler().runTask(plugin,
-                                    () -> handlePortalLogic(event, finalLocation));
+                            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                                plugin.getTraceLogger().trace("portal", "portal_search_completed",
+                                        "player", event.getPlayer(),
+                                        "precise_exit", preciseExitLoc,
+                                        "final_location", finalLocation,
+                                        "generation", searchGeneration);
+                                handlePortalLogic(event, finalLocation);
+                            });
                         }
                     });
         } else {
@@ -609,6 +635,11 @@ public class GameListener implements Listener {
             // Резервний синхронний (потенційно лагаючий) метод для Spigot/Bukkit.
             Location preciseExitLoc = findPortalBlockSync(to, TELEPORT_PORTAL_SEARCH_RADIUS);
             Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
+            plugin.getTraceLogger().trace("portal", "portal_search_completed_sync",
+                    "player", event.getPlayer(),
+                    "precise_exit", preciseExitLoc,
+                    "final_location", finalLocation,
+                    "generation", searchGeneration);
             handlePortalLogic(event, finalLocation);
         }
     }
@@ -623,6 +654,13 @@ public class GameListener implements Listener {
         World.Environment toWorld = event.getTo().getWorld().getEnvironment();
 
         gameManager.getLogger().logPlayerPortalFromTo(event.getPlayer().getName(), fromWorld, toWorld);
+        plugin.getTraceLogger().trace("portal", "portal_logic",
+                "player", event.getPlayer(),
+                "from_environment", fromWorld,
+                "to_environment", toWorld,
+                "final_location", finalLocation,
+                "known_overworld_portal", plugin.getStructureManager().getOverworldPortalLocation(),
+                "known_nether_portal", plugin.getStructureManager().getNetherPortalLocation());
 
         // If we teleported to a dimension where the portal location is unknown, record it.
         // Якщо ми телепортувалися у вимір, де локація порталу невідома, записуємо її.
@@ -676,6 +714,11 @@ public class GameListener implements Listener {
 
         Location preciseEntry = findPortalBlockSync(event.getFrom(), NETHER_PORTAL_CHECK_RADIUS);
         Location entryLocation = preciseEntry != null ? preciseEntry : event.getFrom();
+        plugin.getTraceLogger().trace("portal", "portal_entry_seeded",
+                "player", event.getPlayer(),
+                "from", event.getFrom(),
+                "precise_entry", preciseEntry,
+                "entry_location", entryLocation);
         plugin.getStructureManager().portalLit(event.getPlayer(), entryLocation);
     }
 

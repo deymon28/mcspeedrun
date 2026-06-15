@@ -74,6 +74,10 @@ public class GameManager {
      */
     public void startRun() {
         if (isRunning) return;
+        plugin.getTraceLogger().trace("lifecycle", "run_start_requested",
+                "online_players", Bukkit.getOnlinePlayers().size(),
+                "start_pre_scan_enabled", plugin.getConfigManager().isStartPreScanEnabled(),
+                "hardcore", plugin.getConfigManager().isHardcoreModeEnabled());
         isRunning = true;
         isPaused = false;
         totalSeconds = 0;
@@ -101,6 +105,8 @@ public class GameManager {
         MessageUtil.broadcast(plugin.getConfigManager().getFormatted("messages.run-started"));
         logger.info("Speedrun started. Players: " +
                 Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.joining(", ")));
+        plugin.getTraceLogger().trace("lifecycle", "run_started",
+                "players", Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.joining(",")));
     }
 
     /**
@@ -112,6 +118,7 @@ public class GameManager {
      */
     public void resetRun() {
         logger.info("Speedrun is being reset by an admin.");
+        plugin.getTraceLogger().trace("lifecycle", "run_reset_requested");
         stopRun(false); // Stop without triggering a win condition. / Зупинка без спрацювання умови перемоги.
         if (plugin.getGameListener() != null) {
             plugin.getGameListener().resetRuntimeCaches();
@@ -132,6 +139,10 @@ public class GameManager {
      */
     public void stopRun(boolean dragonKilled) {
         if (!isRunning && !dragonKilled) return;
+        plugin.getTraceLogger().trace("lifecycle", "run_stop_requested",
+                "dragon_killed", dragonKilled,
+                "time", getFormattedTime(),
+                "running", isRunning);
 
         // Cancel all scheduled tasks.
         // Скасування всіх запланованих завдань.
@@ -167,6 +178,10 @@ public class GameManager {
         }
 
         isRunning = false;
+        plugin.getTraceLogger().trace("lifecycle", "run_stopped",
+                "dragon_killed", dragonKilled,
+                "outcome", outcome,
+                "final_time", finalTime);
     }
 
     /**
@@ -227,6 +242,10 @@ public class GameManager {
      */
     private void startProximityScanner() {
         if (proximityScannerTask != null) proximityScannerTask.cancel();
+        plugin.getTraceLogger().trace("scanner", "proximity_scanner_started",
+                "village_radius", plugin.getConfigManager().getVillageBellRadius(),
+                "lava_radius", plugin.getConfigManager().getLavaPoolRadius(),
+                "lava_required_sources", plugin.getConfigManager().getLavaPoolRequiredSources());
         proximityScannerTask = new BukkitRunnable() {
             @Override
             public void run() {

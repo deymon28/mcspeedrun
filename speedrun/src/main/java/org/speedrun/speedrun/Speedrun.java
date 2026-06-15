@@ -30,6 +30,7 @@ public final class Speedrun extends JavaPlugin {
     private ScoreboardManager scoreboardManager;
     private CasualGameModeManager casualGameModeManager;
     private SpeedrunLogger speedrunLogger;
+    private TraceLogger traceLogger;
     private GameListener gameListener;
 
     TabCoordinateDisplay tabCoords = new TabCoordinateDisplay(this);
@@ -50,6 +51,8 @@ public final class Speedrun extends JavaPlugin {
         // Initialize managers in the correct order.
         // Ініціалізація менеджерів у правильному порядку.
         this.configManager = new ConfigManager(this);           // Must be first, as others depend on it. / Має бути першим, оскільки інші залежать від нього.
+        this.traceLogger = new TraceLogger(this);
+        this.traceLogger.reload();
         this.speedrunLogger = new SpeedrunLogger(this);
         this.taskManager = new TaskManager(this);               // Loads task data from the config. / Завантажує дані завдань з конфігурації.
         this.structureManager = new StructureManager(this);     // Handles structure detection logic. / Обробляє логіку виявлення структур.
@@ -95,8 +98,21 @@ public final class Speedrun extends JavaPlugin {
                 + ", pre-scan-chunks-per-run=" + configManager.getStartPreScanChunksPerRun()
                 + ", pre-scan-load-missing-chunks=" + configManager.shouldStartPreScanLoadMissingChunks()
                 + ", reset-time-on-join=" + configManager.isResetTimeOnJoinEnabled()
+                + ", trace-enabled=" + configManager.isTraceEnabled()
                 + ", death-location-compass=" + configManager.isDeathLocationCompassEnabled()
                 + ", nether-gold-highlight=" + configManager.isNetherGoldHighlightEnabled());
+        traceLogger.trace("lifecycle", "startup_settings",
+                "version", getDescription().getVersion(),
+                "gamemode", configManager.getGameMode(),
+                "casual_active", configManager.isCasualGameModeEnabled(),
+                "hardcore", configManager.isHardcoreModeEnabled(),
+                "coordinate_display", configManager.getCoordinateDisplayMode(),
+                "task_display", configManager.getTaskDisplayMode(),
+                "waypoint_type", configManager.getWaypointType(),
+                "waypoints_enabled", configManager.areWaypointsEnabled(),
+                "start_pre_scan", configManager.isStartPreScanEnabled(),
+                "start_pre_scan_mode", configManager.getStartPreScanMode(),
+                "trace_enabled", configManager.isTraceEnabled());
     }
 
     /**
@@ -118,6 +134,10 @@ public final class Speedrun extends JavaPlugin {
         }
 
         tabCoords.disable();
+        if (traceLogger != null) {
+            traceLogger.trace("lifecycle", "plugin_disabled");
+            traceLogger.close();
+        }
 
         getLogger().info("Speedrun plugin has been disabled.");
     }
@@ -166,6 +186,10 @@ public final class Speedrun extends JavaPlugin {
 
     public SpeedrunLogger getSpeedrunLogger() {
         return speedrunLogger;
+    }
+
+    public TraceLogger getTraceLogger() {
+        return traceLogger;
     }
 
     public GameListener getGameListener() {

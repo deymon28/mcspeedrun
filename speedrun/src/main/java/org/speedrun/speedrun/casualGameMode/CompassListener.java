@@ -157,6 +157,10 @@ public class CompassListener implements Listener {
                 compass.setItemMeta(meta);
             }
         }
+        plugin.getTraceLogger().trace("compass", "compass_item_created",
+                "target", targetLocation,
+                "lodestone", lodestoneLocation,
+                "lodestone_tracked", lodestoneLocation != null);
         return compass;
     }
 
@@ -193,6 +197,11 @@ public class CompassListener implements Listener {
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.no-destinations"));
             return;
         }
+        plugin.getTraceLogger().trace("compass", "menu_opened",
+                "player", player,
+                "world", playerWorld,
+                "destination_count", destinationsForWorld != null ? destinationsForWorld.size() : 0,
+                "death_destination", deathDestination != null);
 
         int numDestinations = destinationsForWorld != null ? destinationsForWorld.size() : 0;
         if (deathDestination != null) {
@@ -351,14 +360,55 @@ public class CompassListener implements Listener {
         if (targetLocation != null) {
             playerDestinations.put(player, new DestinationSelection(destinationKey, targetLocation));
             Location lodestoneLocation = findLodestoneForDestination(player, destinationKey, targetLocation);
+            plugin.getTraceLogger().trace("compass", "target_selected",
+                    "player", player,
+                    "destination_key", destinationKey,
+                    "target", targetLocation,
+                    "lodestone", lodestoneLocation,
+                    "requires_lodestone", shouldEnsureHiddenLodestone(destinationKey));
 
-            MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-set",
-                    "%destination%", destinationKey != null ? getDestinationDisplayName(destinationKey) : plugin.getConfigManager().getLangString("compass.gui.custom-location", "a custom location"),
-                    "%world%", targetLocation.getWorld().getName()));
-            giveConfiguredCompass(player, targetLocation, lodestoneLocation);
+            if (lodestoneLocation == null && shouldEnsureHiddenLodestone(destinationKey)) {
+                String lodestoneKey = hiddenLodestoneKeyFor(player, destinationKey);
+                plugin.getStructureManager().ensureHiddenLodestoneAsync(lodestoneKey, targetLocation)
+                        .thenAccept(loadedLodestone -> Bukkit.getScheduler().runTask(plugin, () -> {
+                            DestinationSelection currentSelection = playerDestinations.get(player);
+                            if (!player.isOnline()
+                                    || currentSelection == null
+                                    || !Objects.equals(currentSelection.destinationKey(), destinationKey)
+                                    || !sameBlockLocation(currentSelection.fallbackLocation(), targetLocation)) {
+                                plugin.getTraceLogger().trace("compass", "async_lodestone_result_ignored",
+                                        "player", player,
+                                        "destination_key", destinationKey,
+                                        "target", targetLocation,
+                                        "lodestone", loadedLodestone);
+                                return;
+                            }
+                            finishSetPlayerDestination(player, destinationKey, targetLocation, loadedLodestone);
+                        }));
+                return;
+            }
+
+            finishSetPlayerDestination(player, destinationKey, targetLocation, lodestoneLocation);
         } else {
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-invalid"));
+            plugin.getTraceLogger().trace("compass", "target_rejected",
+                    "player", player,
+                    "destination_key", destinationKey,
+                    "reason", "null_target");
         }
+    }
+
+    private void finishSetPlayerDestination(Player player, String destinationKey, Location targetLocation, @Nullable Location lodestoneLocation) {
+        MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-set",
+                "%destination%", destinationKey != null ? getDestinationDisplayName(destinationKey) : plugin.getConfigManager().getLangString("compass.gui.custom-location", "a custom location"),
+                "%world%", targetLocation.getWorld().getName()));
+        giveConfiguredCompass(player, targetLocation, lodestoneLocation);
+        plugin.getTraceLogger().trace("compass", "target_applied",
+                "player", player,
+                "destination_key", destinationKey,
+                "target", targetLocation,
+                "lodestone", lodestoneLocation,
+                "lodestone_tracked", lodestoneLocation != null);
     }
 
     /**
@@ -377,6 +427,10 @@ public class CompassListener implements Listener {
         plugin.getStructureManager().clearHiddenLodestoneForKey(deathLodestoneKey(player));
         plugin.getStructureManager().ensureHiddenLodestone(deathLodestoneKey(player), location);
         playerDeathDestinations.put(player.getUniqueId(), new DeathDestination(player.getName(), location.clone()));
+        plugin.getTraceLogger().trace("compass", "death_destination_recorded",
+                "player", player,
+                "location", location,
+                "lodestone", plugin.getStructureManager().getHiddenLodestone(deathLodestoneKey(player)));
     }
 
 
@@ -559,11 +613,6 @@ public class CompassListener implements Listener {
             return null;
         }
 
-        if ("PLAYER_DEATH".equals(destinationKey)) {
-            Location lodestone = plugin.getStructureManager().getHiddenLodestone(deathLodestoneKey(player));
-            return lodestone != null ? lodestone : plugin.getStructureManager().ensureHiddenLodestone(deathLodestoneKey(player), targetLocation);
-        }
-
         String resolvedDestinationKey = destinationKey;
         Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(targetLocation.getWorld());
         if (resolvedDestinationKey == null && destinationsForWorld != null) {
@@ -573,10 +622,39 @@ public class CompassListener implements Listener {
         if (resolvedDestinationKey == null) {
             return null;
         }
-        if ("SPAWN".equals(resolvedDestinationKey)) {
-            return plugin.getStructureManager().ensureHiddenLodestone(resolvedDestinationKey, targetLocation);
+        if (shouldEnsureHiddenLodestone(resolvedDestinationKey)) {
+            return plugin.getStructureManager().ensureHiddenLodestone(hiddenLodestoneKeyFor(player, resolvedDestinationKey), targetLocation);
         }
         return plugin.getStructureManager().getHiddenLodestone(resolvedDestinationKey, targetLocation);
+    }
+
+    private boolean shouldEnsureHiddenLodestone(String destinationKey) {
+        return destinationKey != null
+                && (destinationKey.equals("SPAWN")
+                || destinationKey.equals("PLAYER_DEATH")
+                || destinationKey.equals("LAVA_POOL")
+                || destinationKey.equals("VILLAGE")
+                || destinationKey.equals("NETHER_PORTAL")
+                || destinationKey.equals("FORTRESS")
+                || destinationKey.equals("BASTION")
+                || destinationKey.equals("END_PORTAL"));
+    }
+
+    private String hiddenLodestoneKeyFor(Player player, String destinationKey) {
+        if ("PLAYER_DEATH".equals(destinationKey)) {
+            return deathLodestoneKey(player);
+        }
+        return destinationKey;
+    }
+
+    private boolean sameBlockLocation(Location first, Location second) {
+        return first != null
+                && second != null
+                && first.getWorld() != null
+                && first.getWorld().equals(second.getWorld())
+                && first.getBlockX() == second.getBlockX()
+                && first.getBlockY() == second.getBlockY()
+                && first.getBlockZ() == second.getBlockZ();
     }
 
     private String resolveDestinationKey(Location targetLocation) {

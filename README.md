@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.2.1-ALPHA`.
+Current plugin version: `26.1.2-3.3.0-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.2.1-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.3.0-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.2.1-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.3.0-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -94,6 +94,7 @@ Important options include:
 - `casual.start-pre-scan.enabled`: enable controlled Casual live/background discovery.
 - `casual.start-pre-scan.mode`: `SAFE`, `BALANCED`, or `AGGRESSIVE` scanner profile.
 - `casual.compass.death-location.enabled`: add each player's own last death point to their compass menu.
+- `diagnostics.trace.enabled`: write detailed JSONL runtime traces for bug reproduction.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
 - `casual.structure_waypoints`: enable structure waypoints. Beacon is the safe default; End Gateway remains compatible but is not recommended for normal play.
 - `casual.nether_gold_highlight`: highlight gold blocks around Nether players.
@@ -122,6 +123,20 @@ Paper smoke testing starts real temporary Paper servers outside the repository a
 cd speedrun
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1
 ```
+
+## Structure Discovery
+
+The background scanner does not call blocking structure-locate APIs. It scans loaded chunks and, in `BALANCED`/`AGGRESSIVE`, a bounded async Paper chunk queue.
+
+- Overworld generated structures can map to `VILLAGE` and `END_PORTAL` from Stronghold metadata.
+- Nether generated structures can map to `FORTRESS` and `BASTION`.
+- Fortress and Bastion are ignored in the Overworld because the mapper only accepts them when the scanned world environment is `NETHER`.
+- End Portal/Stronghold scanning is ignored in the Nether; Nether scoreboards may still show converted approximate Overworld coordinates.
+- Lava Pool and Bell confirmation scans run only in the Overworld block/snapshot scanner.
+
+## Diagnostics Trace
+
+Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to write JSONL traces under `plugins/Speedrun/traces`. Use this when reproducing compass, lodestone, portal, or scanner bugs. Categories can be `ALL` or selected values: `diagnostics`, `lifecycle`, `compass`, `lodestone`, `scanner`, `structure`, `portal`.
 
 ## Notes For 3.0.0 Alpha
 
@@ -210,6 +225,12 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1
 
 - Approximate Village coordinates can now be confirmed by finding or interacting with a Bell.
 - Nether Portal compass tracking now keeps separate hidden lodestones for each portal side/world.
+
+## Notes For 3.3.0 Alpha
+
+- Spawn and other compass destinations now create hidden lodestones more reliably, including async chunk loading when the target chunk is not loaded.
+- Hidden lodestones are placed deeper at the same X/Z instead of near the surface, and old lodestones are not removed until a replacement can be placed.
+- Added optional JSONL trace diagnostics for compass selection, lodestone placement, scanner decisions, structure matches, portals, and run lifecycle events.
 
 ## License
 

@@ -42,6 +42,15 @@ class ConfigurationResourceTest {
     }
 
     @Test
+    void diagnosticsTraceIsAvailableButDisabledByDefault() {
+        YamlConfiguration config = loadYaml("src/main/resources/config.yml");
+
+        assertFalse(config.getBoolean("diagnostics.trace.enabled"));
+        assertFalse(config.getBoolean("diagnostics.trace.mirror-to-console"));
+        assertTrue(config.getStringList("diagnostics.trace.categories").contains("ALL"));
+    }
+
+    @Test
     void langFilesContainCompassDeathAndApproximateKeys() {
         for (String langPath : List.of("src/main/resources/lang/en.yml", "src/main/resources/lang/uk.yml")) {
             YamlConfiguration lang = loadYaml(langPath);

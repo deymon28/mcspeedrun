@@ -20,6 +20,7 @@ import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.events.StructureFoundEvent;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Manages the detection, storage, and state of key structures.
@@ -103,6 +104,15 @@ public class StructureManager {
         ConfigManager.StartPreScanMode mode = plugin.getConfigManager().getStartPreScanMode();
         plugin.getLogger().info("Casual start pre-scan mode=" + mode
                 + "; blocking structure locate calls are disabled.");
+        plugin.getTraceLogger().trace("scanner", "pre_scan_started",
+                "mode", mode,
+                "loaded_chunk_radius", plugin.getConfigManager().getLoadedChunkScanRadius(),
+                "radius_chunks", plugin.getConfigManager().getStartPreScanRadiusChunks(),
+                "chunks_per_run", plugin.getConfigManager().getStartPreScanChunksPerRun(),
+                "load_missing_chunks", plugin.getConfigManager().shouldStartPreScanLoadMissingChunks(),
+                "scan_spawn", plugin.getConfigManager().shouldStartPreScanQueueSpawn(),
+                "scan_players", plugin.getConfigManager().shouldStartPreScanQueuePlayers(),
+                "include_nether", plugin.getConfigManager().shouldStartPreScanIncludeNether());
         if (mode != ConfigManager.StartPreScanMode.SAFE) {
             seedBackgroundScanCenters();
             startBackgroundScanTask();
@@ -147,17 +157,31 @@ public class StructureManager {
 
     private void queueBackgroundScanAround(World world, Location center, boolean playerDriven) {
         if (!shouldBackgroundScanWorld(world, playerDriven) || center == null) {
+            plugin.getTraceLogger().trace("scanner", "queue_center_skipped",
+                    "world", world,
+                    "center", center,
+                    "player_driven", playerDriven,
+                    "reason", center == null ? "null_center" : "world_not_allowed");
             return;
         }
 
         int radiusChunks = plugin.getConfigManager().getStartPreScanRadiusChunks();
         int maxQueuedChunks = plugin.getConfigManager().getStartPreScanMaxQueuedChunks();
         if (maxQueuedChunks <= 0 || completedBackgroundChunks.size() + backgroundScanQueue.size() >= maxQueuedChunks) {
+            plugin.getTraceLogger().trace("scanner", "queue_center_skipped",
+                    "world", world,
+                    "center", center,
+                    "player_driven", playerDriven,
+                    "reason", "queue_budget_full_or_disabled",
+                    "max_queued_chunks", maxQueuedChunks,
+                    "completed_chunks", completedBackgroundChunks.size(),
+                    "queued_chunks", backgroundScanQueue.size());
             return;
         }
 
         int centerChunkX = center.getBlockX() >> 4;
         int centerChunkZ = center.getBlockZ() >> 4;
+        int queued = 0;
         for (int radius = 0; radius <= radiusChunks; radius++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
@@ -173,9 +197,19 @@ public class StructureManager {
                         continue;
                     }
                     backgroundScanQueue.add(chunk);
+                    queued++;
                 }
             }
         }
+        plugin.getTraceLogger().trace("scanner", "queue_center_added",
+                "world", world,
+                "center", center,
+                "player_driven", playerDriven,
+                "center_chunk_x", centerChunkX,
+                "center_chunk_z", centerChunkZ,
+                "queued_added", queued,
+                "queued_total", backgroundScanQueue.size(),
+                "completed_chunks", completedBackgroundChunks.size());
     }
 
     private void startBackgroundScanTask() {
@@ -208,23 +242,55 @@ public class StructureManager {
         int chunkX = searchChunk.chunkX();
         int chunkZ = searchChunk.chunkZ();
         if (world == null || !shouldBackgroundScanWorld(world, searchChunk.playerDriven())) {
+            plugin.getTraceLogger().trace("scanner", "background_chunk_skipped",
+                    "chunk_key", searchChunk.key(),
+                    "world", world,
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "player_driven", searchChunk.playerDriven(),
+                    "reason", world == null ? "null_world" : "world_not_allowed");
             return;
         }
 
         if (world.isChunkLoaded(chunkX, chunkZ)) {
+            plugin.getTraceLogger().trace("scanner", "background_chunk_scan_loaded",
+                    "world", world,
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "player_driven", searchChunk.playerDriven());
             scanLoadedChunk(null, world, chunkX, chunkZ);
             return;
         }
 
         if (!plugin.getConfigManager().shouldStartPreScanLoadMissingChunks() || !PaperCheckUtil.IsPaper()) {
+            plugin.getTraceLogger().trace("scanner", "background_chunk_skipped",
+                    "world", world,
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "player_driven", searchChunk.playerDriven(),
+                    "reason", "missing_chunk_load_disabled_or_not_paper");
             return;
         }
 
+        plugin.getTraceLogger().trace("scanner", "background_chunk_load_requested",
+                "world", world,
+                "chunk_x", chunkX,
+                "chunk_z", chunkZ,
+                "player_driven", searchChunk.playerDriven());
         world.getChunkAtAsync(chunkX, chunkZ).thenAccept(chunk ->
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (generation != preScanGeneration || !plugin.getGameManager().isRunning()) {
+                        plugin.getTraceLogger().trace("scanner", "background_chunk_load_ignored",
+                                "world", chunk.getWorld(),
+                                "chunk_x", chunk.getX(),
+                                "chunk_z", chunk.getZ(),
+                                "reason", generation != preScanGeneration ? "stale_generation" : "run_not_active");
                         return;
                     }
+                    plugin.getTraceLogger().trace("scanner", "background_chunk_scan_after_load",
+                            "world", chunk.getWorld(),
+                            "chunk_x", chunk.getX(),
+                            "chunk_z", chunk.getZ());
                     scanLoadedChunk(null, chunk.getWorld(), chunk.getX(), chunk.getZ());
                 }));
     }
@@ -246,16 +312,38 @@ public class StructureManager {
 
     private void scanLoadedChunk(Player player, World world, int chunkX, int chunkZ) {
         if (!world.isChunkLoaded(chunkX, chunkZ)) {
+            plugin.getTraceLogger().trace("scanner", "loaded_chunk_skipped",
+                    "world", world,
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "reason", "chunk_not_loaded");
             return;
         }
         String key = world.getUID() + ":" + chunkX + ":" + chunkZ;
         if (!liveScannedChunks.add(key)) {
+            plugin.getTraceLogger().trace("scanner", "loaded_chunk_skipped",
+                    "world", world,
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "reason", "already_scanned");
             return;
         }
 
+        plugin.getTraceLogger().trace("scanner", "loaded_chunk_scanning",
+                "player", player,
+                "world", world,
+                "environment", world.getEnvironment(),
+                "chunk_x", chunkX,
+                "chunk_z", chunkZ);
         scanGeneratedStructuresInChunk(player, world, chunkX, chunkZ);
 
         if (world.getEnvironment() != World.Environment.NORMAL) {
+            plugin.getTraceLogger().trace("scanner", "block_snapshot_scan_skipped",
+                    "world", world,
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "reason", "not_overworld",
+                    "environment", world.getEnvironment());
             return;
         }
 
@@ -276,9 +364,26 @@ public class StructureManager {
         for (GeneratedStructure generatedStructure : chunk.getStructures()) {
             String key = structureKeyFor(generatedStructure.getStructure(), world.getEnvironment());
             if (key == null || !isStructureSearchActive(key)) {
+                plugin.getTraceLogger().trace("scanner", "generated_structure_skipped",
+                        "world", world,
+                        "environment", world.getEnvironment(),
+                        "chunk_x", chunkX,
+                        "chunk_z", chunkZ,
+                        "minecraft_structure", String.valueOf(generatedStructure.getStructure()),
+                        "mapped_key", key,
+                        "reason", key == null ? "not_tracked_in_environment" : "search_inactive");
                 continue;
             }
-            structureFound(player, key, loadedAnchorOf(generatedStructure, world, chunkX, chunkZ), true);
+            Location anchor = loadedAnchorOf(generatedStructure, world, chunkX, chunkZ);
+            plugin.getTraceLogger().trace("scanner", "generated_structure_matched",
+                    "world", world,
+                    "environment", world.getEnvironment(),
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "minecraft_structure", String.valueOf(generatedStructure.getStructure()),
+                    "mapped_key", key,
+                    "anchor", anchor);
+            structureFound(player, key, anchor, true);
         }
     }
 
@@ -552,6 +657,13 @@ public class StructureManager {
         registerHiddenLodestone(key, loc);
         String playerName = player != null ? player.getName() : "SERVER";
         plugin.getGameManager().getLogger().info("Structure '" + key + "' found/updated by " + playerName + " at " + LocationUtil.format(loc));
+        plugin.getTraceLogger().trace("structure", "structure_found",
+                "key", key,
+                "player", player,
+                "location", loc,
+                "approximate", approximate,
+                "confirmed_approximate", confirmsApproximateLocation,
+                "hidden_lodestone", getHiddenLodestone(key, loc));
 
         Bukkit.getPluginManager().callEvent(new StructureFoundEvent(player, key, loc));
         if (!confirmsApproximateLocation) {
@@ -627,6 +739,13 @@ public class StructureManager {
         disabledSearches.remove("NETHER_PORTAL");
         registerHiddenLodestone("NETHER_PORTAL", loc);
         Bukkit.getPluginManager().callEvent(new StructureFoundEvent(player, "NETHER_PORTAL", loc));
+        plugin.getTraceLogger().trace("portal", "portal_lit",
+                "player", player,
+                "environment", world,
+                "location", loc,
+                "overworld_portal", overworldPortalLocation,
+                "nether_portal", netherPortalLocation,
+                "hidden_lodestone", getHiddenLodestone("NETHER_PORTAL", loc));
 
         String playerName = (player != null) ? player.getName() : "GAME_WORLD";
         plugin.getGameManager().getLogger().info("Nether Portal lit by " + playerName + " in " + world.name() + " at " + LocationUtil.format(loc));
@@ -659,12 +778,24 @@ public class StructureManager {
             registerHiddenLodestone("NETHER_PORTAL", exitLoc);
             Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Nether-side) found at " + LocationUtil.format(exitLoc));
+            plugin.getTraceLogger().trace("portal", "portal_exit_found",
+                    "environment", exitWorld,
+                    "location", exitLoc,
+                    "overworld_portal", overworldPortalLocation,
+                    "nether_portal", netherPortalLocation,
+                    "hidden_lodestone", getHiddenLodestone("NETHER_PORTAL", exitLoc));
         } else if (exitWorld == World.Environment.NORMAL && this.overworldPortalLocation == null) {
             this.overworldPortalLocation = exitLoc;
             approximateStructures.remove("NETHER_PORTAL");
             registerHiddenLodestone("NETHER_PORTAL", exitLoc);
             Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Overworld-side) found at " + LocationUtil.format(exitLoc));
+            plugin.getTraceLogger().trace("portal", "portal_exit_found",
+                    "environment", exitWorld,
+                    "location", exitLoc,
+                    "overworld_portal", overworldPortalLocation,
+                    "nether_portal", netherPortalLocation,
+                    "hidden_lodestone", getHiddenLodestone("NETHER_PORTAL", exitLoc));
         }
         Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
     }
@@ -863,41 +994,132 @@ public class StructureManager {
     }
 
     public Location ensureHiddenLodestone(String key, Location structureLocation) {
-        registerHiddenLodestone(key, structureLocation);
-        return getHiddenLodestone(key, structureLocation);
+        return registerHiddenLodestone(key, structureLocation);
+    }
+
+    public CompletableFuture<Location> ensureHiddenLodestoneAsync(String key, Location structureLocation) {
+        if (structureLocation == null || structureLocation.getWorld() == null) {
+            plugin.getTraceLogger().trace("lodestone", "ensure_async_rejected",
+                    "key", key,
+                    "reason", "null_location_or_world");
+            return CompletableFuture.completedFuture(null);
+        }
+
+        World world = structureLocation.getWorld();
+        int chunkX = structureLocation.getBlockX() >> 4;
+        int chunkZ = structureLocation.getBlockZ() >> 4;
+        if (world.isChunkLoaded(chunkX, chunkZ)) {
+            return CompletableFuture.completedFuture(registerHiddenLodestone(key, structureLocation));
+        }
+
+        CompletableFuture<Location> result = new CompletableFuture<>();
+        plugin.getTraceLogger().trace("lodestone", "chunk_load_requested",
+                "key", key,
+                "target", structureLocation,
+                "chunk_x", chunkX,
+                "chunk_z", chunkZ,
+                "paper_async", PaperCheckUtil.IsPaper());
+
+        if (PaperCheckUtil.IsPaper()) {
+            world.getChunkAtAsync(chunkX, chunkZ).whenComplete((chunk, error) ->
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (error != null) {
+                            plugin.getTraceLogger().trace("lodestone", "chunk_load_failed",
+                                    "key", key,
+                                    "target", structureLocation,
+                                    "chunk_x", chunkX,
+                                    "chunk_z", chunkZ,
+                                    "error", error.toString());
+                            result.complete(null);
+                            return;
+                        }
+                        result.complete(registerHiddenLodestone(key, structureLocation));
+                    }));
+            return result;
+        }
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            boolean loaded = world.loadChunk(chunkX, chunkZ, true);
+            plugin.getTraceLogger().trace("lodestone", "sync_chunk_load_finished",
+                    "key", key,
+                    "target", structureLocation,
+                    "chunk_x", chunkX,
+                    "chunk_z", chunkZ,
+                    "loaded", loaded);
+            result.complete(loaded ? registerHiddenLodestone(key, structureLocation) : null);
+        });
+        return result;
     }
 
     public void clearHiddenLodestoneForKey(String key) {
         clearHiddenLodestone(key);
     }
 
-    private void registerHiddenLodestone(String key, Location structureLocation) {
+    private Location registerHiddenLodestone(String key, Location structureLocation) {
         if (structureLocation == null || structureLocation.getWorld() == null) {
-            return;
+            plugin.getTraceLogger().trace("lodestone", "placement_rejected",
+                    "key", key,
+                    "reason", "null_location_or_world");
+            return null;
         }
 
         String storageKey = hiddenLodestoneStorageKey(key, structureLocation);
-        clearHiddenLodestoneStorageKey(storageKey);
-
-        Location lodestoneLocation = structureLocation.clone().add(0, -5, 0);
+        Location lodestoneLocation = resolveHiddenLodestoneLocation(structureLocation);
         World world = lodestoneLocation.getWorld();
         if (world == null) {
-            return;
-        }
-
-        int minHeight = world.getMinHeight();
-        if (lodestoneLocation.getBlockY() < minHeight) {
-            lodestoneLocation.setY(minHeight);
+            plugin.getTraceLogger().trace("lodestone", "placement_rejected",
+                    "key", key,
+                    "storage_key", storageKey,
+                    "reason", "null_lodestone_world");
+            return null;
         }
 
         if (!world.isChunkLoaded(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4)) {
-            return;
+            Location existing = hiddenLodestones.get(storageKey);
+            boolean existingMatchesTarget = existing != null
+                    && existing.getWorld() != null
+                    && existing.getWorld().equals(world)
+                    && existing.getBlockX() == structureLocation.getBlockX()
+                    && existing.getBlockZ() == structureLocation.getBlockZ();
+            plugin.getTraceLogger().trace("lodestone", "placement_deferred_chunk_unloaded",
+                    "key", key,
+                    "storage_key", storageKey,
+                    "target", structureLocation,
+                    "lodestone", lodestoneLocation,
+                    "existing_reused", existingMatchesTarget);
+            return existingMatchesTarget ? existing : null;
+        }
+
+        Location existing = hiddenLodestones.get(storageKey);
+        if (isExistingHiddenLodestoneValid(existing, lodestoneLocation)) {
+            plugin.getTraceLogger().trace("lodestone", "placement_reused",
+                    "key", key,
+                    "storage_key", storageKey,
+                    "target", structureLocation,
+                    "lodestone", existing);
+            return existing;
+        }
+
+        if (hiddenLodestones.containsKey(storageKey) && !clearHiddenLodestoneStorageKey(storageKey)) {
+            plugin.getTraceLogger().trace("lodestone", "placement_skipped_clear_failed",
+                    "key", key,
+                    "storage_key", storageKey,
+                    "target", structureLocation,
+                    "lodestone", lodestoneLocation);
+            return null;
         }
         Block block = lodestoneLocation.getBlock();
         hiddenLodestonePreviousBlocks.put(storageKey, block.getType());
         block.setType(Material.LODESTONE, false);
         block.setMetadata(HIDDEN_LODESTONE_METADATA, new FixedMetadataValue(plugin, true));
         hiddenLodestones.put(storageKey, lodestoneLocation);
+        plugin.getTraceLogger().trace("lodestone", "placement_succeeded",
+                "key", key,
+                "storage_key", storageKey,
+                "target", structureLocation,
+                "lodestone", lodestoneLocation,
+                "previous_block", hiddenLodestonePreviousBlocks.get(storageKey));
+        return lodestoneLocation;
     }
 
     private void clearHiddenLodestone(String key) {
@@ -912,16 +1134,26 @@ public class StructureManager {
         clearHiddenLodestoneStorageKey(key);
     }
 
-    private void clearHiddenLodestoneStorageKey(String storageKey) {
-        Location lodestoneLocation = hiddenLodestones.remove(storageKey);
-        Material previousType = hiddenLodestonePreviousBlocks.remove(storageKey);
+    private boolean clearHiddenLodestoneStorageKey(String storageKey) {
+        Location lodestoneLocation = hiddenLodestones.get(storageKey);
+        Material previousType = hiddenLodestonePreviousBlocks.get(storageKey);
         if (lodestoneLocation == null || lodestoneLocation.getWorld() == null) {
-            return;
+            plugin.getTraceLogger().trace("lodestone", "clear_skipped",
+                    "storage_key", storageKey,
+                    "reason", "not_registered");
+            return true;
         }
 
         if (!lodestoneLocation.getWorld().isChunkLoaded(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4)) {
-            return;
+            plugin.getTraceLogger().trace("lodestone", "clear_skipped",
+                    "storage_key", storageKey,
+                    "lodestone", lodestoneLocation,
+                    "reason", "chunk_unloaded");
+            return false;
         }
+
+        hiddenLodestones.remove(storageKey);
+        hiddenLodestonePreviousBlocks.remove(storageKey);
         Block block = lodestoneLocation.getBlock();
         if (block.hasMetadata(HIDDEN_LODESTONE_METADATA)) {
             block.removeMetadata(HIDDEN_LODESTONE_METADATA, plugin);
@@ -930,6 +1162,11 @@ public class StructureManager {
         if (previousType != null) {
             block.setType(previousType, false);
         }
+        plugin.getTraceLogger().trace("lodestone", "cleared",
+                "storage_key", storageKey,
+                "lodestone", lodestoneLocation,
+                "restored_block", previousType);
+        return true;
     }
 
     private void clearAllHiddenLodestones() {
@@ -950,6 +1187,39 @@ public class StructureManager {
             return key + ":" + worldId;
         }
         return key;
+    }
+
+    private Location resolveHiddenLodestoneLocation(Location structureLocation) {
+        World world = structureLocation.getWorld();
+        int y = resolveHiddenLodestoneY(structureLocation.getBlockY(), world.getMinHeight(), world.getMaxHeight());
+        return new Location(world, structureLocation.getBlockX(), y, structureLocation.getBlockZ());
+    }
+
+    static int resolveHiddenLodestoneY(int targetY, int minHeight, int maxHeight) {
+        int minSafe = minHeight + 1;
+        int maxSafe = maxHeight - 2;
+        if (maxSafe < minSafe) {
+            return Math.max(minHeight, Math.min(maxHeight - 1, targetY));
+        }
+        int preferredDeepY = minHeight + 8;
+        return Math.max(minSafe, Math.min(maxSafe, preferredDeepY));
+    }
+
+    private boolean isExistingHiddenLodestoneValid(Location existing, Location expected) {
+        if (existing == null || expected == null || existing.getWorld() == null || expected.getWorld() == null) {
+            return false;
+        }
+        if (!existing.getWorld().equals(expected.getWorld())
+                || existing.getBlockX() != expected.getBlockX()
+                || existing.getBlockY() != expected.getBlockY()
+                || existing.getBlockZ() != expected.getBlockZ()) {
+            return false;
+        }
+        if (!existing.getWorld().isChunkLoaded(existing.getBlockX() >> 4, existing.getBlockZ() >> 4)) {
+            return false;
+        }
+        Block block = existing.getBlock();
+        return block.getType() == Material.LODESTONE && block.hasMetadata(HIDDEN_LODESTONE_METADATA);
     }
 
     private record SearchChunk(World world, int chunkX, int chunkZ, boolean playerDriven) {

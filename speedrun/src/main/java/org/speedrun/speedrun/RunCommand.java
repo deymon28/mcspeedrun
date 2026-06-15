@@ -129,6 +129,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                         return true;
                     }
                     plugin.getConfigManager().reload();
+                    plugin.getTraceLogger().reload();
                     plugin.getTaskManager().reloadTasks();
                     send(player, message("commands.reloaded"));
                     return true;

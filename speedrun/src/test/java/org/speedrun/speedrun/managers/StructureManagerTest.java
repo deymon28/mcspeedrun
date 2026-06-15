@@ -25,4 +25,11 @@ class StructureManagerTest {
         assertEquals("VILLAGE", StructureManager.hiddenLodestoneStorageKey("VILLAGE", worldId));
         assertEquals("PLAYER_DEATH:player-id", StructureManager.hiddenLodestoneStorageKey("PLAYER_DEATH:player-id", worldId));
     }
+
+    @Test
+    void hiddenLodestoneYUsesDeepStablePlacement() {
+        assertEquals(-56, StructureManager.resolveHiddenLodestoneY(64, -64, 320));
+        assertEquals(8, StructureManager.resolveHiddenLodestoneY(80, 0, 256));
+        assertEquals(1, StructureManager.resolveHiddenLodestoneY(2, 0, 3));
+    }
 }

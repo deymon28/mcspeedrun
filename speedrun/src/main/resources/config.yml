@@ -96,6 +96,21 @@ tracking:
     enabled: false
 
 # ----------------------------------------------------------------
+# Diagnostics
+# ----------------------------------------------------------------
+diagnostics:
+  trace:
+    # EN: Writes detailed JSONL diagnostics to plugins/Speedrun/traces. Enable when reproducing bugs.
+    # UA: Записує детальну JSONL-діагностику у plugins/Speedrun/traces. Вмикайте під час відтворення багів.
+    enabled: false
+    # EN: Also mirror trace events to the normal server console/log.
+    # UA: Також дублювати trace-події у звичайну консоль/лог сервера.
+    mirror-to-console: false
+    # EN: ALL, or selected categories: diagnostics, lifecycle, compass, lodestone, scanner, structure, portal.
+    # UA: ALL або окремі категорії: diagnostics, lifecycle, compass, lodestone, scanner, structure, portal.
+    categories: ["ALL"]
+
+# ----------------------------------------------------------------
 # CASUAL MODE SETTINGS
 # ----------------------------------------------------------------
 casual:

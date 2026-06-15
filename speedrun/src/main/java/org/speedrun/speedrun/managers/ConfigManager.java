@@ -263,6 +263,19 @@ public class ConfigManager {
         return config.getBoolean("tracking.player-blocks.enabled", false);
     }
 
+    public boolean isTraceEnabled() {
+        return config.getBoolean("diagnostics.trace.enabled", false);
+    }
+
+    public boolean isTraceMirrorToConsoleEnabled() {
+        return config.getBoolean("diagnostics.trace.mirror-to-console", false);
+    }
+
+    public List<String> getTraceCategories() {
+        List<String> categories = config.getStringList("diagnostics.trace.categories");
+        return categories.isEmpty() ? List.of("ALL") : categories;
+    }
+
     public boolean isStartPreScanEnabled() {
         return isCasualGameModeEnabled()
                 && config.getBoolean("casual.start-pre-scan.enabled",
