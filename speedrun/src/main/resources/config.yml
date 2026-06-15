@@ -101,12 +101,40 @@ tracking:
 casual:
   enabled: true
   start-pre-scan:
-    # EN: Enables live discovery in already-loaded player chunks when a Casual run starts. It does not call blocking structure locate APIs.
-    # UA: Вмикає live-пошук у вже завантажених гравцями чанках на старті Casual-забігу. Не викликає блокуючі API пошуку структур.
+    # EN: Enables controlled live/background discovery when a Casual run starts. It does not call blocking structure locate APIs.
+    # UA: Вмикає контрольований live/background-пошук на старті Casual-забігу. Не викликає блокуючі API пошуку структур.
     enabled: false
+    # EN: SAFE scans only already loaded player chunks. BALANCED adds a small Paper async background chunk queue. AGGRESSIVE uses a larger budget.
+    # UA: SAFE сканує лише вже завантажені чанки гравців. BALANCED додає малу Paper async background-чергу чанків. AGGRESSIVE використовує більший бюджет.
+    mode: "BALANCED"
     radius: 1000
-    loaded-chunk-radius: 1
+    loaded-chunk-radius: 10
     include-lava-pool: true
+    profiles:
+      SAFE:
+        chunks-per-run: 0
+        period-ticks: 40
+        max-queued-chunks: 0
+        load-missing-chunks: false
+        scan-spawn: false
+        scan-players: false
+        include-nether: false
+      BALANCED:
+        chunks-per-run: 2
+        period-ticks: 20
+        max-queued-chunks: 1500
+        load-missing-chunks: true
+        scan-spawn: true
+        scan-players: true
+        include-nether: false
+      AGGRESSIVE:
+        chunks-per-run: 8
+        period-ticks: 10
+        max-queued-chunks: 5000
+        load-missing-chunks: true
+        scan-spawn: true
+        scan-players: true
+        include-nether: true
   compass:
     # EN: Shows the old test-only Nether Reference destination. Disabled by default because it is not tied to actual run state.
     # UA: Показує старий тестовий пункт Nether Reference. Вимкнено за замовчуванням, бо він не прив'язаний до реального стану забігу.

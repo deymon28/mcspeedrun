@@ -38,7 +38,12 @@ public class StructureManager {
     private final Map<String, Material> hiddenLodestonePreviousBlocks = new HashMap<>();
     private final Set<String> disabledSearches = new HashSet<>();
     private final Set<String> liveScannedChunks = new HashSet<>();
+    private final Set<String> approximateStructures = new HashSet<>();
+    private final Queue<SearchChunk> backgroundScanQueue = new ArrayDeque<>();
+    private final Set<String> queuedBackgroundChunks = new HashSet<>();
+    private final Set<String> completedBackgroundChunks = new HashSet<>();
     private BukkitTask preScanTask;
+    private BukkitTask backgroundScanTask;
     private long preScanGeneration = 0;
 
     public boolean villageSearchFailed = false;
@@ -72,6 +77,10 @@ public class StructureManager {
         hiddenStructures.clear();
         disabledSearches.clear();
         liveScannedChunks.clear();
+        approximateStructures.clear();
+        backgroundScanQueue.clear();
+        queuedBackgroundChunks.clear();
+        completedBackgroundChunks.clear();
         predictedEndPortalLocation = null;
         predictedEndPortalApproximate = false;
         overworldPortalLocation = null;
@@ -91,13 +100,133 @@ public class StructureManager {
 
     public void preScanRequiredStructures() {
         cancelPreScan();
-        plugin.getLogger().info("Casual start pre-scan is using loaded-chunk live discovery; blocking structure locate calls are disabled.");
+        ConfigManager.StartPreScanMode mode = plugin.getConfigManager().getStartPreScanMode();
+        plugin.getLogger().info("Casual start pre-scan mode=" + mode
+                + "; blocking structure locate calls are disabled.");
+        if (mode != ConfigManager.StartPreScanMode.SAFE) {
+            seedBackgroundScanCenters();
+            startBackgroundScanTask();
+        }
         preScanTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!plugin.getGameManager().isRunning() || plugin.getGameManager().isPaused()) {
                 return;
             }
-            Bukkit.getOnlinePlayers().forEach(this::scanLoadedPlayerChunk);
+            Bukkit.getOnlinePlayers().forEach(player -> {
+                scanLoadedPlayerChunk(player);
+                if (plugin.getConfigManager().shouldStartPreScanQueuePlayers()) {
+                    queueBackgroundScanAround(player.getWorld(), player.getLocation(), true);
+                }
+            });
         }, 1L, 40L);
+    }
+
+    private void seedBackgroundScanCenters() {
+        if (plugin.getConfigManager().shouldStartPreScanQueuePlayers()) {
+            Bukkit.getOnlinePlayers().forEach(player -> queueBackgroundScanAround(player.getWorld(), player.getLocation(), true));
+        }
+        if (plugin.getConfigManager().shouldStartPreScanQueueSpawn()) {
+            for (World world : Bukkit.getWorlds()) {
+                if (shouldBackgroundScanWorld(world, false)) {
+                    queueBackgroundScanAround(world, world.getSpawnLocation(), false);
+                }
+            }
+        }
+    }
+
+    private boolean shouldBackgroundScanWorld(World world, boolean playerDriven) {
+        if (world == null) {
+            return false;
+        }
+        World.Environment environment = world.getEnvironment();
+        if (environment == World.Environment.NORMAL) {
+            return true;
+        }
+        return environment == World.Environment.NETHER
+                && (playerDriven || plugin.getConfigManager().shouldStartPreScanIncludeNether());
+    }
+
+    private void queueBackgroundScanAround(World world, Location center, boolean playerDriven) {
+        if (!shouldBackgroundScanWorld(world, playerDriven) || center == null) {
+            return;
+        }
+
+        int radiusChunks = plugin.getConfigManager().getStartPreScanRadiusChunks();
+        int maxQueuedChunks = plugin.getConfigManager().getStartPreScanMaxQueuedChunks();
+        if (maxQueuedChunks <= 0 || completedBackgroundChunks.size() + backgroundScanQueue.size() >= maxQueuedChunks) {
+            return;
+        }
+
+        int centerChunkX = center.getBlockX() >> 4;
+        int centerChunkZ = center.getBlockZ() >> 4;
+        for (int radius = 0; radius <= radiusChunks; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (radius > 0 && Math.abs(dx) != radius && Math.abs(dz) != radius) {
+                        continue;
+                    }
+                    if (completedBackgroundChunks.size() + backgroundScanQueue.size() >= maxQueuedChunks) {
+                        return;
+                    }
+                    SearchChunk chunk = new SearchChunk(world, centerChunkX + dx, centerChunkZ + dz, playerDriven);
+                    String key = chunk.key();
+                    if (completedBackgroundChunks.contains(key) || !queuedBackgroundChunks.add(key)) {
+                        continue;
+                    }
+                    backgroundScanQueue.add(chunk);
+                }
+            }
+        }
+    }
+
+    private void startBackgroundScanTask() {
+        if (backgroundScanTask != null && !backgroundScanTask.isCancelled()) {
+            return;
+        }
+
+        backgroundScanTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!plugin.getGameManager().isRunning() || plugin.getGameManager().isPaused()) {
+                return;
+            }
+            int budget = plugin.getConfigManager().getStartPreScanChunksPerRun();
+            for (int scanned = 0; scanned < budget; scanned++) {
+                SearchChunk chunk = backgroundScanQueue.poll();
+                if (chunk == null) {
+                    return;
+                }
+                queuedBackgroundChunks.remove(chunk.key());
+                processBackgroundChunk(chunk, preScanGeneration);
+            }
+        }, 1L, plugin.getConfigManager().getStartPreScanPeriodTicks());
+    }
+
+    private void processBackgroundChunk(SearchChunk searchChunk, long generation) {
+        if (!completedBackgroundChunks.add(searchChunk.key())) {
+            return;
+        }
+
+        World world = searchChunk.world();
+        int chunkX = searchChunk.chunkX();
+        int chunkZ = searchChunk.chunkZ();
+        if (world == null || !shouldBackgroundScanWorld(world, searchChunk.playerDriven())) {
+            return;
+        }
+
+        if (world.isChunkLoaded(chunkX, chunkZ)) {
+            scanLoadedChunk(null, world, chunkX, chunkZ);
+            return;
+        }
+
+        if (!plugin.getConfigManager().shouldStartPreScanLoadMissingChunks() || !PaperCheckUtil.IsPaper()) {
+            return;
+        }
+
+        world.getChunkAtAsync(chunkX, chunkZ).thenAccept(chunk ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (generation != preScanGeneration || !plugin.getGameManager().isRunning()) {
+                        return;
+                    }
+                    scanLoadedChunk(null, chunk.getWorld(), chunk.getX(), chunk.getZ());
+                }));
     }
 
     public void scanLoadedPlayerChunk(Player player) {
@@ -149,7 +278,7 @@ public class StructureManager {
             if (key == null || !isStructureSearchActive(key)) {
                 continue;
             }
-            structureFound(player, key, centerOf(generatedStructure, world));
+            structureFound(player, key, loadedAnchorOf(generatedStructure, world, chunkX, chunkZ), true);
         }
     }
 
@@ -193,9 +322,23 @@ public class StructureManager {
                 (box.getMinZ() + box.getMaxZ()) / 2.0);
     }
 
+    private Location loadedAnchorOf(GeneratedStructure structure, World world, int chunkX, int chunkZ) {
+        Location center = centerOf(structure, world);
+        int centerChunkX = center.getBlockX() >> 4;
+        int centerChunkZ = center.getBlockZ() >> 4;
+        if (world.isChunkLoaded(centerChunkX, centerChunkZ)) {
+            return center;
+        }
+
+        double y = Math.max(world.getMinHeight() + 1,
+                Math.min(world.getMaxHeight() - 2, center.getY()));
+        return new Location(world, (chunkX << 4) + 8.0, y, (chunkZ << 4) + 8.0);
+    }
+
     private void scanLoadedChunkSynchronously(Player player, World world, int chunkX, int chunkZ) {
+        Location origin = scanOrigin(player, world, chunkX, chunkZ);
         if (isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled()) {
-            Location lavaPool = findLavaClusterInChunk(world, chunkX, chunkZ, player.getLocation(),
+            Location lavaPool = findLavaClusterInChunk(world, chunkX, chunkZ, origin,
                     plugin.getConfigManager().getStartPreScanRadius(),
                     plugin.getConfigManager().getLavaPoolRequiredSources());
             if (lavaPool != null) {
@@ -212,7 +355,7 @@ public class StructureManager {
 
     private void scanLoadedChunkSnapshotAsync(Player player, World world, int chunkX, int chunkZ) {
         ChunkSnapshot snapshot = world.getChunkAt(chunkX, chunkZ).getChunkSnapshot(true, false, false);
-        Location origin = player.getLocation().clone();
+        Location origin = scanOrigin(player, world, chunkX, chunkZ);
         boolean scanLava = isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled();
         boolean scanVillage = isVillageSearchActive();
         int radius = plugin.getConfigManager().getStartPreScanRadius();
@@ -242,6 +385,18 @@ public class StructureManager {
                 }
             });
         });
+    }
+
+    private Location scanOrigin(Player player, World world, int chunkX, int chunkZ) {
+        if (player != null) {
+            return player.getLocation().clone();
+        }
+
+        int x = (chunkX << 4) + 8;
+        int z = (chunkZ << 4) + 8;
+        int y = Math.max(world.getMinHeight() + 1,
+                Math.min(world.getMaxHeight() - 2, world.getHighestBlockYAt(x, z)));
+        return new Location(world, x, y, z);
     }
 
     private Location findLavaClusterInChunk(World world, int chunkX, int chunkZ, Location origin, int radiusBlocks, int requiredSources) {
@@ -345,6 +500,10 @@ public class StructureManager {
             preScanTask.cancel();
             preScanTask = null;
         }
+        if (backgroundScanTask != null) {
+            backgroundScanTask.cancel();
+            backgroundScanTask = null;
+        }
     }
 
     /**
@@ -359,6 +518,10 @@ public class StructureManager {
      * @param loc The location of the structure. / Місцезнаходження структури.
      */
     public void structureFound(Player player, String key, Location loc) {
+        structureFound(player, key, loc, false);
+    }
+
+    public void structureFound(Player player, String key, Location loc, boolean approximate) {
         // Nether portals are handled by portalLit() and portalExitFound().
         // Портали в Незер обробляються методами portalLit() та portalExitFound().
         if (key.equals("NETHER_PORTAL")) {
@@ -375,6 +538,11 @@ public class StructureManager {
         }
 
         foundLocations.put(key, loc);
+        if (approximate) {
+            approximateStructures.add(key);
+        } else {
+            approximateStructures.remove(key);
+        }
         disabledSearches.remove(key);
         registerHiddenLodestone(key, loc);
         String playerName = player != null ? player.getName() : "SERVER";
@@ -446,6 +614,7 @@ public class StructureManager {
         // Update the placeholder for scoreboard display.
         // Оновлюємо плейсхолдер для відображення на скорборді.
         foundLocations.put("NETHER_PORTAL", loc);
+        approximateStructures.remove("NETHER_PORTAL");
         disabledSearches.remove("NETHER_PORTAL");
         registerHiddenLodestone("NETHER_PORTAL", loc);
         Bukkit.getPluginManager().callEvent(new StructureFoundEvent(player, "NETHER_PORTAL", loc));
@@ -477,11 +646,13 @@ public class StructureManager {
         World.Environment exitWorld = exitLoc.getWorld().getEnvironment();
         if (exitWorld == World.Environment.NETHER && this.netherPortalLocation == null) {
             this.netherPortalLocation = exitLoc;
+            approximateStructures.remove("NETHER_PORTAL");
             registerHiddenLodestone("NETHER_PORTAL", exitLoc);
             Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Nether-side) found at " + LocationUtil.format(exitLoc));
         } else if (exitWorld == World.Environment.NORMAL && this.overworldPortalLocation == null) {
             this.overworldPortalLocation = exitLoc;
+            approximateStructures.remove("NETHER_PORTAL");
             registerHiddenLodestone("NETHER_PORTAL", exitLoc);
             Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Overworld-side) found at " + LocationUtil.format(exitLoc));
@@ -545,6 +716,7 @@ public class StructureManager {
 
         hiddenStructures.remove(key);
         disabledSearches.remove(key);
+        approximateStructures.remove(key);
         Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
     }
 
@@ -557,6 +729,7 @@ public class StructureManager {
         }
 
         foundLocations.put(key, null);
+        approximateStructures.remove(key);
         disabledSearches.add(key);
         clearHiddenLodestone(key);
         hiddenStructures.add(key);
@@ -602,6 +775,10 @@ public class StructureManager {
     /** @return A map of all tracked structures and their locations. / Мапа всіх відстежуваних структур та їхніх локацій. */
     public Map<String, Location> getFoundStructures() {
         return foundLocations;
+    }
+
+    public boolean isApproximateStructure(String key) {
+        return approximateStructures.contains(key);
     }
 
     /** Gets the localized, user-friendly name for a structure key. / Отримує локалізовану, зрозумілу назву для ключа структури. */
@@ -675,6 +852,10 @@ public class StructureManager {
         return hiddenLodestones.get(key);
     }
 
+    public void clearHiddenLodestoneForKey(String key) {
+        clearHiddenLodestone(key);
+    }
+
     private void registerHiddenLodestone(String key, Location structureLocation) {
         if (structureLocation == null || structureLocation.getWorld() == null) {
             return;
@@ -726,6 +907,12 @@ public class StructureManager {
     private void clearAllHiddenLodestones() {
         for (String key : new ArrayList<>(hiddenLodestones.keySet())) {
             clearHiddenLodestone(key);
+        }
+    }
+
+    private record SearchChunk(World world, int chunkX, int chunkZ, boolean playerDriven) {
+        private String key() {
+            return world.getUID() + ":" + chunkX + ":" + chunkZ;
         }
     }
 }

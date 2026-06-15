@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.10-ALPHA`.
+Current plugin version: `26.1.2-3.1.11-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.10-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.1.11-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.10-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.1.11-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -91,7 +91,8 @@ Important options include:
 - `settings.reset_time_on_join`: optionally set loaded worlds to day when the first join starts the run.
 - `progression.settings.task-display-mode`: `ACTIVE_STAGE`, `ALL_STAGES`, or `ALL_GAME_STAGES` task display.
 - `progression.settings.completed-task-hide`: optionally hide completed tasks after a timeout.
-- `casual.start-pre-scan.enabled`: enable safe loaded-chunk live discovery on Casual run start.
+- `casual.start-pre-scan.enabled`: enable controlled Casual live/background discovery.
+- `casual.start-pre-scan.mode`: `SAFE`, `BALANCED`, or `AGGRESSIVE` scanner profile.
 - `casual.compass.death-location.enabled`: add each player's own last death point to their compass menu.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
 - `casual.structure_waypoints`: enable structure waypoints. Beacon is the safe default; End Gateway remains compatible but is not recommended for normal play.
@@ -168,6 +169,13 @@ Important options include:
 - Added `settings.reset_time_on_join` for first-join run starts.
 - Removed the default duplicate `Stage Complete` tellraw reward and filters the legacy default command at runtime.
 - Casual compass can show each player's own last death location as a private destination.
+
+## Notes For 3.1.11 Alpha
+
+- `reset_time_on_join` now skips worlds without a normal world clock instead of failing player join.
+- Casual death destinations create a private hidden lodestone so Nether death tracking can point the compass reliably.
+- Start pre-scan now supports `SAFE`, `BALANCED`, and `AGGRESSIVE` profiles with a budgeted background chunk queue.
+- Background-discovered structure coordinates are treated as approximate and shown with approximate styling.
 
 ## License
 

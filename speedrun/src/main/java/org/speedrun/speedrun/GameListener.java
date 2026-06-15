@@ -127,7 +127,7 @@ public class GameListener implements Listener {
             if (Bukkit.getOnlinePlayers().size() == 1) {
                 plugin.getGameManager().startRun();
                 if (plugin.getConfigManager().isResetTimeOnJoinEnabled()) {
-                    Bukkit.getWorlds().forEach(world -> world.setTime(1000L));
+                    resetDayTimeForClockWorlds();
                 }
             }
         }
@@ -141,6 +141,20 @@ public class GameListener implements Listener {
         plugin.getScoreboardManager().updateScoreboard(event.getPlayer());
 
         logger.logPlayerJoinOrQuit(event.getPlayer().getName(), "join");
+    }
+
+    private void resetDayTimeForClockWorlds() {
+        for (World world : Bukkit.getWorlds()) {
+            if (world.getEnvironment() != World.Environment.NORMAL) {
+                continue;
+            }
+            try {
+                world.setTime(1000L);
+            } catch (IllegalArgumentException ex) {
+                plugin.getLogger().warning("Skipped time reset for world '" + world.getName()
+                        + "': " + ex.getMessage());
+            }
+        }
     }
 
     @EventHandler

@@ -165,6 +165,7 @@ public class ScoreboardManager {
                         && loc == null
                         && sm.isPredictedEndPortalApproximate()
                         && sm.getPredictedEndPortalLocation() != null;
+                approximate = approximate || sm.isApproximateStructure(key);
 
                 loc = resolveDisplayLocation(player, key, loc);
                 if (!shouldDisplayLocation(player, key, loc)) {

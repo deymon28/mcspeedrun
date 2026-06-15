@@ -90,7 +90,10 @@ public final class Speedrun extends JavaPlugin {
                 + ", waypoint-type=" + configManager.getWaypointType()
                 + ", waypoints-enabled=" + configManager.areWaypointsEnabled()
                 + ", start-pre-scan=" + configManager.isStartPreScanEnabled()
+                + ", start-pre-scan-mode=" + configManager.getStartPreScanMode()
                 + ", loaded-chunk-scan-radius=" + configManager.getLoadedChunkScanRadius()
+                + ", pre-scan-chunks-per-run=" + configManager.getStartPreScanChunksPerRun()
+                + ", pre-scan-load-missing-chunks=" + configManager.shouldStartPreScanLoadMissingChunks()
                 + ", reset-time-on-join=" + configManager.isResetTimeOnJoinEnabled()
                 + ", death-location-compass=" + configManager.isDeathLocationCompassEnabled()
                 + ", nether-gold-highlight=" + configManager.isNetherGoldHighlightEnabled());

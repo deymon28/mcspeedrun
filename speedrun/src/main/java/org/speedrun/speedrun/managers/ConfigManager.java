@@ -61,6 +61,12 @@ public class ConfigManager {
         ALL_GAME_STAGES
     }
 
+    public enum StartPreScanMode {
+        SAFE,
+        BALANCED,
+        AGGRESSIVE
+    }
+
     public ConfigManager(Speedrun plugin) {
         this.plugin = plugin;
         reload();
@@ -255,6 +261,16 @@ public class ConfigManager {
                 config.getBoolean("settings.start-pre-scan.enabled", false));
     }
 
+    public StartPreScanMode getStartPreScanMode() {
+        String rawMode = config.getString("casual.start-pre-scan.mode", "BALANCED");
+        try {
+            return StartPreScanMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            plugin.getLogger().warning("Unknown casual.start-pre-scan.mode '" + rawMode + "'. Falling back to BALANCED.");
+            return StartPreScanMode.BALANCED;
+        }
+    }
+
     public int getStartPreScanRadius() {
         return Math.max(1, config.getInt("casual.start-pre-scan.radius",
                 config.getInt("settings.start-pre-scan.radius", 1000)));
@@ -272,7 +288,55 @@ public class ConfigManager {
     }
 
     public int getLoadedChunkScanRadius() {
-        return Math.max(0, config.getInt("casual.start-pre-scan.loaded-chunk-radius", 1));
+        return Math.max(0, config.getInt("casual.start-pre-scan.loaded-chunk-radius", 10));
+    }
+
+    private String getStartPreScanProfilePath(String key) {
+        return "casual.start-pre-scan.profiles." + getStartPreScanMode().name() + "." + key;
+    }
+
+    public int getStartPreScanChunksPerRun() {
+        int fallback = switch (getStartPreScanMode()) {
+            case SAFE -> 0;
+            case BALANCED -> 2;
+            case AGGRESSIVE -> 8;
+        };
+        return Math.max(0, config.getInt(getStartPreScanProfilePath("chunks-per-run"), fallback));
+    }
+
+    public long getStartPreScanPeriodTicks() {
+        int fallback = switch (getStartPreScanMode()) {
+            case SAFE -> 40;
+            case BALANCED -> 20;
+            case AGGRESSIVE -> 10;
+        };
+        return Math.max(1, config.getInt(getStartPreScanProfilePath("period-ticks"), fallback));
+    }
+
+    public int getStartPreScanMaxQueuedChunks() {
+        int fallback = switch (getStartPreScanMode()) {
+            case SAFE -> 0;
+            case BALANCED -> 1500;
+            case AGGRESSIVE -> 5000;
+        };
+        return Math.max(0, config.getInt(getStartPreScanProfilePath("max-queued-chunks"), fallback));
+    }
+
+    public boolean shouldStartPreScanLoadMissingChunks() {
+        boolean fallback = getStartPreScanMode() != StartPreScanMode.SAFE;
+        return config.getBoolean(getStartPreScanProfilePath("load-missing-chunks"), fallback);
+    }
+
+    public boolean shouldStartPreScanQueueSpawn() {
+        return config.getBoolean(getStartPreScanProfilePath("scan-spawn"), getStartPreScanMode() != StartPreScanMode.SAFE);
+    }
+
+    public boolean shouldStartPreScanQueuePlayers() {
+        return config.getBoolean(getStartPreScanProfilePath("scan-players"), getStartPreScanMode() != StartPreScanMode.SAFE);
+    }
+
+    public boolean shouldStartPreScanIncludeNether() {
+        return config.getBoolean(getStartPreScanProfilePath("include-nether"), getStartPreScanMode() == StartPreScanMode.AGGRESSIVE);
     }
 
     public boolean isDeathLocationCompassEnabled() {

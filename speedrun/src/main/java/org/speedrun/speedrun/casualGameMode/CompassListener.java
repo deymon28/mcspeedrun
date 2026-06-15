@@ -230,16 +230,26 @@ public class CompassListener implements Listener {
             ItemStack item = new ItemStack(getIconForDestinationName(name));
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
+                String displayName = getDestinationDisplayName(name);
+                if (plugin.getStructureManager().isApproximateStructure(name)) {
+                    displayName = plugin.getConfigManager().getFormattedText("compass.gui.approximate-destination-name",
+                            "%destination%", displayName);
+                }
                 meta.setDisplayName(plugin.getConfigManager().getFormattedText("compass.gui.destination-name",
-                        "%destination%", getDestinationDisplayName(name)));
-                meta.setLore(Arrays.asList(
+                        "%destination%", displayName));
+                List<String> lore = new ArrayList<>(Arrays.asList(
                         plugin.getConfigManager().getFormattedText("compass.gui.lore-x", "%x%", String.valueOf(loc.getBlockX())),
                         plugin.getConfigManager().getFormattedText("compass.gui.lore-y", "%y%", String.valueOf(loc.getBlockY())),
                         plugin.getConfigManager().getFormattedText("compass.gui.lore-z", "%z%", String.valueOf(loc.getBlockZ())),
-                        plugin.getConfigManager().getFormattedText("compass.gui.lore-world", "%world%", loc.getWorld().getName()),
-                        "",
+                        plugin.getConfigManager().getFormattedText("compass.gui.lore-world", "%world%", loc.getWorld().getName())));
+                if (plugin.getStructureManager().isApproximateStructure(name)) {
+                    lore.add(plugin.getConfigManager().getFormattedText("compass.gui.approximate-lore"));
+                }
+                lore.add("");
+                lore.add(
                         plugin.getConfigManager().getFormattedText("compass.gui.click-hint")
-                ));
+                );
+                meta.setLore(lore);
                 item.setItemMeta(meta);
             }
             menu.setItem(slot++, item);
@@ -340,7 +350,7 @@ public class CompassListener implements Listener {
     private void setPlayerDestination(Player player, String destinationKey, Location targetLocation) {
         if (targetLocation != null) {
             playerDestinations.put(player, new DestinationSelection(destinationKey, targetLocation));
-            Location lodestoneLocation = findLodestoneForDestination(targetLocation);
+            Location lodestoneLocation = findLodestoneForDestination(player, destinationKey, targetLocation);
 
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-set",
                     "%destination%", destinationKey != null ? getDestinationDisplayName(destinationKey) : plugin.getConfigManager().getLangString("compass.gui.custom-location", "a custom location"),
@@ -364,6 +374,8 @@ public class CompassListener implements Listener {
         if (player == null || location == null || location.getWorld() == null) {
             return;
         }
+        plugin.getStructureManager().clearHiddenLodestoneForKey(deathLodestoneKey(player));
+        plugin.getStructureManager().ensureHiddenLodestone(deathLodestoneKey(player), location);
         playerDeathDestinations.put(player.getUniqueId(), new DeathDestination(player.getName(), location.clone()));
     }
 
@@ -499,6 +511,9 @@ public class CompassListener implements Listener {
         stopCompassUpdateTask();
         playerDestinations.clear();
         predefinedDestinationsByWorld.clear();
+        for (UUID playerId : new ArrayList<>(playerDeathDestinations.keySet())) {
+            plugin.getStructureManager().clearHiddenLodestoneForKey("PLAYER_DEATH:" + playerId);
+        }
         playerDeathDestinations.clear();
         initializePredefinedDestinations();
 
@@ -539,24 +554,29 @@ public class CompassListener implements Listener {
         return plugin.getConfigManager().getFormattedText("items.navigation-compass.name");
     }
 
-    private Location findLodestoneForDestination(Location targetLocation) {
+    private Location findLodestoneForDestination(Player player, String destinationKey, Location targetLocation) {
         if (targetLocation == null) {
             return null;
         }
 
-        String destinationKey = null;
-        Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(targetLocation.getWorld());
-        if (destinationsForWorld != null) {
-            destinationKey = getKeyByValue(destinationsForWorld, targetLocation);
+        if ("PLAYER_DEATH".equals(destinationKey)) {
+            Location lodestone = plugin.getStructureManager().getHiddenLodestone(deathLodestoneKey(player));
+            return lodestone != null ? lodestone : plugin.getStructureManager().ensureHiddenLodestone(deathLodestoneKey(player), targetLocation);
         }
 
-        if (destinationKey == null) {
+        String resolvedDestinationKey = destinationKey;
+        Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(targetLocation.getWorld());
+        if (resolvedDestinationKey == null && destinationsForWorld != null) {
+            resolvedDestinationKey = getKeyByValue(destinationsForWorld, targetLocation);
+        }
+
+        if (resolvedDestinationKey == null) {
             return null;
         }
-        if ("SPAWN".equals(destinationKey)) {
-            return plugin.getStructureManager().ensureHiddenLodestone(destinationKey, targetLocation);
+        if ("SPAWN".equals(resolvedDestinationKey)) {
+            return plugin.getStructureManager().ensureHiddenLodestone(resolvedDestinationKey, targetLocation);
         }
-        return plugin.getStructureManager().getHiddenLodestone(destinationKey);
+        return plugin.getStructureManager().getHiddenLodestone(resolvedDestinationKey);
     }
 
     private String resolveDestinationKey(Location targetLocation) {
@@ -601,7 +621,10 @@ public class CompassListener implements Listener {
         }
 
         for (String key : destinationsForWorld.keySet()) {
-            if (getDestinationDisplayName(key).equals(displayName)) {
+            String plainName = getDestinationDisplayName(key);
+            String approximateName = ChatColor.stripColor(plugin.getConfigManager().getFormattedText("compass.gui.approximate-destination-name",
+                    "%destination%", plainName));
+            if (plainName.equals(displayName) || approximateName.equals(displayName)) {
                 return key;
             }
         }
@@ -646,6 +669,10 @@ public class CompassListener implements Listener {
             return null;
         }
         return playerDeathDestinations.get(player.getUniqueId());
+    }
+
+    private String deathLodestoneKey(Player player) {
+        return "PLAYER_DEATH:" + player.getUniqueId();
     }
 
     private record DestinationSelection(String destinationKey, Location fallbackLocation) {

@@ -61,6 +61,8 @@ messages:
 compass:
   gui:
     death-location-name: "&cОстання смерть %player%"
+    approximate-destination-name: "&eПрибл. %destination%"
+    approximate-lore: "&eПриблизна локація з фонового пошуку"
     death-click-hint: "&eНатисніть, щоб відстежити точку смерті"
 
 # ...
