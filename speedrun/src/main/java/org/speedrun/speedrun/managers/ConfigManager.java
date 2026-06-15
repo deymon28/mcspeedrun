@@ -215,11 +215,19 @@ public class ConfigManager {
 
     public TaskDisplayMode getTaskDisplayMode() {
         String rawMode = config.getString("progression.settings.task-display-mode", "ACTIVE_STAGE");
-        try {
-            return TaskDisplayMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
+        TaskDisplayMode mode = parseTaskDisplayMode(rawMode, null);
+        if (mode == null) {
             plugin.getLogger().warning("Unknown progression.settings.task-display-mode '" + rawMode + "'. Falling back to ACTIVE_STAGE.");
             return TaskDisplayMode.ACTIVE_STAGE;
+        }
+        return mode;
+    }
+
+    static TaskDisplayMode parseTaskDisplayMode(String rawMode, TaskDisplayMode fallback) {
+        try {
+            return TaskDisplayMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            return fallback;
         }
     }
 
@@ -263,11 +271,19 @@ public class ConfigManager {
 
     public StartPreScanMode getStartPreScanMode() {
         String rawMode = config.getString("casual.start-pre-scan.mode", "BALANCED");
-        try {
-            return StartPreScanMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
+        StartPreScanMode mode = parseStartPreScanMode(rawMode, null);
+        if (mode == null) {
             plugin.getLogger().warning("Unknown casual.start-pre-scan.mode '" + rawMode + "'. Falling back to BALANCED.");
             return StartPreScanMode.BALANCED;
+        }
+        return mode;
+    }
+
+    static StartPreScanMode parseStartPreScanMode(String rawMode, StartPreScanMode fallback) {
+        try {
+            return StartPreScanMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            return fallback;
         }
     }
 
@@ -296,30 +312,42 @@ public class ConfigManager {
     }
 
     public int getStartPreScanChunksPerRun() {
-        int fallback = switch (getStartPreScanMode()) {
-            case SAFE -> 0;
-            case BALANCED -> 2;
-            case AGGRESSIVE -> 8;
-        };
+        int fallback = defaultStartPreScanChunksPerRun(getStartPreScanMode());
         return Math.max(0, config.getInt(getStartPreScanProfilePath("chunks-per-run"), fallback));
     }
 
     public long getStartPreScanPeriodTicks() {
-        int fallback = switch (getStartPreScanMode()) {
-            case SAFE -> 40;
-            case BALANCED -> 20;
-            case AGGRESSIVE -> 10;
-        };
+        int fallback = defaultStartPreScanPeriodTicks(getStartPreScanMode());
         return Math.max(1, config.getInt(getStartPreScanProfilePath("period-ticks"), fallback));
     }
 
     public int getStartPreScanMaxQueuedChunks() {
-        int fallback = switch (getStartPreScanMode()) {
+        int fallback = defaultStartPreScanMaxQueuedChunks(getStartPreScanMode());
+        return Math.max(0, config.getInt(getStartPreScanProfilePath("max-queued-chunks"), fallback));
+    }
+
+    static int defaultStartPreScanChunksPerRun(StartPreScanMode mode) {
+        return switch (mode) {
+            case SAFE -> 0;
+            case BALANCED -> 2;
+            case AGGRESSIVE -> 8;
+        };
+    }
+
+    static int defaultStartPreScanPeriodTicks(StartPreScanMode mode) {
+        return switch (mode) {
+            case SAFE -> 40;
+            case BALANCED -> 20;
+            case AGGRESSIVE -> 10;
+        };
+    }
+
+    static int defaultStartPreScanMaxQueuedChunks(StartPreScanMode mode) {
+        return switch (mode) {
             case SAFE -> 0;
             case BALANCED -> 1500;
             case AGGRESSIVE -> 5000;
         };
-        return Math.max(0, config.getInt(getStartPreScanProfilePath("max-queued-chunks"), fallback));
     }
 
     public boolean shouldStartPreScanLoadMissingChunks() {
@@ -346,11 +374,19 @@ public class ConfigManager {
 
     public CoordinateDisplayMode getCoordinateDisplayMode() {
         String rawMode = config.getString("settings.coordinate-display.mode", "CONDITIONAL");
-        try {
-            return CoordinateDisplayMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
+        CoordinateDisplayMode mode = parseCoordinateDisplayMode(rawMode, null);
+        if (mode == null) {
             plugin.getLogger().warning("Unknown settings.coordinate-display.mode '" + rawMode + "'. Falling back to CONDITIONAL.");
             return CoordinateDisplayMode.CONDITIONAL;
+        }
+        return mode;
+    }
+
+    static CoordinateDisplayMode parseCoordinateDisplayMode(String rawMode, CoordinateDisplayMode fallback) {
+        try {
+            return CoordinateDisplayMode.valueOf(rawMode.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            return fallback;
         }
     }
 

@@ -63,6 +63,16 @@ public class Task {
         this.srbpEnabled = cs.getBoolean("srbp", false);
     }
 
+    Task(String key, Type taskType, String displayName, int baseRequiredAmount, boolean srbpEnabled, World.Environment world) {
+        this.key = key;
+        this.taskType = taskType;
+        this.displayName = displayName;
+        this.baseRequiredAmount = baseRequiredAmount;
+        this.requiredAmount = baseRequiredAmount;
+        this.srbpEnabled = srbpEnabled;
+        this.world = world;
+    }
+
     /**
      * Scales the required amount of items based on the number of players.
      * This only applies if the 'srbp' flag is true for this task in the config.
@@ -74,16 +84,14 @@ public class Task {
      * @param multiplier The scaling factor from the config. / Коефіцієнт масштабування з конфігу.
      */
     public void scale(int playerCount, double multiplier) {
-        if (!srbpEnabled) {
-            this.requiredAmount = this.baseRequiredAmount; // Ensure it's reset if scaling is disabled. / Переконуємося, що значення скинуто, якщо масштабування вимкнено.
-            return;
-        }
+        this.requiredAmount = calculateRequiredAmount(baseRequiredAmount, srbpEnabled, playerCount, multiplier);
+    }
 
-        if (playerCount <= 1) {
-            this.requiredAmount = this.baseRequiredAmount;
-            return;
+    public static int calculateRequiredAmount(int baseRequiredAmount, boolean srbpEnabled, int playerCount, double multiplier) {
+        if (!srbpEnabled || playerCount <= 1) {
+            return baseRequiredAmount;
         }
-        this.requiredAmount = (int) Math.ceil(this.baseRequiredAmount * (1 + (playerCount - 1) * multiplier));
+        return (int) Math.ceil(baseRequiredAmount * (1 + (playerCount - 1) * multiplier));
     }
 
     /**

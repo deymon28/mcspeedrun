@@ -10,6 +10,7 @@ import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.Task;
 import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.utils.TimeUtil;
+import org.speedrun.speedrun.utils.WorldCoordinateUtil;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -320,26 +321,9 @@ public class ScoreboardManager {
             return loc;
         }
 
-        World.Environment from = loc.getWorld().getEnvironment();
         World.Environment to = player.getWorld().getEnvironment();
-        if (from == to) {
-            return loc;
-        }
-        if (from != World.Environment.NORMAL && from != World.Environment.NETHER) {
-            return loc;
-        }
-        if (to != World.Environment.NORMAL && to != World.Environment.NETHER) {
-            return loc;
-        }
-
         World targetWorld = findWorldByEnvironment(to);
-        double scale = from == World.Environment.NORMAL ? 1.0 / 8.0 : 8.0;
-        return new Location(targetWorld != null ? targetWorld : loc.getWorld(),
-                loc.getX() * scale,
-                loc.getY(),
-                loc.getZ() * scale,
-                loc.getYaw(),
-                loc.getPitch());
+        return WorldCoordinateUtil.convert(loc, targetWorld != null ? targetWorld : player.getWorld());
     }
 
     private World findWorldByEnvironment(World.Environment environment) {

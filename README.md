@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.1.11-ALPHA`.
+Current plugin version: `26.1.2-3.2.0-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.1.11-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.2.0-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.1.11-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.2.0-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -99,6 +99,29 @@ Important options include:
 - `casual.nether_gold_highlight`: highlight gold blocks around Nether players.
 - `progression`: staged item and structure tasks.
 - `rewards`: global reward commands, sounds, and particles.
+
+## Testing
+
+Fast JUnit tests cover pure utility logic, task scaling/progress behavior, command structure alias parsing, config defaults, language keys, plugin metadata, and Overworld/Nether coordinate scaling:
+
+```powershell
+cd speedrun
+.\gradlew.bat test
+```
+
+Full build runs the same test suite before producing the plugin jar:
+
+```powershell
+cd speedrun
+.\gradlew.bat build
+```
+
+Paper smoke testing starts real temporary Paper servers outside the repository and verifies the plugin enables across key configuration profiles: `NORMAL`, `CASUAL` with `SAFE`, `BALANCED`, and `AGGRESSIVE` pre-scan, and `HARDCORE`.
+
+```powershell
+cd speedrun
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1
+```
 
 ## Notes For 3.0.0 Alpha
 
@@ -176,6 +199,12 @@ Important options include:
 - Casual death destinations create a private hidden lodestone so Nether death tracking can point the compass reliably.
 - Start pre-scan now supports `SAFE`, `BALANCED`, and `AGGRESSIVE` profiles with a budgeted background chunk queue.
 - Background-discovered structure coordinates are treated as approximate and shown with approximate styling.
+
+## Notes For 3.2.0 Alpha
+
+- Added a JUnit 5 test suite for utility logic, task scaling, config/profile parsing, command aliases, resource defaults, and plugin metadata.
+- Added a Paper smoke-test script that boots real temporary Paper servers across the main runtime configuration profiles.
+- Extracted linked Overworld/Nether coordinate scaling into a testable utility used by the scoreboard.
 
 ## License
 

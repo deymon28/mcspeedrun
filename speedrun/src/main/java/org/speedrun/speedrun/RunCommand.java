@@ -285,7 +285,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         return completions;
     }
 
-    private String resolveStructureKey(String rawInput) {
+    static String resolveStructureKey(String rawInput) {
         String normalized = rawInput.toLowerCase(Locale.ROOT)
                 .trim()
                 .replace('-', ' ')
