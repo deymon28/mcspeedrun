@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.3.0-ALPHA`.
+Current plugin version: `26.1.2-3.4.0-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.3.0-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.4.0-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.3.0-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.4.0-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -92,7 +92,8 @@ Important options include:
 - `progression.settings.task-display-mode`: `ACTIVE_STAGE`, `ALL_STAGES`, or `ALL_GAME_STAGES` task display.
 - `progression.settings.completed-task-hide`: optionally hide completed tasks after a timeout.
 - `casual.start-pre-scan.enabled`: enable controlled Casual live/background discovery.
-- `casual.start-pre-scan.mode`: `SAFE`, `BALANCED`, or `AGGRESSIVE` scanner profile.
+- `casual.start-pre-scan.mode`: `SAFE`, `BALANCED`, `AGGRESSIVE`, or `LOCATE` scanner profile.
+- `casual.start-pre-scan.safety`: hard caps for background chunk queue load.
 - `casual.compass.death-location.enabled`: add each player's own last death point to their compass menu.
 - `diagnostics.trace.enabled`: write detailed JSONL runtime traces for bug reproduction.
 - `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
@@ -117,7 +118,7 @@ cd speedrun
 .\gradlew.bat build
 ```
 
-Paper smoke testing starts real temporary Paper servers outside the repository and verifies the plugin enables across key configuration profiles: `NORMAL`, `CASUAL` with `SAFE`, `BALANCED`, and `AGGRESSIVE` pre-scan, and `HARDCORE`.
+Paper smoke testing starts real temporary Paper servers outside the repository and verifies the plugin enables across key configuration profiles: `NORMAL`, `CASUAL` with `SAFE`, `BALANCED`, `AGGRESSIVE`, and `LOCATE` pre-scan, and `HARDCORE`.
 
 ```powershell
 cd speedrun
@@ -126,13 +127,14 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1
 
 ## Structure Discovery
 
-The background scanner does not call blocking structure-locate APIs. It scans loaded chunks and, in `BALANCED`/`AGGRESSIVE`, a bounded async Paper chunk queue.
+The background scanner scans loaded chunks and, in `BALANCED`/`AGGRESSIVE`, a bounded async Paper chunk queue. Safety caps limit chunk queue pressure even when a config profile is set too high.
 
 - Overworld generated structures can map to `VILLAGE` and `END_PORTAL` from Stronghold metadata.
 - Nether generated structures can map to `FORTRESS` and `BASTION`.
 - Fortress and Bastion are ignored in the Overworld because the mapper only accepts them when the scanned world environment is `NETHER`.
 - End Portal/Stronghold scanning is ignored in the Nether; Nether scoreboards may still show converted approximate Overworld coordinates.
 - Lava Pool and Bell confirmation scans run only in the Overworld block/snapshot scanner.
+- `LOCATE` mode performs a small, staggered set of Bukkit/Paper locate API calls for villages, strongholds, fortresses, and bastions, then falls back to loaded-chunk live scanning. Locate calls are synchronous, so keep `calls-per-run` low.
 
 ## Diagnostics Trace
 
@@ -231,6 +233,12 @@ Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to writ
 - Spawn and other compass destinations now create hidden lodestones more reliably, including async chunk loading when the target chunk is not loaded.
 - Hidden lodestones are placed deeper at the same X/Z instead of near the surface, and old lodestones are not removed until a replacement can be placed.
 - Added optional JSONL trace diagnostics for compass selection, lodestone placement, scanner decisions, structure matches, portals, and run lifecycle events.
+
+## Notes For 3.4.0 Alpha
+
+- Added `LOCATE` start pre-scan mode for bounded one-shot structure locate API calls with loaded-chunk fallback.
+- Added hard safety caps for background pre-scan chunk load rate and queue size, so oversized configs cannot generate tens of thousands of chunks unchecked.
+- Documented that oversized `AGGRESSIVE` settings can cause long shutdown saves and Nether chunk loading stalls.
 
 ## License
 

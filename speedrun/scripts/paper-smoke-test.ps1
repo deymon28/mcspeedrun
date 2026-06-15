@@ -86,6 +86,7 @@ $scenarios = @(
     @{ Name = "casual-safe"; GameMode = "CASUAL"; PreScan = "true"; PreScanMode = "SAFE"; Coordinate = "CONDITIONAL"; Task = "ACTIVE_STAGE" },
     @{ Name = "casual-balanced"; GameMode = "CASUAL"; PreScan = "true"; PreScanMode = "BALANCED"; Coordinate = "UNIFIED"; Task = "ALL_STAGES" },
     @{ Name = "casual-aggressive"; GameMode = "CASUAL"; PreScan = "true"; PreScanMode = "AGGRESSIVE"; Coordinate = "SEPARATE"; Task = "ALL_GAME_STAGES" },
+    @{ Name = "casual-locate"; GameMode = "CASUAL"; PreScan = "true"; PreScanMode = "LOCATE"; Coordinate = "CONDITIONAL"; Task = "ALL_GAME_STAGES" },
     @{ Name = "hardcore"; GameMode = "HARDCORE"; PreScan = "false"; PreScanMode = "SAFE"; Coordinate = "CONDITIONAL"; Task = "ACTIVE_STAGE" }
 )
 

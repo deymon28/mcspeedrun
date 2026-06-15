@@ -20,6 +20,11 @@ class ConfigurationResourceTest {
         assertEquals(1000, config.getInt("casual.start-pre-scan.radius"));
         assertEquals(10, config.getInt("casual.start-pre-scan.loaded-chunk-radius"));
         assertTrue(config.getBoolean("casual.start-pre-scan.include-lava-pool"));
+        assertEquals(8, config.getInt("casual.start-pre-scan.safety.max-chunks-per-run"));
+        assertEquals(5000, config.getInt("casual.start-pre-scan.safety.max-queued-chunks"));
+        assertEquals(96, config.getInt("casual.start-pre-scan.locate.radius-chunks"));
+        assertEquals(1, config.getInt("casual.start-pre-scan.locate.calls-per-run"));
+        assertTrue(config.getBoolean("casual.start-pre-scan.locate.targets.stronghold"));
 
         assertEquals(0, config.getInt("casual.start-pre-scan.profiles.SAFE.chunks-per-run"));
         assertFalse(config.getBoolean("casual.start-pre-scan.profiles.SAFE.load-missing-chunks"));
@@ -31,6 +36,10 @@ class ConfigurationResourceTest {
         assertEquals(8, config.getInt("casual.start-pre-scan.profiles.AGGRESSIVE.chunks-per-run"));
         assertEquals(5000, config.getInt("casual.start-pre-scan.profiles.AGGRESSIVE.max-queued-chunks"));
         assertTrue(config.getBoolean("casual.start-pre-scan.profiles.AGGRESSIVE.include-nether"));
+
+        assertEquals(0, config.getInt("casual.start-pre-scan.profiles.LOCATE.chunks-per-run"));
+        assertEquals(0, config.getInt("casual.start-pre-scan.profiles.LOCATE.max-queued-chunks"));
+        assertFalse(config.getBoolean("casual.start-pre-scan.profiles.LOCATE.load-missing-chunks"));
     }
 
     @Test

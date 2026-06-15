@@ -96,7 +96,12 @@ public final class Speedrun extends JavaPlugin {
                 + ", start-pre-scan-mode=" + configManager.getStartPreScanMode()
                 + ", loaded-chunk-scan-radius=" + configManager.getLoadedChunkScanRadius()
                 + ", pre-scan-chunks-per-run=" + configManager.getStartPreScanChunksPerRun()
+                + ", pre-scan-max-queued-chunks=" + configManager.getStartPreScanMaxQueuedChunks()
+                + ", pre-scan-safety-max-chunks-per-run=" + configManager.getStartPreScanSafetyMaxChunksPerRun()
+                + ", pre-scan-safety-max-queued-chunks=" + configManager.getStartPreScanSafetyMaxQueuedChunks()
                 + ", pre-scan-load-missing-chunks=" + configManager.shouldStartPreScanLoadMissingChunks()
+                + ", pre-scan-locate-radius=" + configManager.getStartPreScanLocateRadius()
+                + ", pre-scan-locate-calls-per-run=" + configManager.getStartPreScanLocateCallsPerRun()
                 + ", reset-time-on-join=" + configManager.isResetTimeOnJoinEnabled()
                 + ", trace-enabled=" + configManager.isTraceEnabled()
                 + ", death-location-compass=" + configManager.isDeathLocationCompassEnabled()
@@ -112,6 +117,9 @@ public final class Speedrun extends JavaPlugin {
                 "waypoints_enabled", configManager.areWaypointsEnabled(),
                 "start_pre_scan", configManager.isStartPreScanEnabled(),
                 "start_pre_scan_mode", configManager.getStartPreScanMode(),
+                "pre_scan_max_queued_chunks", configManager.getStartPreScanMaxQueuedChunks(),
+                "pre_scan_locate_radius", configManager.getStartPreScanLocateRadius(),
+                "pre_scan_locate_calls_per_run", configManager.getStartPreScanLocateCallsPerRun(),
                 "trace_enabled", configManager.isTraceEnabled());
     }
 

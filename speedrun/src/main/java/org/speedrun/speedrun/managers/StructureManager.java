@@ -13,6 +13,7 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.BoundingBox;
+import org.bukkit.util.StructureSearchResult;
 import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.utils.MessageUtil;
 import org.speedrun.speedrun.utils.PaperCheckUtil;
@@ -41,10 +42,12 @@ public class StructureManager {
     private final Set<String> liveScannedChunks = new HashSet<>();
     private final Set<String> approximateStructures = new HashSet<>();
     private final Queue<SearchChunk> backgroundScanQueue = new ArrayDeque<>();
+    private final Queue<LocateRequest> locateQueue = new ArrayDeque<>();
     private final Set<String> queuedBackgroundChunks = new HashSet<>();
     private final Set<String> completedBackgroundChunks = new HashSet<>();
     private BukkitTask preScanTask;
     private BukkitTask backgroundScanTask;
+    private BukkitTask locateTask;
     private long preScanGeneration = 0;
 
     public boolean villageSearchFailed = false;
@@ -80,6 +83,7 @@ public class StructureManager {
         liveScannedChunks.clear();
         approximateStructures.clear();
         backgroundScanQueue.clear();
+        locateQueue.clear();
         queuedBackgroundChunks.clear();
         completedBackgroundChunks.clear();
         predictedEndPortalLocation = null;
@@ -103,7 +107,9 @@ public class StructureManager {
         cancelPreScan();
         ConfigManager.StartPreScanMode mode = plugin.getConfigManager().getStartPreScanMode();
         plugin.getLogger().info("Casual start pre-scan mode=" + mode
-                + "; blocking structure locate calls are disabled.");
+                + (mode == ConfigManager.StartPreScanMode.LOCATE
+                ? "; bounded locate API calls are enabled with loaded-chunk fallback."
+                : "; blocking structure locate calls are disabled."));
         plugin.getTraceLogger().trace("scanner", "pre_scan_started",
                 "mode", mode,
                 "loaded_chunk_radius", plugin.getConfigManager().getLoadedChunkScanRadius(),
@@ -113,7 +119,10 @@ public class StructureManager {
                 "scan_spawn", plugin.getConfigManager().shouldStartPreScanQueueSpawn(),
                 "scan_players", plugin.getConfigManager().shouldStartPreScanQueuePlayers(),
                 "include_nether", plugin.getConfigManager().shouldStartPreScanIncludeNether());
-        if (mode != ConfigManager.StartPreScanMode.SAFE) {
+        if (mode == ConfigManager.StartPreScanMode.LOCATE) {
+            seedLocateQueue();
+            startLocateTask();
+        } else if (mode != ConfigManager.StartPreScanMode.SAFE) {
             seedBackgroundScanCenters();
             startBackgroundScanTask();
         }
@@ -141,6 +150,126 @@ public class StructureManager {
                 }
             }
         }
+    }
+
+    private void seedLocateQueue() {
+        locateQueue.clear();
+        World overworld = findWorldByEnvironment(World.Environment.NORMAL);
+        if (overworld != null) {
+            Location origin = overworld.getSpawnLocation();
+            if (plugin.getConfigManager().shouldStartPreScanLocateVillages()) {
+                locateQueue.add(new LocateRequest(overworld, origin, "VILLAGE", Structure.VILLAGE_PLAINS));
+                locateQueue.add(new LocateRequest(overworld, origin, "VILLAGE", Structure.VILLAGE_DESERT));
+                locateQueue.add(new LocateRequest(overworld, origin, "VILLAGE", Structure.VILLAGE_SAVANNA));
+                locateQueue.add(new LocateRequest(overworld, origin, "VILLAGE", Structure.VILLAGE_SNOWY));
+                locateQueue.add(new LocateRequest(overworld, origin, "VILLAGE", Structure.VILLAGE_TAIGA));
+            }
+            if (plugin.getConfigManager().shouldStartPreScanLocateStronghold()) {
+                locateQueue.add(new LocateRequest(overworld, origin, "END_PORTAL", Structure.STRONGHOLD));
+            }
+        }
+
+        World nether = findWorldByEnvironment(World.Environment.NETHER);
+        if (nether != null && plugin.getConfigManager().shouldStartPreScanLocateNetherStructures()) {
+            Location origin = nether.getSpawnLocation();
+            locateQueue.add(new LocateRequest(nether, origin, "FORTRESS", Structure.FORTRESS));
+            locateQueue.add(new LocateRequest(nether, origin, "BASTION", Structure.BASTION_REMNANT));
+        }
+
+        plugin.getTraceLogger().trace("scanner", "locate_queue_seeded",
+                "queued_requests", locateQueue.size(),
+                "radius_chunks", plugin.getConfigManager().getStartPreScanLocateRadius(),
+                "find_unexplored", plugin.getConfigManager().shouldStartPreScanLocateFindUnexplored(),
+                "period_ticks", plugin.getConfigManager().getStartPreScanLocatePeriodTicks(),
+                "calls_per_run", plugin.getConfigManager().getStartPreScanLocateCallsPerRun());
+    }
+
+    private void startLocateTask() {
+        if (locateTask != null && !locateTask.isCancelled()) {
+            return;
+        }
+
+        locateTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!plugin.getGameManager().isRunning() || plugin.getGameManager().isPaused()) {
+                return;
+            }
+            int budget = plugin.getConfigManager().getStartPreScanLocateCallsPerRun();
+            for (int calls = 0; calls < budget; calls++) {
+                LocateRequest request = locateQueue.poll();
+                if (request == null) {
+                    locateTask.cancel();
+                    locateTask = null;
+                    plugin.getTraceLogger().trace("scanner", "locate_queue_finished");
+                    return;
+                }
+                processLocateRequest(request);
+            }
+        }, 1L, plugin.getConfigManager().getStartPreScanLocatePeriodTicks());
+    }
+
+    private void processLocateRequest(LocateRequest request) {
+        if (request.world() == null || request.origin() == null || request.structure() == null) {
+            return;
+        }
+        if (!isStructureSearchActive(request.structureKey())) {
+            plugin.getTraceLogger().trace("scanner", "locate_request_skipped",
+                    "structure_key", request.structureKey(),
+                    "minecraft_structure", request.structure(),
+                    "world", request.world(),
+                    "reason", "search_inactive");
+            return;
+        }
+
+        int radius = plugin.getConfigManager().getStartPreScanLocateRadius();
+        boolean findUnexplored = plugin.getConfigManager().shouldStartPreScanLocateFindUnexplored();
+        long started = System.currentTimeMillis();
+        plugin.getTraceLogger().trace("scanner", "locate_request_started",
+                "structure_key", request.structureKey(),
+                "minecraft_structure", request.structure(),
+                "world", request.world(),
+                "origin", request.origin(),
+                "radius_chunks", radius,
+                "find_unexplored", findUnexplored);
+        try {
+            StructureSearchResult result = request.world().locateNearestStructure(
+                    request.origin(), request.structure(), radius, findUnexplored);
+            long duration = System.currentTimeMillis() - started;
+            if (result == null) {
+                plugin.getTraceLogger().trace("scanner", "locate_request_not_found",
+                        "structure_key", request.structureKey(),
+                        "minecraft_structure", request.structure(),
+                        "world", request.world(),
+                        "duration_ms", duration);
+                return;
+            }
+
+            Location location = result.getLocation();
+            plugin.getTraceLogger().trace("scanner", "locate_request_found",
+                    "structure_key", request.structureKey(),
+                    "minecraft_structure", request.structure(),
+                    "world", request.world(),
+                    "location", location,
+                    "duration_ms", duration);
+            structureFound(null, request.structureKey(), location, true);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Locate pre-scan failed for " + request.structureKey()
+                    + " (" + request.structure() + "): " + ex.getMessage());
+            plugin.getTraceLogger().trace("scanner", "locate_request_failed",
+                    "structure_key", request.structureKey(),
+                    "minecraft_structure", request.structure(),
+                    "world", request.world(),
+                    "duration_ms", System.currentTimeMillis() - started,
+                    "error", ex.toString());
+        }
+    }
+
+    private World findWorldByEnvironment(World.Environment environment) {
+        for (World world : Bukkit.getWorlds()) {
+            if (world.getEnvironment() == environment) {
+                return world;
+            }
+        }
+        return null;
     }
 
     private boolean shouldBackgroundScanWorld(World world, boolean playerDriven) {
@@ -601,6 +730,9 @@ public class StructureManager {
 
     public void cancelPreScan() {
         preScanGeneration++;
+        locateQueue.clear();
+        backgroundScanQueue.clear();
+        queuedBackgroundChunks.clear();
         if (preScanTask != null) {
             preScanTask.cancel();
             preScanTask = null;
@@ -608,6 +740,10 @@ public class StructureManager {
         if (backgroundScanTask != null) {
             backgroundScanTask.cancel();
             backgroundScanTask = null;
+        }
+        if (locateTask != null) {
+            locateTask.cancel();
+            locateTask = null;
         }
     }
 
@@ -1226,5 +1362,8 @@ public class StructureManager {
         private String key() {
             return world.getUID() + ":" + chunkX + ":" + chunkZ;
         }
+    }
+
+    private record LocateRequest(World world, Location origin, String structureKey, Structure structure) {
     }
 }

@@ -64,7 +64,8 @@ public class ConfigManager {
     public enum StartPreScanMode {
         SAFE,
         BALANCED,
-        AGGRESSIVE
+        AGGRESSIVE,
+        LOCATE
     }
 
     public ConfigManager(Speedrun plugin) {
@@ -326,7 +327,8 @@ public class ConfigManager {
 
     public int getStartPreScanChunksPerRun() {
         int fallback = defaultStartPreScanChunksPerRun(getStartPreScanMode());
-        return Math.max(0, config.getInt(getStartPreScanProfilePath("chunks-per-run"), fallback));
+        int configured = Math.max(0, config.getInt(getStartPreScanProfilePath("chunks-per-run"), fallback));
+        return Math.min(configured, getStartPreScanSafetyMaxChunksPerRun());
     }
 
     public long getStartPreScanPeriodTicks() {
@@ -336,7 +338,8 @@ public class ConfigManager {
 
     public int getStartPreScanMaxQueuedChunks() {
         int fallback = defaultStartPreScanMaxQueuedChunks(getStartPreScanMode());
-        return Math.max(0, config.getInt(getStartPreScanProfilePath("max-queued-chunks"), fallback));
+        int configured = Math.max(0, config.getInt(getStartPreScanProfilePath("max-queued-chunks"), fallback));
+        return Math.min(configured, getStartPreScanSafetyMaxQueuedChunks());
     }
 
     static int defaultStartPreScanChunksPerRun(StartPreScanMode mode) {
@@ -344,6 +347,7 @@ public class ConfigManager {
             case SAFE -> 0;
             case BALANCED -> 2;
             case AGGRESSIVE -> 8;
+            case LOCATE -> 0;
         };
     }
 
@@ -352,6 +356,7 @@ public class ConfigManager {
             case SAFE -> 40;
             case BALANCED -> 20;
             case AGGRESSIVE -> 10;
+            case LOCATE -> 40;
         };
     }
 
@@ -360,24 +365,68 @@ public class ConfigManager {
             case SAFE -> 0;
             case BALANCED -> 1500;
             case AGGRESSIVE -> 5000;
+            case LOCATE -> 0;
         };
     }
 
     public boolean shouldStartPreScanLoadMissingChunks() {
-        boolean fallback = getStartPreScanMode() != StartPreScanMode.SAFE;
+        boolean fallback = getStartPreScanMode() != StartPreScanMode.SAFE
+                && getStartPreScanMode() != StartPreScanMode.LOCATE;
         return config.getBoolean(getStartPreScanProfilePath("load-missing-chunks"), fallback);
     }
 
     public boolean shouldStartPreScanQueueSpawn() {
-        return config.getBoolean(getStartPreScanProfilePath("scan-spawn"), getStartPreScanMode() != StartPreScanMode.SAFE);
+        boolean fallback = getStartPreScanMode() != StartPreScanMode.SAFE
+                && getStartPreScanMode() != StartPreScanMode.LOCATE;
+        return config.getBoolean(getStartPreScanProfilePath("scan-spawn"), fallback);
     }
 
     public boolean shouldStartPreScanQueuePlayers() {
-        return config.getBoolean(getStartPreScanProfilePath("scan-players"), getStartPreScanMode() != StartPreScanMode.SAFE);
+        boolean fallback = getStartPreScanMode() != StartPreScanMode.SAFE
+                && getStartPreScanMode() != StartPreScanMode.LOCATE;
+        return config.getBoolean(getStartPreScanProfilePath("scan-players"), fallback);
     }
 
     public boolean shouldStartPreScanIncludeNether() {
-        return config.getBoolean(getStartPreScanProfilePath("include-nether"), getStartPreScanMode() == StartPreScanMode.AGGRESSIVE);
+        return config.getBoolean(getStartPreScanProfilePath("include-nether"),
+                getStartPreScanMode() == StartPreScanMode.AGGRESSIVE);
+    }
+
+    public int getStartPreScanSafetyMaxChunksPerRun() {
+        return Math.max(1, config.getInt("casual.start-pre-scan.safety.max-chunks-per-run", 8));
+    }
+
+    public int getStartPreScanSafetyMaxQueuedChunks() {
+        return Math.max(0, config.getInt("casual.start-pre-scan.safety.max-queued-chunks", 5000));
+    }
+
+    public int getStartPreScanLocateRadius() {
+        return Math.max(1, config.getInt("casual.start-pre-scan.locate.radius-chunks",
+                config.getInt("casual.start-pre-scan.locate.radius", 96)));
+    }
+
+    public long getStartPreScanLocatePeriodTicks() {
+        return Math.max(1, config.getInt("casual.start-pre-scan.locate.period-ticks", 20));
+    }
+
+    public int getStartPreScanLocateCallsPerRun() {
+        return Math.max(1, config.getInt("casual.start-pre-scan.locate.calls-per-run", 1));
+    }
+
+    public boolean shouldStartPreScanLocateFindUnexplored() {
+        return config.getBoolean("casual.start-pre-scan.locate.find-unexplored", false);
+    }
+
+    public boolean shouldStartPreScanLocateVillages() {
+        return config.getBoolean("casual.start-pre-scan.locate.targets.village", true);
+    }
+
+    public boolean shouldStartPreScanLocateStronghold() {
+        return config.getBoolean("casual.start-pre-scan.locate.targets.stronghold", true);
+    }
+
+    public boolean shouldStartPreScanLocateNetherStructures() {
+        return config.getBoolean("casual.start-pre-scan.locate.targets.nether-structures", true);
     }
 
     public boolean isDeathLocationCompassEnabled() {

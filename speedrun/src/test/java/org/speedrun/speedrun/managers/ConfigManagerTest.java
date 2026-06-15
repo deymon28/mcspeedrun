@@ -39,6 +39,8 @@ class ConfigManagerTest {
                 ConfigManager.parseStartPreScanMode("BALANCED", null));
         assertEquals(ConfigManager.StartPreScanMode.AGGRESSIVE,
                 ConfigManager.parseStartPreScanMode("aggressive", null));
+        assertEquals(ConfigManager.StartPreScanMode.LOCATE,
+                ConfigManager.parseStartPreScanMode("locate", null));
     }
 
     @Test
@@ -46,13 +48,16 @@ class ConfigManagerTest {
         assertEquals(0, ConfigManager.defaultStartPreScanChunksPerRun(ConfigManager.StartPreScanMode.SAFE));
         assertEquals(2, ConfigManager.defaultStartPreScanChunksPerRun(ConfigManager.StartPreScanMode.BALANCED));
         assertEquals(8, ConfigManager.defaultStartPreScanChunksPerRun(ConfigManager.StartPreScanMode.AGGRESSIVE));
+        assertEquals(0, ConfigManager.defaultStartPreScanChunksPerRun(ConfigManager.StartPreScanMode.LOCATE));
 
         assertEquals(40, ConfigManager.defaultStartPreScanPeriodTicks(ConfigManager.StartPreScanMode.SAFE));
         assertEquals(20, ConfigManager.defaultStartPreScanPeriodTicks(ConfigManager.StartPreScanMode.BALANCED));
         assertEquals(10, ConfigManager.defaultStartPreScanPeriodTicks(ConfigManager.StartPreScanMode.AGGRESSIVE));
+        assertEquals(40, ConfigManager.defaultStartPreScanPeriodTicks(ConfigManager.StartPreScanMode.LOCATE));
 
         assertEquals(0, ConfigManager.defaultStartPreScanMaxQueuedChunks(ConfigManager.StartPreScanMode.SAFE));
         assertEquals(1500, ConfigManager.defaultStartPreScanMaxQueuedChunks(ConfigManager.StartPreScanMode.BALANCED));
         assertEquals(5000, ConfigManager.defaultStartPreScanMaxQueuedChunks(ConfigManager.StartPreScanMode.AGGRESSIVE));
+        assertEquals(0, ConfigManager.defaultStartPreScanMaxQueuedChunks(ConfigManager.StartPreScanMode.LOCATE));
     }
 }

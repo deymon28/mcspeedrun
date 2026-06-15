@@ -116,15 +116,31 @@ diagnostics:
 casual:
   enabled: true
   start-pre-scan:
-    # EN: Enables controlled live/background discovery when a Casual run starts. It does not call blocking structure locate APIs.
-    # UA: Вмикає контрольований live/background-пошук на старті Casual-забігу. Не викликає блокуючі API пошуку структур.
+    # EN: Enables controlled discovery when a Casual run starts. Locate API calls are used only by LOCATE mode.
+    # UA: Вмикає контрольований пошук на старті Casual-забігу. API locate використовується лише в режимі LOCATE.
     enabled: false
-    # EN: SAFE scans only already loaded player chunks. BALANCED adds a small Paper async background chunk queue. AGGRESSIVE uses a larger budget.
-    # UA: SAFE сканує лише вже завантажені чанки гравців. BALANCED додає малу Paper async background-чергу чанків. AGGRESSIVE використовує більший бюджет.
+    # EN: SAFE scans only already loaded chunks. BALANCED/AGGRESSIVE add a bounded Paper async chunk queue. LOCATE uses bounded Bukkit/Paper locate API calls plus loaded-chunk fallback.
+    # UA: SAFE сканує лише вже завантажені чанки. BALANCED/AGGRESSIVE додають обмежену Paper async-чергу чанків. LOCATE використовує обмежені Bukkit/Paper locate API виклики плюс fallback по завантажених чанках.
     mode: "BALANCED"
     radius: 1000
     loaded-chunk-radius: 10
     include-lava-pool: true
+    safety:
+      # EN: Hard caps applied even if a profile is configured higher, protecting the server from accidental massive chunk generation.
+      # UA: Жорсткі ліміти застосовуються навіть якщо профіль налаштований вище, захищаючи сервер від випадкової масової генерації чанків.
+      max-chunks-per-run: 8
+      max-queued-chunks: 5000
+    locate:
+      # EN: LOCATE mode only. Radius is in API search units/chunks; calls are synchronous, so keep calls-per-run low.
+      # UA: Тільки режим LOCATE. Радіус у API одиницях/чанках пошуку; виклики синхронні, тому calls-per-run має бути малим.
+      radius-chunks: 96
+      period-ticks: 20
+      calls-per-run: 1
+      find-unexplored: false
+      targets:
+        village: true
+        stronghold: true
+        nether-structures: true
     profiles:
       SAFE:
         chunks-per-run: 0
@@ -150,6 +166,14 @@ casual:
         scan-spawn: true
         scan-players: true
         include-nether: true
+      LOCATE:
+        chunks-per-run: 0
+        period-ticks: 40
+        max-queued-chunks: 0
+        load-missing-chunks: false
+        scan-spawn: false
+        scan-players: false
+        include-nether: false
   compass:
     # EN: Shows the old test-only Nether Reference destination. Disabled by default because it is not tied to actual run state.
     # UA: Показує старий тестовий пункт Nether Reference. Вимкнено за замовчуванням, бо він не прив'язаний до реального стану забігу.
