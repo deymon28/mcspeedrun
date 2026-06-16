@@ -118,13 +118,14 @@ public class TaskManager {
             return;
         }
 
+        List<Task> progressTrackedTasks = getProgressTrackedTasks();
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.INVENTORY) {
-            updateCurrentStageTasksFromInventories();
+            updateItemTasksFromInventories(progressTrackedTasks);
         } else {
-            updateCurrentStageTasksFromCumulativeContributions();
+            updateItemTasksFromCumulativeContributions(progressTrackedTasks);
         }
 
-        getTasksForCurrentProgressionStage().forEach(task -> task.updateCompletionStatus(plugin));
+        progressTrackedTasks.forEach(task -> task.updateCompletionStatus(plugin));
         advanceCompletedStages(true);
     }
 
@@ -146,14 +147,22 @@ public class TaskManager {
 
     public boolean onStructureFound(String structureKey, Player player) {
         discoveredStructures.add(structureKey.toUpperCase(Locale.ROOT));
-        boolean completedActiveTask = applyDiscoveredStructuresToCurrentStage(player);
+        boolean completedActiveTask = applyDiscoveredStructuresToProgressTrackedTasks(player);
         advanceCompletedStages(true);
         return completedActiveTask;
     }
 
+    private boolean applyDiscoveredStructuresToProgressTrackedTasks(Player player) {
+        return applyDiscoveredStructuresToTasks(getProgressTrackedTasks(), player);
+    }
+
     private boolean applyDiscoveredStructuresToCurrentStage(Player player) {
+        return applyDiscoveredStructuresToTasks(getTasksForCurrentProgressionStage(), player);
+    }
+
+    private boolean applyDiscoveredStructuresToTasks(List<Task> tasks, Player player) {
         boolean[] completedAnyTask = {false};
-        getTasksForCurrentProgressionStage().stream()
+        tasks.stream()
                 .filter(task -> task.getTaskType() == Task.Type.STRUCTURE)
                 .filter(task -> discoveredStructures.contains(structureKeyFromTask(task)))
                 .forEach(task -> {
@@ -223,21 +232,20 @@ public class TaskManager {
         return isProgressionComplete() || getTasksForCurrentProgressionStage().stream().allMatch(Task::isCompleted);
     }
 
-    private void updateCurrentStageTasksFromInventories() {
-        List<Task> currentTasks = getTasksForCurrentProgressionStage();
-        currentTasks.forEach(Task::resetProgress);
+    private void updateItemTasksFromInventories(List<Task> tasks) {
+        tasks.forEach(Task::resetProgress);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             for (ItemStack item : player.getInventory().getContents()) {
                 if (item != null) {
-                    updateProgressForItem(currentTasks, item.getType(), item.getAmount());
+                    updateProgressForItem(tasks, item.getType(), item.getAmount());
                 }
             }
         }
     }
 
-    private void updateCurrentStageTasksFromCumulativeContributions() {
-        for (Task task : getTasksForCurrentProgressionStage()) {
+    private void updateItemTasksFromCumulativeContributions(List<Task> tasks) {
+        for (Task task : tasks) {
             if (task.getTaskType() != Task.Type.ITEM) {
                 continue;
             }
@@ -297,6 +305,18 @@ public class TaskManager {
             return Collections.emptyList();
         }
         return stages.get(currentStageIndex).tasks();
+    }
+
+    private List<Task> getProgressTrackedTasks() {
+        if (tracksVisibleStageProgress(plugin.getConfigManager().getTaskDisplayMode())) {
+            return allTasks;
+        }
+        return getTasksForCurrentProgressionStage();
+    }
+
+    static boolean tracksVisibleStageProgress(ConfigManager.TaskDisplayMode displayMode) {
+        return displayMode == ConfigManager.TaskDisplayMode.ALL_STAGES
+                || displayMode == ConfigManager.TaskDisplayMode.ALL_GAME_STAGES;
     }
 
     private boolean isProgressionComplete() {

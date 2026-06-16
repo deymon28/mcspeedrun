@@ -317,6 +317,14 @@ public class ConfigManager {
         return config.getBoolean("casual.start-pre-scan.include-lava-pool", true);
     }
 
+    public int getStartPreScanLavaScanBelowBlocks() {
+        return Math.max(0, config.getInt("casual.start-pre-scan.lava-pool-vertical-scan.below-player", 12));
+    }
+
+    public int getStartPreScanLavaScanAboveBlocks() {
+        return Math.max(0, config.getInt("casual.start-pre-scan.lava-pool-vertical-scan.above-player", 32));
+    }
+
     public int getLoadedChunkScanRadius() {
         return Math.max(0, config.getInt("casual.start-pre-scan.loaded-chunk-radius", 10));
     }

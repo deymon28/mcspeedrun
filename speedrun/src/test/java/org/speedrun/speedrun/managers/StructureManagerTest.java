@@ -32,4 +32,12 @@ class StructureManagerTest {
         assertEquals(8, StructureManager.resolveHiddenLodestoneY(80, 0, 256));
         assertEquals(1, StructureManager.resolveHiddenLodestoneY(2, 0, 3));
     }
+
+    @Test
+    void startPreScanLavaYRangeSearchesTwelveBlocksBelowPlayer() {
+        assertEquals(52, StructureManager.startPreScanLavaMinY(64, -64, 12));
+        assertEquals(-64, StructureManager.startPreScanLavaMinY(-60, -64, 12));
+        assertEquals(96, StructureManager.startPreScanLavaMaxY(64, 320, 32));
+        assertEquals(319, StructureManager.startPreScanLavaMaxY(300, 320, 32));
+    }
 }

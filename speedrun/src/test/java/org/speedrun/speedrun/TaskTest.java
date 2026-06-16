@@ -42,6 +42,7 @@ class TaskTest {
         task.completed = true;
         task.addProgress(5);
         task.setProgress(12);
+        task.resetProgress();
 
         assertEquals(5, task.getProgress());
         assertFalse(task.isSrbpEnabled());

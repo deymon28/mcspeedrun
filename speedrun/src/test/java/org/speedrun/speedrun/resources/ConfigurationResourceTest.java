@@ -20,6 +20,8 @@ class ConfigurationResourceTest {
         assertEquals(1000, config.getInt("casual.start-pre-scan.radius"));
         assertEquals(10, config.getInt("casual.start-pre-scan.loaded-chunk-radius"));
         assertTrue(config.getBoolean("casual.start-pre-scan.include-lava-pool"));
+        assertEquals(12, config.getInt("casual.start-pre-scan.lava-pool-vertical-scan.below-player"));
+        assertEquals(32, config.getInt("casual.start-pre-scan.lava-pool-vertical-scan.above-player"));
         assertEquals(8, config.getInt("casual.start-pre-scan.safety.max-chunks-per-run"));
         assertEquals(5000, config.getInt("casual.start-pre-scan.safety.max-queued-chunks"));
         assertEquals(96, config.getInt("casual.start-pre-scan.locate.radius-chunks"));

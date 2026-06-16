@@ -132,7 +132,7 @@ public class Task {
     }
 
     public void resetProgress() {
-        if (taskType == Type.ITEM) {
+        if (taskType == Type.ITEM && !completed) {
             progress = 0;
         }
     }

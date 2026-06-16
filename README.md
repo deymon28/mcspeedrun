@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.4.1-ALPHA`.
+Current plugin version: `26.1.2-3.4.2-ALPHA`.
 
 ## Features
 
@@ -50,13 +50,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.4.1-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.4.2-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.4.1-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.4.2-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -93,6 +93,7 @@ Important options include:
 - `progression.settings.completed-task-hide`: hide completed tasks after a timeout. Default is enabled with a 10 second timeout.
 - `casual.start-pre-scan.enabled`: enable controlled Casual live/background discovery.
 - `casual.start-pre-scan.mode`: `SAFE`, `BALANCED`, `AGGRESSIVE`, or `LOCATE` scanner profile.
+- `casual.start-pre-scan.lava-pool-vertical-scan`: vertical scan range around players for pre-scan lava pool detection.
 - `casual.start-pre-scan.safety`: hard caps for background chunk queue load.
 - `casual.compass.death-location.enabled`: add each player's own last death point to their compass menu.
 - `diagnostics.trace.enabled`: write detailed JSONL runtime traces for bug reproduction.
@@ -243,6 +244,11 @@ Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to writ
 ## Notes For 3.4.1 Alpha
 
 - Updated generated config defaults for reset-time-on-join, End Gateway waypoints, all-game-stage task display, and completed-task hiding.
+
+## Notes For 3.4.2 Alpha
+
+- Start pre-scan lava pool detection now scans 12 blocks below and 32 blocks above the player origin by default, with configurable vertical scan bounds.
+- Tasks shown by all-stage display modes now track progress and completion even before their progression stage becomes active.
 
 ## License
 

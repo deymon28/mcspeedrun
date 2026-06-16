@@ -574,7 +574,9 @@ public class StructureManager {
         if (isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled()) {
             Location lavaPool = findLavaClusterInChunk(world, chunkX, chunkZ, origin,
                     plugin.getConfigManager().getStartPreScanRadius(),
-                    plugin.getConfigManager().getLavaPoolRequiredSources());
+                    plugin.getConfigManager().getLavaPoolRequiredSources(),
+                    plugin.getConfigManager().getStartPreScanLavaScanBelowBlocks(),
+                    plugin.getConfigManager().getStartPreScanLavaScanAboveBlocks());
             if (lavaPool != null) {
                 structureFound(player, "LAVA_POOL", lavaPool);
             }
@@ -594,12 +596,15 @@ public class StructureManager {
         boolean scanVillage = isVillageSearchActive();
         int radius = plugin.getConfigManager().getStartPreScanRadius();
         int requiredSources = plugin.getConfigManager().getLavaPoolRequiredSources();
+        int lavaScanBelowBlocks = plugin.getConfigManager().getStartPreScanLavaScanBelowBlocks();
+        int lavaScanAboveBlocks = plugin.getConfigManager().getStartPreScanLavaScanAboveBlocks();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             Location lavaPool = null;
             Location bell = null;
 
             if (scanLava) {
-                lavaPool = findLavaClusterInSnapshot(snapshot, world, origin, radius, requiredSources);
+                lavaPool = findLavaClusterInSnapshot(snapshot, world, origin, radius, requiredSources,
+                        lavaScanBelowBlocks, lavaScanAboveBlocks);
             }
             if (scanVillage) {
                 bell = findBlockInSnapshot(snapshot, world, Material.BELL);
@@ -633,9 +638,10 @@ public class StructureManager {
         return new Location(world, x, y, z);
     }
 
-    private Location findLavaClusterInChunk(World world, int chunkX, int chunkZ, Location origin, int radiusBlocks, int requiredSources) {
-        int minY = Math.max(world.getMinHeight(), origin.getBlockY() - 32);
-        int maxY = Math.min(world.getMaxHeight() - 1, origin.getBlockY() + 32);
+    private Location findLavaClusterInChunk(World world, int chunkX, int chunkZ, Location origin, int radiusBlocks,
+                                            int requiredSources, int scanBelowBlocks, int scanAboveBlocks) {
+        int minY = startPreScanLavaMinY(origin.getBlockY(), world.getMinHeight(), scanBelowBlocks);
+        int maxY = startPreScanLavaMaxY(origin.getBlockY(), world.getMaxHeight(), scanAboveBlocks);
         int count = 0;
         Location first = null;
 
@@ -660,9 +666,10 @@ public class StructureManager {
         return null;
     }
 
-    private Location findLavaClusterInSnapshot(ChunkSnapshot snapshot, World world, Location origin, int radiusBlocks, int requiredSources) {
-        int minY = Math.max(world.getMinHeight(), origin.getBlockY() - 32);
-        int maxY = Math.min(world.getMaxHeight() - 1, origin.getBlockY() + 32);
+    private Location findLavaClusterInSnapshot(ChunkSnapshot snapshot, World world, Location origin, int radiusBlocks,
+                                               int requiredSources, int scanBelowBlocks, int scanAboveBlocks) {
+        int minY = startPreScanLavaMinY(origin.getBlockY(), world.getMinHeight(), scanBelowBlocks);
+        int maxY = startPreScanLavaMaxY(origin.getBlockY(), world.getMaxHeight(), scanAboveBlocks);
         int chunkBlockX = snapshot.getX() << 4;
         int chunkBlockZ = snapshot.getZ() << 4;
         int count = 0;
@@ -691,6 +698,14 @@ public class StructureManager {
             }
         }
         return null;
+    }
+
+    static int startPreScanLavaMinY(int originY, int worldMinHeight, int scanBelowBlocks) {
+        return Math.max(worldMinHeight, originY - Math.max(0, scanBelowBlocks));
+    }
+
+    static int startPreScanLavaMaxY(int originY, int worldMaxHeight, int scanAboveBlocks) {
+        return Math.min(worldMaxHeight - 1, originY + Math.max(0, scanAboveBlocks));
     }
 
     private Location findBlockInChunk(World world, int chunkX, int chunkZ, Material material) {
