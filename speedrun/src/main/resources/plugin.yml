@@ -8,7 +8,7 @@ description: A speedrun plugin with a timer, location tracking, and tasks.
 commands:
   run:
     description: Main command for the Speedrun plugin.
-    usage: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove|givecompass>
+    usage: /run <start|pause|stop|reset|reload|webconfig|skipstage|status|tasks|new|locate|remove|givecompass>
     aliases: [sr]
     permission: speedrun.player
 

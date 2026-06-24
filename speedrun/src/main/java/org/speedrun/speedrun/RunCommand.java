@@ -12,11 +12,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Material;
 import org.jetbrains.annotations.NotNull;
+import org.json.JSONObject;
 import org.speedrun.speedrun.managers.ConfigManager;
 import org.speedrun.speedrun.managers.GameManager;
 import org.speedrun.speedrun.managers.TaskManager;
 import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.utils.MessageUtil;
+import org.speedrun.speedrun.webconfig.RuntimeConfigApplier;
 
 import java.util.*;
 
@@ -69,6 +71,9 @@ public class RunCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String @NotNull [] args) {
         if (!(sender instanceof Player player)) {
+            if (args.length > 0 && args[0].equalsIgnoreCase("webconfig")) {
+                return handleWebConfigCommand(sender, args);
+            }
             send(sender, message("commands.player-only"));
             return true;
         }
@@ -131,8 +136,16 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     plugin.getConfigManager().reload();
                     plugin.getTraceLogger().reload();
                     plugin.getTaskManager().reloadTasks();
+                    new RuntimeConfigApplier(plugin).apply(new JSONObject());
+                    plugin.getGameManager().refreshRuntimeConfig();
+                    if (plugin.getWebConfigManager() != null) {
+                        plugin.getWebConfigManager().restart();
+                    }
                     send(player, message("commands.reloaded"));
                     return true;
+
+                case "webconfig":
+                    return handleWebConfigCommand(player, args);
 
                 case "skipstage":
                     if (!player.hasPermission("speedrun.admin")) {
@@ -247,7 +260,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             // Suggest all subcommands.
             // Пропонуємо всі підкоманди.
-            String[] subcommands = {"start", "pause", "stop", "reset", "reload", "skipstage", "status", "tasks", "new", "locate", "remove", "givecompass"};
+            String[] subcommands = {"start", "pause", "stop", "reset", "reload", "webconfig", "skipstage", "status", "tasks", "new", "locate", "remove", "givecompass"};
             for (String sub : subcommands) {
                 if (sub.startsWith(args[0].toLowerCase())) {
                     completions.add(sub);
@@ -276,6 +289,12 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                 for (Player online : Bukkit.getOnlinePlayers()) {
                     if (online.getName().toLowerCase(Locale.ROOT).startsWith(currentArg)) {
                         completions.add(online.getName());
+                    }
+                }
+            } else if (subCommand.equals("webconfig") && sender.hasPermission("speedrun.admin")) {
+                for (String option : List.of("restart", "stop")) {
+                    if (option.startsWith(currentArg)) {
+                        completions.add(option);
                     }
                 }
             }
@@ -482,6 +501,43 @@ public class RunCommand implements CommandExecutor, TabCompleter {
             send(sender, message("commands.givecompass.gave", "%player%", targetPlayer.getName()));
         }
         return true;
+    }
+
+    private boolean handleWebConfigCommand(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("speedrun.admin")) {
+            send(sender, message("commands.no-permission"));
+            return true;
+        }
+        if (plugin.getWebConfigManager() == null) {
+            send(sender, message("commands.webconfig.unavailable"));
+            return true;
+        }
+        if (args.length > 2) {
+            send(sender, message("commands.webconfig.usage"));
+            return true;
+        }
+
+        String action = args.length == 2 ? args[1].toLowerCase(Locale.ROOT) : "show";
+        switch (action) {
+            case "show" -> {
+                send(sender, message("commands.webconfig.url", "%url%", plugin.getWebConfigManager().getUrl()));
+                return true;
+            }
+            case "restart" -> {
+                plugin.getWebConfigManager().restart();
+                send(sender, message("commands.webconfig.restarted", "%url%", plugin.getWebConfigManager().getUrl()));
+                return true;
+            }
+            case "stop" -> {
+                plugin.getWebConfigManager().stop();
+                send(sender, message("commands.webconfig.stopped"));
+                return true;
+            }
+            default -> {
+                send(sender, message("commands.webconfig.usage"));
+                return true;
+            }
+        }
     }
 
     private ItemStack createLegacyCompass() {

@@ -18,6 +18,7 @@ class PluginMetadataTest {
         assertEquals("Speedrun", pluginYml.getString("name"));
         assertEquals("org.speedrun.speedrun.Speedrun", pluginYml.getString("main"));
         assertTrue(pluginYml.contains("commands.run"));
+        assertTrue(pluginYml.getString("commands.run.usage").contains("webconfig"));
         assertTrue(pluginYml.getStringList("commands.run.aliases").contains("sr"));
         assertEquals("speedrun.player", pluginYml.getString("commands.run.permission"));
         assertEquals("true", String.valueOf(pluginYml.get("permissions.speedrun.player.default")));

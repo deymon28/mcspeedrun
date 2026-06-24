@@ -15,8 +15,8 @@ commands:
   timer-resumed: "&aThe speedrun timer has been resumed."
   run-reset: "&cThe speedrun has been reset."
   stage-skipped: "&eSkipped to the next stage."
-  unknown-subcommand: "&cUnknown subcommand. Use: start, pause, stop, reset, reload, skipstage, status, tasks, new, locate, remove, givecompass."
-  usage-main: "&aUsage: /run <start|pause|stop|reset|reload|skipstage|status|tasks|new|locate|remove|givecompass>"
+  unknown-subcommand: "&cUnknown subcommand. Use: start, pause, stop, reset, reload, webconfig, skipstage, status, tasks, new, locate, remove, givecompass."
+  usage-main: "&aUsage: /run <start|pause|stop|reset|reload|webconfig|skipstage|status|tasks|new|locate|remove|givecompass>"
   usage-new: "&cUsage: /run new <%structures%> [X Y Z]"
   usage-remove: "&cUsage: /run remove <structure>"
   invalid-structure: "&cInvalid structure name. Valid: %structures%"
@@ -36,6 +36,12 @@ commands:
     usage: "&cUsage: /run givecompass [player]"
     received: "&aYou received a Navigation Compass!"
     gave: "&aGave a Navigation Compass to %player%."
+  webconfig:
+    usage: "&cUsage: /run webconfig [restart|stop]"
+    unavailable: "&cWeb config is not available."
+    url: "&aWeb config URL: &e%url%"
+    restarted: "&aWeb config restarted: &e%url%"
+    stopped: "&aWeb config stopped until restart or /run webconfig restart."
   status:
     header: "&6--------- &eSpeedrun Status &6---------"
     time: "&fTime: &e%time%"

@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.4.2-ALPHA`.
+Current plugin version: `26.1.2-3.5.0-ALPHA`.
 
 ## Features
 
@@ -17,6 +17,7 @@ Current plugin version: `26.1.2-3.4.2-ALPHA`.
 - Configurable rewards through console commands, sounds, and particles.
 - Legacy color code and Adventure/MiniMessage message support.
 - English and Ukrainian language files.
+- Local browser-based config editor with schema validation and safe hot-apply.
 
 ## Project Structure
 
@@ -50,13 +51,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.4.2-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.5.0-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.4.2-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.5.0-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -68,6 +69,7 @@ This alpha version has been verified to load on Paper `26.1.2-69`.
 - `/run stop` - stop the current run.
 - `/run reset` - reset timer, tasks, scanners, waypoints, and runtime caches.
 - `/run reload` - reload configuration and tasks.
+- `/run webconfig [restart|stop]` - show, restart, or stop the local web configuration editor.
 - `/run skipstage` - complete the current task stage.
 - `/run status` - show current run status.
 - `/run tasks` - show active tasks for the current world.
@@ -87,6 +89,8 @@ Main settings are in `speedrun/src/main/resources/config.yml` and are copied to 
 
 Important options include:
 
+- `web-config.enabled`: start a localhost browser editor and print a one-run tokenized URL in the server console.
+- `web-config.bind` and `web-config.port`: local HTTP bind settings. Keep the bind address on `127.0.0.1` unless intentionally exposing it.
 - `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
 - `settings.reset_time_on_join`: set loaded worlds to day when the first join starts the run.
 - `progression.settings.task-display-mode`: `ACTIVE_STAGE`, `ALL_STAGES`, or `ALL_GAME_STAGES` task display. Default is `ALL_GAME_STAGES`.
@@ -249,6 +253,12 @@ Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to writ
 
 - Start pre-scan lava pool detection now scans 12 blocks below and 32 blocks above the player origin by default, with configurable vertical scan bounds.
 - Tasks shown by all-stage display modes now track progress and completion even before their progression stage becomes active.
+
+## Notes For 3.5.0 Alpha
+
+- Added a local token-protected web config editor served from the plugin through Java's built-in HTTP server.
+- The editor exposes schema-driven fields plus structured progression and rewards editors, validation, preview, save, apply, and save-and-apply actions.
+- Runtime apply now refreshes trace settings, Casual mode components, scanner tasks, tab coordinates, waypoints, highlights, and scoreboards where safe; active progression changes are held for reset to avoid losing task progress.
 
 ## License
 

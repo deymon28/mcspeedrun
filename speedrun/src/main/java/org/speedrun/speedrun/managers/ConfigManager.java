@@ -84,7 +84,10 @@ public class ConfigManager {
         plugin.saveDefaultConfig();
         plugin.reloadConfig();
         config = plugin.getConfig();
+        reloadLanguageFromCurrentConfig();
+    }
 
+    public void reloadLanguageFromCurrentConfig() {
         String langCode = config.getString("settings.language", "en");
         File langFile = new File(plugin.getDataFolder(), "lang/" + langCode + ".yml");
 

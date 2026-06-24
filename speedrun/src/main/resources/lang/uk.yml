@@ -18,6 +18,12 @@ commands:
     usage: "&cВикористання: /run givecompass [player]"
     received: "&aВи отримали навігаційний компас!"
     gave: "&aВидано навігаційний компас гравцю %player%."
+  webconfig:
+    usage: "&cUsage: /run webconfig [restart|stop]"
+    unavailable: "&cWeb config is not available."
+    url: "&aWeb config URL: &e%url%"
+    restarted: "&aWeb config restarted: &e%url%"
+    stopped: "&aWeb config stopped until restart or /run webconfig restart."
   status:
     header: "&6--------- &eСтатус спідрану &6---------"
     time: "&fЧас: &e%time%"

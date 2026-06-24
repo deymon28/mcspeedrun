@@ -109,7 +109,7 @@ foreach ($scenario in $scenarios) {
         "simulation-distance=2"
     ) -Encoding ASCII
 
-    $configText = Get-Content -Raw -LiteralPath $sourceConfig
+    $configText = Get-Content -Raw -LiteralPath $sourceConfig -Encoding UTF8
     $configText = Set-YamlScalar $configText "gamemode" "`"$($scenario.GameMode)`""
     $configText = Set-StartPreScanEnabled $configText $scenario.PreScan
     $configText = Set-StartPreScanMode $configText $scenario.PreScanMode

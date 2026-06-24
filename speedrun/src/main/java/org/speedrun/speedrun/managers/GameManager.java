@@ -270,6 +270,26 @@ public class GameManager {
      * Scans for a village bell near the player to detect a village.
      * Сканує наявність дзвона біля гравця для виявлення села.
      */
+    /**
+     * Re-evaluates scanner tasks after a live config change.
+     */
+    public void refreshRuntimeConfig() {
+        if (proximityScannerTask != null) {
+            proximityScannerTask.cancel();
+            proximityScannerTask = null;
+        }
+        plugin.getStructureManager().cancelPreScan();
+
+        if (!isRunning || plugin.getConfigManager().isHardcoreModeEnabled()) {
+            return;
+        }
+
+        startProximityScanner();
+        if (plugin.getConfigManager().isStartPreScanEnabled()) {
+            plugin.getStructureManager().preScanRequiredStructures();
+        }
+    }
+
     private void findNearbyBell(Player player) {
         // Already found?  Stop scanning.
         if (plugin.getStructureManager().getFoundStructures().containsKey("VILLAGE")

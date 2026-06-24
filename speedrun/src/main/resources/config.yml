@@ -4,6 +4,15 @@
 # UA: Головний конфігураційний файл для плагіна Speedrun
 # ----------------------------------------------------------------
 
+web-config:
+  # EN: Starts a local browser UI for editing this config. A one-run token is printed in the server console.
+  # UA: Starts a local browser UI for editing this config.
+  enabled: true
+  # EN: Keep this on 127.0.0.1 unless you intentionally expose the editor outside the server machine.
+  # UA: Keep this on 127.0.0.1 unless you intentionally expose the editor outside the server machine.
+  bind: "127.0.0.1"
+  port: 8765
+
 settings:
   # EN: NORMAL or CASUAL/HARDCORE - all locations have coordinates from start (with landmarks). In Nether, gold blocks are highlighted (within radius from config)./
   # UA: NORMAL або CASUAL/HARDCORE - всі локації зі старту мають координати (і мають орієнтири). В Незері підсвічуються золоті блоки (в радіусі з конфіга)./Або тільки таймер.

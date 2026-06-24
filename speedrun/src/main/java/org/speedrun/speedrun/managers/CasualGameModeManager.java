@@ -2,6 +2,7 @@ package org.speedrun.speedrun.managers;
 
 import org.speedrun.speedrun.Speedrun;
 import org.bukkit.Bukkit;
+import org.bukkit.event.HandlerList;
 import org.speedrun.speedrun.casualGameMode.CasualHighlightManager;
 import org.speedrun.speedrun.casualGameMode.CompassListener;
 
@@ -54,12 +55,16 @@ public class CasualGameModeManager {
 
         if (compassListener != null) {
             compassListener.stopCompassUpdateTask();
+            HandlerList.unregisterAll(compassListener);
+            compassListener = null;
         }
 
         gameManager.setCompassListener(null);
 
         if (casualHighlightManager != null) {
             casualHighlightManager.stopHighlightingTask();
+            HandlerList.unregisterAll(casualHighlightManager);
+            casualHighlightManager = null;
         }
         isEnabled = false;
         plugin.getLogger().info("Casual Game Mode disabled.");

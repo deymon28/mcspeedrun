@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Speedrun Config</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">SR</div>
+      <div>
+        <h1>Speedrun Config</h1>
+        <p id="server-status">Connecting...</p>
+      </div>
+    </div>
+    <nav id="tabs"></nav>
+    <div class="actions">
+      <button id="validate-btn" type="button">Validate</button>
+      <button id="save-btn" type="button">Save</button>
+      <button id="apply-btn" type="button">Apply</button>
+      <button id="save-apply-btn" type="button" class="primary">Save &amp; Apply</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div>
+        <h2 id="section-title">General</h2>
+        <p id="section-summary">Local-only configuration editor.</p>
+      </div>
+      <div class="status-pill" id="dirty-pill">Clean</div>
+    </header>
+
+    <section id="messages" class="messages"></section>
+    <section id="editor" class="editor"></section>
+    <section class="preview">
+      <div class="preview-header">
+        <h3>Change Preview</h3>
+        <span id="change-count">0 changes</span>
+      </div>
+      <pre id="preview-json">{}</pre>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

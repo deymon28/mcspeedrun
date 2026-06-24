@@ -65,6 +65,9 @@ class ConfigurationResourceTest {
     void configUsesRequestedRuntimeDefaults() {
         YamlConfiguration config = loadYaml("src/main/resources/config.yml");
 
+        assertTrue(config.getBoolean("web-config.enabled"));
+        assertEquals("127.0.0.1", config.getString("web-config.bind"));
+        assertEquals(8765, config.getInt("web-config.port"));
         assertTrue(config.getBoolean("settings.reset_time_on_join"));
         assertEquals("END_GATEWAY", config.getString("casual.structure_waypoints.type"));
         assertEquals("ALL_GAME_STAGES", config.getString("progression.settings.task-display-mode"));

@@ -3,7 +3,9 @@ package org.speedrun.speedrun;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.speedrun.speedrun.managers.*;
 import org.speedrun.speedrun.utils.TabCoordinateDisplay;
+import org.speedrun.speedrun.webconfig.WebConfigManager;
 
+import java.io.File;
 import java.util.Objects;
 
 // =========================================================================================
@@ -32,8 +34,9 @@ public final class Speedrun extends JavaPlugin {
     private SpeedrunLogger speedrunLogger;
     private TraceLogger traceLogger;
     private GameListener gameListener;
+    private WebConfigManager webConfigManager;
 
-    TabCoordinateDisplay tabCoords = new TabCoordinateDisplay(this);
+    private final TabCoordinateDisplay tabCoords = new TabCoordinateDisplay(this);
 
     // =========================================================================================
     // Plugin Lifecycle
@@ -78,6 +81,9 @@ public final class Speedrun extends JavaPlugin {
         Objects.requireNonNull(getCommand("run")).setTabCompleter(runCommand);
 
         tabCoords.enable();
+
+        this.webConfigManager = new WebConfigManager(this);
+        this.webConfigManager.start();
 
         getLogger().info("Speedrun plugin has been enabled.");
     }
@@ -142,6 +148,9 @@ public final class Speedrun extends JavaPlugin {
         }
 
         tabCoords.disable();
+        if (webConfigManager != null) {
+            webConfigManager.stop();
+        }
         if (traceLogger != null) {
             traceLogger.trace("lifecycle", "plugin_disabled");
             traceLogger.close();
@@ -202,5 +211,17 @@ public final class Speedrun extends JavaPlugin {
 
     public GameListener getGameListener() {
         return gameListener;
+    }
+
+    public TabCoordinateDisplay getTabCoordinateDisplay() {
+        return tabCoords;
+    }
+
+    public WebConfigManager getWebConfigManager() {
+        return webConfigManager;
+    }
+
+    public File getConfigFile() {
+        return new File(getDataFolder(), "config.yml");
     }
 }

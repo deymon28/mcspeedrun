@@ -16,6 +16,10 @@ public class TabCoordinateDisplay {
     }
 
     public void enable() {
+        if (task != null) {
+            return;
+        }
+
         if(!plugin.getConfigManager().isCasualGameModeEnabled()){
             return;
         }
