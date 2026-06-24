@@ -38,6 +38,14 @@ function sameValue(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function fieldByPath(path) {
+  return schema.find(field => field.path === path);
+}
+
+function isDependencyParent(path) {
+  return path === "rewards.enabled" || schema.some(field => field.parentPath === path);
+}
+
 function currentValue(path) {
   return Object.prototype.hasOwnProperty.call(changes, path) ? changes[path] : values[path];
 }
@@ -49,6 +57,10 @@ function setChange(path, value) {
     changes[path] = value;
   }
   updatePreview();
+  renderTabs();
+  if (isDependencyParent(path)) {
+    renderEditor();
+  }
 }
 
 function setStructuredChange(path, value) {
@@ -58,25 +70,107 @@ function setStructuredChange(path, value) {
     changes[path] = clone(value);
   }
   updatePreview();
+  renderTabs();
+}
+
+function impactText(impact) {
+  return {
+    INSTANT: "applies now",
+    RESTART_TASK: "restarts task",
+    RUN_SENSITIVE: "requires run reset",
+    STARTUP_ONLY: "startup only"
+  }[impact] || impact.toLowerCase();
+}
+
+function valueMatches(actual, expected) {
+  if (expected === null || expected === undefined) return true;
+  if (typeof expected === "boolean") return Boolean(actual) === expected;
+  return String(actual).toUpperCase() === String(expected).toUpperCase();
+}
+
+function dependencyState(field, seen = new Set()) {
+  if (!field || !field.parentPath || field.parentPath === null) {
+    return { active: true, reasons: [] };
+  }
+  if (seen.has(field.path)) {
+    return { active: true, reasons: [] };
+  }
+  seen.add(field.path);
+
+  const parent = fieldByPath(field.parentPath);
+  const parentState = dependencyState(parent, seen);
+  const parentValue = currentValue(field.parentPath);
+  const directActive = valueMatches(parentValue, field.parentValue);
+  const reasons = [...parentState.reasons];
+  if (!directActive) {
+    reasons.push(field.inactiveReason || `Requires ${field.parentPath} = ${field.parentValue}`);
+  }
+  return {
+    active: parentState.active && directActive,
+    reasons
+  };
+}
+
+function groupDependencySummary(fields) {
+  const inactive = fields
+    .map(field => dependencyState(field))
+    .filter(state => !state.active);
+  if (!inactive.length) return "";
+  const unique = [...new Set(inactive.flatMap(state => state.reasons))];
+  return unique[0] || "Some settings in this group are inactive now.";
 }
 
 function updatePreview() {
-  const count = Object.keys(changes).length;
-  dirtyPill.textContent = count ? "Unsaved" : "Clean";
-  dirtyPill.classList.toggle("dirty", count > 0);
-  changeCount.textContent = `${count} ${count === 1 ? "change" : "changes"}`;
+  const keys = Object.keys(changes);
+  dirtyPill.textContent = keys.length ? "Unsaved" : "Clean";
+  dirtyPill.classList.toggle("dirty", keys.length > 0);
+  changeCount.textContent = `${keys.length} ${keys.length === 1 ? "change" : "changes"}`;
   preview.textContent = JSON.stringify(changes, null, 2);
+  renderImpactPreview(keys);
+}
+
+function renderImpactPreview(keys) {
+  const impactHost = document.getElementById("impact-preview");
+  if (!impactHost) return;
+  impactHost.innerHTML = "";
+
+  const buckets = new Map();
+  for (const key of keys) {
+    const field = fieldByPath(key);
+    const impact = field ? field.impact : key === "progression" ? "RUN_SENSITIVE" : "INSTANT";
+    const label = field ? field.label : key;
+    if (!buckets.has(impact)) buckets.set(impact, []);
+    buckets.get(impact).push(label);
+  }
+
+  if (!keys.length) {
+    const empty = document.createElement("div");
+    empty.className = "impact-empty";
+    empty.textContent = "No pending changes.";
+    impactHost.appendChild(empty);
+    return;
+  }
+
+  for (const impact of ["INSTANT", "RESTART_TASK", "RUN_SENSITIVE", "STARTUP_ONLY"]) {
+    const items = buckets.get(impact);
+    if (!items || !items.length) continue;
+    const group = document.createElement("div");
+    group.className = `impact-bucket impact-${impact.toLowerCase().replaceAll("_", "-")}`;
+    group.appendChild(textNode("strong", impactText(impact)));
+    const list = document.createElement("ul");
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.textContent = item;
+      list.appendChild(li);
+    }
+    group.appendChild(list);
+    impactHost.appendChild(group);
+  }
 }
 
 function showMessages(kind, items) {
   messages.innerHTML = "";
-  const list = Array.isArray(items) ? items : [items];
-  for (const item of list.filter(Boolean)) {
-    const node = document.createElement("div");
-    node.className = `message ${kind}`;
-    node.textContent = item;
-    messages.appendChild(node);
-  }
+  appendMessages(kind, items);
 }
 
 function appendMessages(kind, items) {
@@ -92,10 +186,12 @@ function appendMessages(kind, items) {
 function renderTabs() {
   tabs.innerHTML = "";
   for (const section of sections) {
+    const fields = schema.filter(field => field.section === section);
+    const changed = fields.filter(field => Object.prototype.hasOwnProperty.call(changes, field.path)).length;
     const button = document.createElement("button");
     button.className = `tab ${section === activeSection ? "active" : ""}`;
     button.type = "button";
-    button.textContent = section;
+    button.innerHTML = `<span>${section}</span>${changed ? `<b>${changed}</b>` : ""}`;
     button.onclick = () => {
       activeSection = section;
       renderTabs();
@@ -111,8 +207,9 @@ function renderEditor() {
   editor.innerHTML = "";
 
   const fields = schema.filter(field => field.section === activeSection);
-  for (const field of fields) {
-    editor.appendChild(renderField(field));
+  const grouped = groupFields(fields);
+  for (const group of grouped) {
+    editor.appendChild(renderGroup(group));
   }
 
   if (activeSection === "Progression") {
@@ -123,45 +220,118 @@ function renderEditor() {
   }
 }
 
+function groupFields(fields) {
+  const groups = new Map();
+  for (const field of fields) {
+    const key = field.group || "ungrouped";
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        label: field.groupLabel || key,
+        fields: []
+      });
+    }
+    groups.get(key).fields.push(field);
+  }
+  return [...groups.values()];
+}
+
 function sectionSummary(section) {
   return {
-    General: "Core runtime behavior, language, display, and logging.",
-    Casual: "Compass, waypoints, tab coordinates, and Nether assistance.",
-    Scanner: "Structure detection, pre-scan profiles, and performance caps.",
-    Progression: "Task display settings plus structured stage and task editing.",
-    Rewards: "Reward enablement and command lists for task or stage completion.",
-    Diagnostics: "Trace and block logging controls."
+    General: "Core runtime behavior, local web editor access, display, and logging.",
+    Casual: "Mode-gated assistance features. Inactive groups stay editable for future runs.",
+    Scanner: "Structure detection, pre-scan profiles, and performance caps with dependency states.",
+    Progression: "Task display settings plus nested stage and task editing.",
+    Rewards: "Reward switches and command lists with parent enablement state.",
+    Diagnostics: "Trace and movement logging controls."
   }[section] || "";
 }
 
+function renderGroup(group) {
+  const inactiveReason = groupDependencySummary(group.fields);
+  const changedCount = group.fields.filter(field => Object.prototype.hasOwnProperty.call(changes, field.path)).length;
+  const details = document.createElement("details");
+  details.className = `setting-group ${inactiveReason ? "inactive-group" : ""}`;
+  details.open = true;
+
+  const summary = document.createElement("summary");
+  summary.className = "group-summary";
+  const title = document.createElement("div");
+  title.className = "group-title";
+  title.appendChild(textNode("span", group.label));
+  title.appendChild(textNode("code", group.key));
+  const meta = document.createElement("div");
+  meta.className = "group-meta";
+  meta.appendChild(textNode("span", `${group.fields.length} settings`));
+  if (changedCount) meta.appendChild(textNode("b", `${changedCount} changed`));
+  if (inactiveReason) meta.appendChild(textNode("em", inactiveReason));
+  summary.append(title, meta);
+  details.appendChild(summary);
+
+  const body = document.createElement("div");
+  body.className = "group-body";
+  for (const field of group.fields) {
+    body.appendChild(renderField(field));
+  }
+  details.appendChild(body);
+  return details;
+}
+
 function renderField(field) {
+  const state = dependencyState(field);
+  const changed = Object.prototype.hasOwnProperty.call(changes, field.path);
   const card = document.createElement("article");
-  card.className = "field";
+  card.className = `field ${state.active ? "" : "inactive-field"} ${changed ? "changed-field" : ""}`;
 
   const header = document.createElement("div");
   header.className = "field-header";
   const title = document.createElement("div");
-  title.innerHTML = `<label>${field.label}</label><br><code>${field.path}</code>`;
+  title.className = "field-title";
+  title.appendChild(textNode("label", field.label));
+  title.appendChild(textNode("code", field.path));
   const badges = document.createElement("div");
   badges.className = "badges";
-  badges.appendChild(badge(field.impact, field.impact === "RUN_SENSITIVE" || field.impact === "STARTUP_ONLY" ? "warn" : ""));
+  badges.appendChild(badge(impactText(field.impact), impactBadgeClass(field.impact)));
   if (field.danger === "DANGEROUS") badges.appendChild(badge("danger", "danger"));
   if (field.danger === "CAUTION") badges.appendChild(badge("caution", "warn"));
+  if (!state.active) badges.appendChild(badge("inactive now", "inactive"));
+  if (changed) badges.appendChild(badge("changed", "changed"));
   header.append(title, badges);
 
   const input = inputForField(field);
   const hint = document.createElement("div");
   hint.className = "hint";
   hint.textContent = field.description;
-
   card.append(header, input, hint);
+
+  if (!state.active) {
+    const dependency = document.createElement("div");
+    dependency.className = "dependency-note";
+    dependency.textContent = state.reasons.join(" ");
+    card.appendChild(dependency);
+  }
   return card;
+}
+
+function textNode(tag, text) {
+  const node = document.createElement(tag);
+  node.textContent = text;
+  return node;
+}
+
+function impactBadgeClass(impact) {
+  return {
+    INSTANT: "ok",
+    RESTART_TASK: "warn",
+    RUN_SENSITIVE: "warn",
+    STARTUP_ONLY: "inactive"
+  }[impact] || "";
 }
 
 function badge(text, kind) {
   const node = document.createElement("span");
   node.className = `badge ${kind || ""}`;
-  node.textContent = text.toLowerCase().replaceAll("_", " ");
+  node.textContent = text;
   return node;
 }
 
@@ -211,11 +381,32 @@ function renderProgressionEditor() {
   const wrap = document.createElement("section");
   wrap.className = "structured";
 
+  const intro = document.createElement("div");
+  intro.className = "structured-intro";
+  intro.textContent = "Stages own their world and task rows. Progression changes are saved immediately, but active run progress is kept until reset.";
+  wrap.appendChild(intro);
+
   for (const stageKey of Object.keys(progression).filter(key => key !== "settings")) {
     const stage = progression[stageKey] || {};
-    const card = document.createElement("article");
-    card.className = "structured-card";
-    card.innerHTML = `<h3>${stageKey}</h3>`;
+    const details = document.createElement("details");
+    details.className = "structured-card stage-card";
+    details.open = true;
+
+    const summary = document.createElement("summary");
+    summary.className = "group-summary";
+    const title = document.createElement("div");
+    title.className = "group-title";
+    title.appendChild(textNode("span", stage["display-name"] || stageKey));
+    title.appendChild(textNode("code", stageKey));
+    const meta = document.createElement("div");
+    meta.className = "group-meta";
+    meta.appendChild(textNode("span", `${Object.keys(stage.tasks || {}).length} tasks`));
+    meta.appendChild(textNode("span", stage.world || "NORMAL"));
+    summary.append(title, meta);
+    details.appendChild(summary);
+
+    const body = document.createElement("div");
+    body.className = "stage-body";
 
     const name = document.createElement("input");
     name.value = stage["display-name"] || stageKey;
@@ -240,11 +431,20 @@ function renderProgressionEditor() {
       setStructuredChange("progression", progression);
     };
 
-    card.append(name, world);
+    const stageFields = document.createElement("div");
+    stageFields.className = "stage-fields";
+    stageFields.append(labelWrap("Display name", name), labelWrap("World", world));
+    body.appendChild(stageFields);
+
+    const table = document.createElement("div");
+    table.className = "task-table";
+    table.appendChild(taskHeader());
     const tasks = stage.tasks || {};
     for (const taskKey of Object.keys(tasks)) {
-      card.appendChild(renderTaskRow(progression, stageKey, taskKey));
+      table.appendChild(renderTaskRow(progression, stageKey, taskKey));
     }
+    body.appendChild(table);
+
     const add = document.createElement("button");
     add.className = "small-button";
     add.type = "button";
@@ -258,18 +458,36 @@ function renderProgressionEditor() {
       setStructuredChange("progression", progression);
       renderEditor();
     };
-    card.appendChild(add);
-    wrap.appendChild(card);
+    body.appendChild(add);
+    details.appendChild(body);
+    wrap.appendChild(details);
   }
 
   return wrap;
+}
+
+function labelWrap(label, input) {
+  const wrap = document.createElement("label");
+  wrap.className = "label-wrap";
+  wrap.appendChild(textNode("span", label));
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function taskHeader() {
+  const row = document.createElement("div");
+  row.className = "task-row task-head";
+  for (const label of ["Task key", "Display name", "Amount", "Scale", ""]) {
+    row.appendChild(textNode("span", label));
+  }
+  return row;
 }
 
 function renderTaskRow(progression, stageKey, taskKey) {
   const stage = progression[stageKey];
   const task = stage.tasks[taskKey];
   const row = document.createElement("div");
-  row.className = "row";
+  row.className = "task-row";
 
   const key = document.createElement("input");
   key.value = taskKey;
@@ -320,17 +538,24 @@ function renderTaskRow(progression, stageKey, taskKey) {
 
 function renderRewardsEditor() {
   const rewards = clone(currentValue("rewards") || {});
+  const enabled = Boolean(currentValue("rewards.enabled"));
   const wrap = document.createElement("section");
   wrap.className = "structured";
-  wrap.appendChild(renderRewardList(rewards, "on-task-complete", "On Task Complete"));
-  wrap.appendChild(renderRewardList(rewards, "on-stage-complete", "On Stage Complete"));
+  if (!enabled) {
+    const note = document.createElement("div");
+    note.className = "structured-intro inactive-copy";
+    note.textContent = "Reward command lists are editable, but they are inactive until rewards.enabled is true.";
+    wrap.appendChild(note);
+  }
+  wrap.appendChild(renderRewardList(rewards, "on-task-complete", "On Task Complete", enabled));
+  wrap.appendChild(renderRewardList(rewards, "on-stage-complete", "On Stage Complete", enabled));
   return wrap;
 }
 
-function renderRewardList(rewards, key, title) {
+function renderRewardList(rewards, key, title, active) {
   const card = document.createElement("article");
-  card.className = "structured-card";
-  card.innerHTML = `<h3>${title}</h3>`;
+  card.className = `structured-card ${active ? "" : "inactive-field"}`;
+  card.appendChild(textNode("h3", title));
   const area = document.createElement("textarea");
   area.value = (rewards[key] || []).join("\n");
   area.oninput = () => {
@@ -364,6 +589,7 @@ async function mutate(mode) {
       values = response.values;
       changes = {};
       updatePreview();
+      renderTabs();
       renderEditor();
     }
   } catch (error) {

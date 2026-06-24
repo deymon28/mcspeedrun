@@ -79,4 +79,26 @@ class WebConfigSchemaTest {
         assertTrue(impacts.contains(WebConfigField.ApplyImpact.RESTART_TASK));
         assertTrue(impacts.contains(WebConfigField.ApplyImpact.RUN_SENSITIVE));
     }
+
+    @Test
+    void exposesGroupMetadataForNestedConfigSections() {
+        JSONObject waypointType = WebConfigSchema.field("casual.structure_waypoints.type").toJson();
+
+        assertEquals("casual.waypoints", waypointType.getString("group"));
+        assertEquals("Structure Waypoints", waypointType.getString("groupLabel"));
+    }
+
+    @Test
+    void exposesDependencyMetadataForParentControlledSettings() {
+        JSONObject casualEnabled = WebConfigSchema.field("casual.enabled").toJson();
+        JSONObject waypointType = WebConfigSchema.field("casual.structure_waypoints.type").toJson();
+        JSONObject locateCalls = WebConfigSchema.field("casual.start-pre-scan.locate.calls-per-run").toJson();
+
+        assertEquals("settings.gamemode", casualEnabled.getString("parentPath"));
+        assertEquals("CASUAL", casualEnabled.getString("parentValue"));
+        assertEquals("casual.structure_waypoints.enabled", waypointType.getString("parentPath"));
+        assertTrue(waypointType.getBoolean("parentValue"));
+        assertEquals("casual.start-pre-scan.mode", locateCalls.getString("parentPath"));
+        assertEquals("LOCATE", locateCalls.getString("parentValue"));
+    }
 }

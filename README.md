@@ -2,7 +2,7 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.5.0-ALPHA`.
+Current plugin version: `26.1.2-3.5.1-ALPHA`.
 
 ## Features
 
@@ -51,13 +51,13 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.5.0-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.5.1-ALPHA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.5.0-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.5.1-ALPHA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
 This alpha version has been verified to load on Paper `26.1.2-69`.
@@ -259,6 +259,12 @@ Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to writ
 - Added a local token-protected web config editor served from the plugin through Java's built-in HTTP server.
 - The editor exposes schema-driven fields plus structured progression and rewards editors, validation, preview, save, apply, and save-and-apply actions.
 - Runtime apply now refreshes trace settings, Casual mode components, scanner tasks, tab coordinates, waypoints, highlights, and scoreboards where safe; active progression changes are held for reset to avoid losing task progress.
+
+## Notes For 3.5.1 Alpha
+
+- Reworked the web config editor into a dark-only interface with collapsible setting groups.
+- Added schema metadata for visual group labels and parent setting dependencies, so inactive Casual, scanner, waypoint, reward, and scaling settings show why they currently do not apply.
+- The change preview now groups pending edits by apply impact before save/apply.
 
 ## License
 

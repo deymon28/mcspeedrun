@@ -19,7 +19,12 @@ public record WebConfigField(
         Object defaultValue,
         List<String> options,
         Double min,
-        Double max) {
+        Double max,
+        String group,
+        String groupLabel,
+        String parentPath,
+        Object parentValue,
+        String inactiveReason) {
 
     public enum FieldType {
         BOOLEAN,
@@ -52,7 +57,12 @@ public record WebConfigField(
                 .put("type", type.name())
                 .put("impact", impact.name())
                 .put("danger", danger.name())
-                .put("defaultValue", defaultValue == null ? JSONObject.NULL : defaultValue);
+                .put("defaultValue", defaultValue == null ? JSONObject.NULL : defaultValue)
+                .put("group", group)
+                .put("groupLabel", groupLabel)
+                .put("parentPath", parentPath == null ? JSONObject.NULL : parentPath)
+                .put("parentValue", parentValue == null ? JSONObject.NULL : parentValue)
+                .put("inactiveReason", inactiveReason == null ? JSONObject.NULL : inactiveReason);
 
         if (options != null && !options.isEmpty()) {
             json.put("options", new JSONArray(options));

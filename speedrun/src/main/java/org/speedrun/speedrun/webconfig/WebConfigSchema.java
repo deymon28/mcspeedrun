@@ -432,27 +432,139 @@ public final class WebConfigSchema {
 
     private static WebConfigField field(String path, String section, String label, String description, WebConfigField.FieldType type,
                                         WebConfigField.ApplyImpact impact, WebConfigField.DangerLevel danger, Object defaultValue) {
-        return new WebConfigField(path, section, label, description, type, impact, danger, defaultValue, List.of(), null, null);
+        return newField(path, section, label, description, type, impact, danger, defaultValue, List.of(), null, null);
     }
 
     private static WebConfigField number(String path, String section, String label, String description, WebConfigField.FieldType type,
                                          WebConfigField.ApplyImpact impact, WebConfigField.DangerLevel danger, Object defaultValue,
                                          double min, double max) {
-        return new WebConfigField(path, section, label, description, type, impact, danger, defaultValue, List.of(), min, max);
+        return newField(path, section, label, description, type, impact, danger, defaultValue, List.of(), min, max);
     }
 
     private static WebConfigField enumField(String path, String section, String label, String description,
                                             WebConfigField.ApplyImpact impact, WebConfigField.DangerLevel danger,
                                             String defaultValue, String... options) {
-        return new WebConfigField(path, section, label, description, ENUM, impact, danger, defaultValue, List.of(options), null, null);
+        return newField(path, section, label, description, ENUM, impact, danger, defaultValue, List.of(options), null, null);
     }
 
     private static WebConfigField list(String path, String section, String label, String description,
                                        WebConfigField.ApplyImpact impact, WebConfigField.DangerLevel danger, List<String> defaultValue) {
-        return new WebConfigField(path, section, label, description, STRING_LIST, impact, danger, new JSONArray(defaultValue), List.of(), null, null);
+        return newField(path, section, label, description, STRING_LIST, impact, danger, new JSONArray(defaultValue), List.of(), null, null);
+    }
+
+    private static WebConfigField newField(String path, String section, String label, String description, WebConfigField.FieldType type,
+                                           WebConfigField.ApplyImpact impact, WebConfigField.DangerLevel danger, Object defaultValue,
+                                           List<String> options, Double min, Double max) {
+        String group = groupFor(path);
+        Dependency dependency = dependencyFor(path);
+        return new WebConfigField(
+                path,
+                section,
+                label,
+                description,
+                type,
+                impact,
+                danger,
+                defaultValue,
+                options,
+                min,
+                max,
+                group,
+                groupLabelFor(group),
+                dependency.parentPath(),
+                dependency.parentValue(),
+                dependency.reason());
+    }
+
+    private static String groupFor(String path) {
+        if (path.startsWith("web-config.")) return "general.web-config";
+        if (path.startsWith("settings.scale-resources-by-playercount.")) return "general.resource-scaling";
+        if (path.startsWith("settings.coordinate-display.")) return "general.display";
+        if (path.startsWith("settings.chunk-biome-logging.") || path.startsWith("settings.log-attempts")) return "general.logging";
+        if (path.startsWith("settings.")) return "general.runtime";
+        if (path.startsWith("progression.settings.")) return "progression.display";
+        if (path.startsWith("casual.compass.")) return "casual.compass";
+        if (path.startsWith("casual.structure_waypoints.")) return "casual.waypoints";
+        if (path.startsWith("casual.nether_gold_highlight.")) return "casual.nether-gold";
+        if (path.startsWith("casual.start-pre-scan.locate.")) return "scanner.pre-scan.locate";
+        if (path.startsWith("casual.start-pre-scan.safety.")) return "scanner.pre-scan.safety";
+        if (path.startsWith("casual.start-pre-scan.lava-pool-vertical-scan.")) return "scanner.pre-scan.lava";
+        if (path.startsWith("casual.start-pre-scan.profiles.")) {
+            String[] parts = path.split("\\.");
+            return parts.length > 3 ? "scanner.pre-scan.profile." + parts[3] : "scanner.pre-scan.profiles";
+        }
+        if (path.startsWith("casual.start-pre-scan.")) return "scanner.pre-scan";
+        if (path.startsWith("casual.")) return "casual.mode";
+        if (path.startsWith("settings.proximity-scanner.lava-pool.")) return "scanner.proximity.lava";
+        if (path.startsWith("settings.proximity-scanner.village.")) return "scanner.proximity.village";
+        if (path.startsWith("settings.proximity-scanner.nether-portal.")) return "scanner.proximity.portal";
+        if (path.startsWith("settings.proximity-scanner.")) return "scanner.proximity";
+        if (path.startsWith("tracking.")) return "diagnostics.tracking";
+        if (path.startsWith("diagnostics.trace.")) return "diagnostics.trace";
+        if (path.startsWith("rewards.")) return "rewards.general";
+        return "general.other";
+    }
+
+    private static String groupLabelFor(String group) {
+        return switch (group) {
+            case "general.web-config" -> "Web Config";
+            case "general.runtime" -> "Runtime";
+            case "general.resource-scaling" -> "Resource Scaling";
+            case "general.display" -> "Coordinate Display";
+            case "general.logging" -> "Logging";
+            case "progression.display" -> "Progression Display";
+            case "casual.mode" -> "Casual Mode";
+            case "casual.compass" -> "Compass";
+            case "casual.waypoints" -> "Structure Waypoints";
+            case "casual.nether-gold" -> "Nether Gold Highlight";
+            case "scanner.proximity" -> "Proximity Scanner";
+            case "scanner.proximity.lava" -> "Lava Pool Scanner";
+            case "scanner.proximity.village" -> "Village Scanner";
+            case "scanner.proximity.portal" -> "Nether Portal Scanner";
+            case "scanner.pre-scan" -> "Casual Start Pre-scan";
+            case "scanner.pre-scan.lava" -> "Pre-scan Lava Pool";
+            case "scanner.pre-scan.safety" -> "Pre-scan Safety Caps";
+            case "scanner.pre-scan.locate" -> "LOCATE Mode";
+            case "scanner.pre-scan.profile.SAFE" -> "SAFE Profile";
+            case "scanner.pre-scan.profile.BALANCED" -> "BALANCED Profile";
+            case "scanner.pre-scan.profile.AGGRESSIVE" -> "AGGRESSIVE Profile";
+            case "scanner.pre-scan.profile.LOCATE" -> "LOCATE Profile";
+            case "diagnostics.tracking" -> "Runtime Tracking";
+            case "diagnostics.trace" -> "Trace Diagnostics";
+            case "rewards.general" -> "Reward System";
+            default -> group;
+        };
+    }
+
+    private static Dependency dependencyFor(String path) {
+        if (path.startsWith("casual.structure_waypoints.") && !path.equals("casual.structure_waypoints.enabled")) {
+            return new Dependency("casual.structure_waypoints.enabled", true, "Only active when structure waypoints are enabled.");
+        }
+        if (path.startsWith("casual.nether_gold_highlight.") && !path.equals("casual.nether_gold_highlight.enabled")) {
+            return new Dependency("casual.nether_gold_highlight.enabled", true, "Only active when Nether gold highlight is enabled.");
+        }
+        if (path.startsWith("casual.start-pre-scan.") && !path.equals("casual.start-pre-scan.enabled")) {
+            if (path.startsWith("casual.start-pre-scan.locate.")) {
+                return new Dependency("casual.start-pre-scan.mode", "LOCATE", "Used only when start pre-scan mode is LOCATE.");
+            }
+            return new Dependency("casual.start-pre-scan.enabled", true, "Only active when Casual start pre-scan is enabled.");
+        }
+        if (path.startsWith("casual.")) {
+            return new Dependency("settings.gamemode", "CASUAL", "Only active when game mode is CASUAL.");
+        }
+        if (path.startsWith("rewards.") && !path.equals("rewards.enabled")) {
+            return new Dependency("rewards.enabled", true, "Only active when rewards are enabled.");
+        }
+        if (path.startsWith("settings.scale-resources-by-playercount.") && !path.endsWith(".enabled")) {
+            return new Dependency("settings.scale-resources-by-playercount.enabled", true, "Only active when resource scaling is enabled.");
+        }
+        return new Dependency(null, null, null);
     }
 
     private static void add(Map<String, WebConfigField> fields, WebConfigField field) {
         fields.put(field.path(), field);
+    }
+
+    private record Dependency(String parentPath, Object parentValue, String reason) {
     }
 }
