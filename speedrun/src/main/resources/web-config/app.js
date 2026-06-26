@@ -5,6 +5,8 @@ let schema = [];
 let values = {};
 let changes = {};
 let activeSection = "General";
+let searchTerm = "";
+let hideInactive = false;
 
 const sections = ["General", "Casual", "Scanner", "Progression", "Rewards", "Diagnostics"];
 const editor = document.getElementById("editor");
@@ -13,6 +15,9 @@ const messages = document.getElementById("messages");
 const dirtyPill = document.getElementById("dirty-pill");
 const preview = document.getElementById("preview-json");
 const changeCount = document.getElementById("change-count");
+const searchInput = document.getElementById("config-search");
+const hideInactiveInput = document.getElementById("hide-inactive");
+const filterStatus = document.getElementById("filter-status");
 
 function request(path, options = {}) {
   return fetch(path, {
@@ -206,10 +211,15 @@ function renderEditor() {
   document.getElementById("section-summary").textContent = sectionSummary(activeSection);
   editor.innerHTML = "";
 
-  const fields = schema.filter(field => field.section === activeSection);
+  const sectionFields = schema.filter(field => field.section === activeSection);
+  const fields = sectionFields.filter(field => fieldVisible(field));
   const grouped = groupFields(fields);
   for (const group of grouped) {
     editor.appendChild(renderGroup(group));
+  }
+
+  if (!grouped.length && activeSection !== "Progression" && activeSection !== "Rewards") {
+    editor.appendChild(emptyState());
   }
 
   if (activeSection === "Progression") {
@@ -218,6 +228,45 @@ function renderEditor() {
   if (activeSection === "Rewards") {
     editor.appendChild(renderRewardsEditor());
   }
+  updateFilterStatus(fields.length, sectionFields.length);
+}
+
+function fieldVisible(field) {
+  if (hideInactive && !dependencyState(field).active) {
+    return false;
+  }
+  if (!searchTerm) {
+    return true;
+  }
+  const haystack = [
+    field.label,
+    field.path,
+    field.description,
+    field.group,
+    field.groupLabel,
+    impactText(field.impact),
+    field.danger
+  ].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes(searchTerm);
+}
+
+function updateFilterStatus(visible, total) {
+  if (!filterStatus) return;
+  if (!searchTerm && !hideInactive) {
+    filterStatus.textContent = "Showing all settings.";
+    return;
+  }
+  const filters = [];
+  if (searchTerm) filters.push(`search "${searchTerm}"`);
+  if (hideInactive) filters.push("inactive hidden");
+  filterStatus.textContent = `${visible} of ${total} settings shown (${filters.join(", ")}).`;
+}
+
+function emptyState() {
+  const node = document.createElement("div");
+  node.className = "empty-state";
+  node.textContent = "No settings match the current filters.";
+  return node;
 }
 
 function groupFields(fields) {
@@ -623,5 +672,13 @@ document.getElementById("validate-btn").onclick = () => mutate("validate");
 document.getElementById("save-btn").onclick = () => mutate("save");
 document.getElementById("apply-btn").onclick = () => mutate("apply");
 document.getElementById("save-apply-btn").onclick = () => mutate("saveApply");
+searchInput.oninput = () => {
+  searchTerm = searchInput.value.trim().toLowerCase();
+  renderEditor();
+};
+hideInactiveInput.onchange = () => {
+  hideInactive = hideInactiveInput.checked;
+  renderEditor();
+};
 
 load();

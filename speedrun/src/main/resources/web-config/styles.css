@@ -1,21 +1,21 @@
 :root {
   color-scheme: dark;
-  --bg: #0b1117;
-  --sidebar: #0f1720;
-  --panel: #121b24;
-  --panel-2: #172331;
-  --panel-3: #1d2a38;
-  --line: #263646;
-  --line-strong: #34495f;
-  --text: #e6edf3;
-  --muted: #94a7ba;
-  --soft: #c3d0dd;
-  --accent: #22a17a;
-  --accent-strong: #2cc891;
-  --warn: #d49a2a;
-  --danger: #e05d5d;
-  --inactive: #647588;
-  --shadow: 0 14px 35px rgba(0, 0, 0, 0.3);
+  --bg: #000000;
+  --sidebar: #070707;
+  --panel: #0d0d0d;
+  --panel-2: #141414;
+  --panel-3: #1b1b1b;
+  --line: #252525;
+  --line-strong: #383838;
+  --text: #f1f1f1;
+  --muted: #a0a0a0;
+  --soft: #d3d3d3;
+  --accent: #22b573;
+  --accent-strong: #45d894;
+  --warn: #d8a334;
+  --danger: #f06a6a;
+  --inactive: #7a7a7a;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.58);
 }
 
 * {
@@ -70,9 +70,9 @@ button:hover {
   height: 44px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid #2c2c2c;
   border-radius: 8px;
-  background: #143f35;
+  background: #10251c;
   color: var(--accent-strong);
   font-weight: 800;
 }
@@ -99,6 +99,37 @@ h3 {
 .brand p,
 #section-summary {
   color: var(--muted);
+}
+
+.sidebar-tools {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.search-box,
+.toggle-row {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.toggle-row {
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+}
+
+.toggle-row input {
+  margin: 0;
+}
+
+#filter-status {
+  color: var(--inactive);
+  font-size: 12px;
 }
 
 nav {
@@ -134,7 +165,7 @@ nav {
 
 .tab.active,
 .tab:hover {
-  background: #172231;
+  background: var(--panel-2);
   border-color: var(--line);
   color: var(--text);
 }
@@ -159,7 +190,7 @@ nav {
 .actions .primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #06110d;
+  color: #041008;
   font-weight: 700;
 }
 
@@ -221,6 +252,14 @@ main {
 .editor {
   display: grid;
   gap: 14px;
+}
+
+.empty-state {
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  padding: 18px;
+  color: var(--muted);
+  background: var(--panel);
 }
 
 .setting-group,
@@ -352,7 +391,7 @@ main {
 .badge {
   border-radius: 999px;
   padding: 3px 7px;
-  background: #223141;
+  background: var(--panel-3);
   color: var(--soft);
   font-size: 12px;
   white-space: nowrap;
@@ -375,7 +414,7 @@ main {
 
 .badge.inactive {
   color: var(--inactive);
-  background: rgba(100, 117, 136, 0.13);
+  background: rgba(140, 140, 140, 0.13);
 }
 
 .badge.changed {
@@ -391,7 +430,7 @@ textarea {
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   padding: 8px;
-  background: #0d151d;
+  background: #050505;
   color: var(--text);
   outline: none;
 }
@@ -416,8 +455,8 @@ textarea {
 }
 
 .inactive-field {
-  border-color: rgba(100, 117, 136, 0.34);
-  background: rgba(23, 35, 49, 0.54);
+  border-color: rgba(140, 140, 140, 0.28);
+  background: rgba(20, 20, 20, 0.72);
 }
 
 .inactive-field input,
@@ -427,7 +466,7 @@ textarea {
 }
 
 .inactive-group > .group-summary {
-  background: #141d28;
+  background: #101010;
 }
 
 .changed-field {
@@ -436,10 +475,10 @@ textarea {
 
 .dependency-note,
 .structured-intro {
-  border: 1px solid rgba(100, 117, 136, 0.24);
+  border: 1px solid rgba(140, 140, 140, 0.22);
   border-radius: 6px;
   padding: 8px 10px;
-  background: rgba(100, 117, 136, 0.1);
+  background: rgba(140, 140, 140, 0.08);
   color: var(--muted);
 }
 
@@ -535,7 +574,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .impact-bucket strong {
@@ -567,8 +606,8 @@ pre {
   padding: 14px;
   overflow: auto;
   max-height: 320px;
-  background: #071018;
-  color: #d9ebe5;
+  background: #030303;
+  color: #e2e2e2;
 }
 
 @media (min-width: 1180px) {

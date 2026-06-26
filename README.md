@@ -266,6 +266,11 @@ Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to writ
 - Added schema metadata for visual group labels and parent setting dependencies, so inactive Casual, scanner, waypoint, reward, and scaling settings show why they currently do not apply.
 - The change preview now groups pending edits by apply impact before save/apply.
 
+## Notes For 3.5.2 Alpha
+
+- Adjusted the web config editor to a neutral near-OLED dark palette instead of the previous blue-tinted dark theme.
+- Added sidebar search and a Hide inactive toggle so casual users can reduce clutter while advanced users can still inspect full config paths, dependency reasons, and apply-impact badges.
+
 ## Notes For 3.5.3 Alpha
 
 - Fixed web config language apply so language values are canonicalized to bundled file codes, both bundled language files are generated on startup, and failed apply attempts do not leave a broken runtime language value.

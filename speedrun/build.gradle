@@ -7,7 +7,7 @@ plugins {
 group = 'org.speedrun'
 version = '26.1.2-3.5.3-ALPHA'
 
-def targetMinecraftVersion = '1.21.11'
+def targetMinecraftVersion = '26.1.2'
 def paperApiVersion = '26.1.2.build.69-stable'
 
 repositories {
