@@ -13,6 +13,7 @@ import org.speedrun.speedrun.utils.RewardUtil;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Manages plugin configurations.
@@ -26,6 +27,8 @@ public class ConfigManager {
     private final Speedrun plugin;
     private FileConfiguration config;
     private FileConfiguration lang;
+    private static final String DEFAULT_LANGUAGE = "en";
+    private static final Set<String> SUPPORTED_LANGUAGES = Set.of("en", "uk");
 
     /**
      * Defines how player-collected resources are tracked for tasks.
@@ -82,13 +85,23 @@ public class ConfigManager {
      */
     public void reload() {
         plugin.saveDefaultConfig();
+        ensureBundledLanguageFiles();
         plugin.reloadConfig();
         config = plugin.getConfig();
         reloadLanguageFromCurrentConfig();
     }
 
     public void reloadLanguageFromCurrentConfig() {
-        String langCode = config.getString("settings.language", "en");
+        String configured = config.getString("settings.language", DEFAULT_LANGUAGE);
+        String supportedCode = normalizeSupportedLanguageCode(configured);
+        String langCode = supportedCode == null ? DEFAULT_LANGUAGE : supportedCode;
+        if (!langCode.equals(configured)) {
+            if (supportedCode == null && configured != null && !configured.isBlank()) {
+                plugin.getLogger().warning("Unknown settings.language '" + configured + "'. Using '" + langCode + "'.");
+            }
+            config.set("settings.language", langCode);
+        }
+        ensureBundledLanguageFiles();
         File langFile = new File(plugin.getDataFolder(), "lang/" + langCode + ".yml");
 
         if (!langFile.exists()) {
@@ -98,6 +111,36 @@ public class ConfigManager {
         }
 
         lang = YamlConfiguration.loadConfiguration(langFile);
+    }
+
+    public static String normalizeLanguageCode(String rawCode) {
+        String normalized = normalizeSupportedLanguageCode(rawCode);
+        return normalized == null ? DEFAULT_LANGUAGE : normalized;
+    }
+
+    public static String normalizeSupportedLanguageCode(String rawCode) {
+        if (rawCode == null) {
+            return null;
+        }
+        String normalized = rawCode.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "en", "eng", "english" -> "en";
+            case "uk", "ua", "ukrainian" -> "uk";
+            default -> SUPPORTED_LANGUAGES.contains(normalized) ? normalized : null;
+        };
+    }
+
+    public void replaceRuntimeConfig(FileConfiguration config) {
+        this.config = config;
+    }
+
+    private void ensureBundledLanguageFiles() {
+        for (String langCode : SUPPORTED_LANGUAGES) {
+            File langFile = new File(plugin.getDataFolder(), "lang/" + langCode + ".yml");
+            if (!langFile.exists()) {
+                plugin.saveResource("lang/" + langCode + ".yml", false);
+            }
+        }
     }
 
     /**

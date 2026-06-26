@@ -57,15 +57,38 @@ class WebConfigSchemaTest {
         YamlConfiguration config = new YamlConfiguration();
         config.set("settings.gamemode", "NORMAL");
         config.set("casual.nether_gold_highlight.radius", 24);
+        config.set("settings.language", "en");
 
         WebConfigSchema.applyPatch(config, new JSONObject()
                 .put("settings.gamemode", "casual")
+                .put("settings.language", "UK")
                 .put("casual.nether_gold_highlight.radius", 32)
                 .put("not.allowed", true));
 
         assertEquals("CASUAL", config.getString("settings.gamemode"));
+        assertEquals("uk", config.getString("settings.language"));
         assertEquals(32, config.getInt("casual.nether_gold_highlight.radius"));
         assertFalse(config.contains("not.allowed"));
+    }
+
+    @Test
+    void acceptsLanguageAliasesAndRejectsUnsupportedLanguages() {
+        WebConfigValidationResult accepted = WebConfigSchema.validatePatch(new JSONObject()
+                .put("settings.language", "English"));
+        WebConfigValidationResult rejected = WebConfigSchema.validatePatch(new JSONObject()
+                .put("settings.language", "de"));
+
+        assertTrue(accepted.valid(), accepted.errors().toString());
+        assertFalse(rejected.valid());
+        assertTrue(rejected.errors().stream().anyMatch(error -> error.contains("settings.language")));
+    }
+
+    @Test
+    void exposesCanonicalLanguageValues() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("settings.language", "UK");
+
+        assertEquals("uk", WebConfigSchema.currentValues(config).getString("settings.language"));
     }
 
     @Test

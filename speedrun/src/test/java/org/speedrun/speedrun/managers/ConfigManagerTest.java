@@ -3,6 +3,7 @@ package org.speedrun.speedrun.managers;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ConfigManagerTest {
     @Test
@@ -19,6 +20,22 @@ class ConfigManagerTest {
     void fallsBackForInvalidTaskDisplayMode() {
         assertEquals(ConfigManager.TaskDisplayMode.ACTIVE_STAGE,
                 ConfigManager.parseTaskDisplayMode("bad", ConfigManager.TaskDisplayMode.ACTIVE_STAGE));
+    }
+
+    @Test
+    void normalizesLanguageCodesAndAliases() {
+        assertEquals("en", ConfigManager.normalizeLanguageCode("EN"));
+        assertEquals("en", ConfigManager.normalizeLanguageCode("English"));
+        assertEquals("uk", ConfigManager.normalizeLanguageCode("UK"));
+        assertEquals("uk", ConfigManager.normalizeLanguageCode(" Ukrainian "));
+        assertEquals("uk", ConfigManager.normalizeLanguageCode("ua"));
+    }
+
+    @Test
+    void fallsBackForUnsupportedLanguageCodes() {
+        assertEquals("en", ConfigManager.normalizeLanguageCode("bad"));
+        assertEquals("en", ConfigManager.normalizeLanguageCode(null));
+        assertNull(ConfigManager.normalizeSupportedLanguageCode("bad"));
     }
 
     @Test

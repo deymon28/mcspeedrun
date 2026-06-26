@@ -3,6 +3,8 @@ package org.speedrun.speedrun.webconfig;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.json.JSONObject;
 import org.speedrun.speedrun.Speedrun;
 
@@ -166,22 +168,29 @@ public class WebConfigManager {
                     .put("validation", validation.toJson());
         }
 
-        WebConfigSchema.applyPatch(plugin.getConfigManager().getRawConfig(), patch);
+        FileConfiguration previousConfig = plugin.getConfigManager().getRawConfig();
+        YamlConfiguration stagedConfig = WebConfigSchema.patchedCopy(previousConfig, patch);
+        plugin.getConfigManager().replaceRuntimeConfig(stagedConfig);
 
-        if (mode == MutationMode.SAVE || mode == MutationMode.SAVE_APPLY) {
-            plugin.getConfigManager().getRawConfig().save(plugin.getConfigFile());
+        try {
+            WebConfigApplyResult applyResult = null;
+            if (mode == MutationMode.APPLY || mode == MutationMode.SAVE_APPLY) {
+                applyResult = new RuntimeConfigApplier(plugin).apply(patch);
+            }
+
+            if (mode == MutationMode.SAVE || mode == MutationMode.SAVE_APPLY) {
+                stagedConfig.save(plugin.getConfigFile());
+            }
+
+            return new JSONObject()
+                    .put("ok", true)
+                    .put("validation", validation.toJson())
+                    .put("apply", applyResult == null ? JSONObject.NULL : applyResult.toJson())
+                    .put("values", WebConfigSchema.currentValues(plugin.getConfigManager().getRawConfig()));
+        } catch (Exception ex) {
+            plugin.getConfigManager().replaceRuntimeConfig(previousConfig);
+            throw ex;
         }
-
-        WebConfigApplyResult applyResult = null;
-        if (mode == MutationMode.APPLY || mode == MutationMode.SAVE_APPLY) {
-            applyResult = new RuntimeConfigApplier(plugin).apply(patch);
-        }
-
-        return new JSONObject()
-                .put("ok", true)
-                .put("validation", validation.toJson())
-                .put("apply", applyResult == null ? JSONObject.NULL : applyResult.toJson())
-                .put("values", WebConfigSchema.currentValues(plugin.getConfigManager().getRawConfig()));
     }
 
     private void handleStatic(HttpExchange exchange) throws IOException {

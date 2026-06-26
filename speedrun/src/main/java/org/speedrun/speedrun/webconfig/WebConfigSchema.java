@@ -5,6 +5,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.speedrun.speedrun.managers.ConfigManager;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,6 +33,7 @@ public final class WebConfigSchema {
     private static final Map<String, WebConfigField> FIELDS = buildFields();
     private static final Set<String> STRUCTURED_SECTIONS = Set.of("progression", "rewards");
     private static final Set<String> WORLDS = Set.of("NORMAL", "NETHER", "THE_END");
+    private static final String LANGUAGE_PATH = "settings.language";
 
     private WebConfigSchema() {
     }
@@ -118,6 +120,9 @@ public final class WebConfigSchema {
     }
 
     private static Object configValue(FileConfiguration config, WebConfigField field) {
+        if (LANGUAGE_PATH.equals(field.path())) {
+            return ConfigManager.normalizeLanguageCode(config.getString(field.path(), String.valueOf(field.defaultValue())));
+        }
         return switch (field.type()) {
             case BOOLEAN -> config.getBoolean(field.path(), Boolean.TRUE.equals(field.defaultValue()));
             case INTEGER -> config.getInt(field.path(), field.defaultValue() instanceof Number number ? number.intValue() : 0);
@@ -183,6 +188,12 @@ public final class WebConfigSchema {
             result.error(field.path() + " must be one of " + field.options() + ".");
             return;
         }
+        if (LANGUAGE_PATH.equals(field.path())) {
+            if (ConfigManager.normalizeSupportedLanguageCode(string) == null) {
+                result.error(field.path() + " must be one of " + field.options() + ".");
+            }
+            return;
+        }
         String normalized = string.toUpperCase(Locale.ROOT);
         if (field.options() == null || field.options().stream().noneMatch(option -> option.equalsIgnoreCase(normalized))) {
             result.error(field.path() + " must be one of " + field.options() + ".");
@@ -205,7 +216,9 @@ public final class WebConfigSchema {
         return switch (field.type()) {
             case INTEGER -> ((Number) value).intValue();
             case DECIMAL -> ((Number) value).doubleValue();
-            case ENUM -> ((String) value).toUpperCase(Locale.ROOT);
+            case ENUM -> LANGUAGE_PATH.equals(field.path())
+                    ? ConfigManager.normalizeLanguageCode((String) value)
+                    : ((String) value).toUpperCase(Locale.ROOT);
             case STRING_LIST -> jsonToConfigValue(value);
             default -> value;
         };
