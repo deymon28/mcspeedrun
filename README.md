@@ -2,7 +2,11 @@
 
 Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
 
-Current plugin version: `26.1.2-3.5.3-ALPHA`.
+Current plugin version: `26.1.2-3.5.4-BETA`.
+
+This maintenance beta preserves the 26.1.2 feature set before the next Minecraft
+upgrade. It corrects command authorization, nested configuration updates, and
+portal-scan thread safety. The original alpha remains available as tag `v3.5.3`.
 
 ## Features
 
@@ -51,16 +55,17 @@ cd speedrun
 The plugin jar is generated at:
 
 ```text
-speedrun/build/libs/speedrun-26.1.2-3.5.3-ALPHA.jar
+speedrun/build/libs/speedrun-26.1.2-3.5.4-BETA.jar
 ```
 
 ## Install
 
 1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.5.3-ALPHA.jar` into the server `plugins/` folder.
+2. Copy `speedrun-26.1.2-3.5.4-BETA.jar` into the server `plugins/` folder.
 3. Start or restart a Paper `26.1.2` server.
 
-This alpha version has been verified to load on Paper `26.1.2-69`.
+This beta has been verified to load and stop on Paper `26.1.2-69` in all six runtime profiles.
+See the [maintenance release notes](docs/releases/v3.5.4-beta.md) for fixes and verification limits.
 
 ## Commands
 
@@ -89,7 +94,7 @@ Main settings are in `speedrun/src/main/resources/config.yml` and are copied to 
 
 Important options include:
 
-- `web-config.enabled`: start a localhost browser editor and print a one-run tokenized URL in the server console.
+- `web-config.enabled`: start a localhost browser editor. Use the administrative `/run webconfig` command to request its access link; treat that link as a password.
 - `web-config.bind` and `web-config.port`: local HTTP bind settings. Keep the bind address on `127.0.0.1` unless intentionally exposing it.
 - `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
 - `settings.reset_time_on_join`: set loaded worlds to day when the first join starts the run.
@@ -123,11 +128,11 @@ cd speedrun
 .\gradlew.bat build
 ```
 
-Paper smoke testing starts real temporary Paper servers outside the repository and verifies the plugin enables across key configuration profiles: `NORMAL`, `CASUAL` with `SAFE`, `BALANCED`, `AGGRESSIVE`, and `LOCATE` pre-scan, and `HARDCORE`.
+Paper smoke testing starts isolated servers under the ignored `speedrun/build/` directory and verifies enable/disable, web authentication and static UI delivery across key configuration profiles: `NORMAL`, `CASUAL` with `SAFE`, `BALANCED`, `AGGRESSIVE`, and `LOCATE` pre-scan, and `HARDCORE`. Test servers listen only on localhost. The operator must have accepted the Minecraft EULA.
 
 ```powershell
 cd speedrun
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1 -PaperJar "path/to/paper.jar"
 ```
 
 ## Structure Discovery

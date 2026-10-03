@@ -85,7 +85,7 @@ public final class WebConfigSchema {
         for (String key : patch.keySet()) {
             Object value = patch.opt(key);
             if ("progression".equals(key) || "rewards".equals(key)) {
-                config.set(key, jsonToConfigValue(value));
+                setConfigValue(config, key, jsonToConfigValue(value));
                 continue;
             }
 
@@ -337,6 +337,15 @@ public final class WebConfigSchema {
         return value;
     }
 
+    private static void setConfigValue(ConfigurationSection target, String path, Object value) {
+        if (value instanceof Map<?, ?> section) {
+            // Bukkit stores maps passed to set() as raw values, making nested paths unreadable.
+            target.createSection(path, section);
+        } else {
+            target.set(path, value);
+        }
+    }
+
     public static JSONObject configFileToJson(FileConfiguration config) {
         JSONObject root = new JSONObject();
         for (String key : config.getKeys(false)) {
@@ -355,7 +364,7 @@ public final class WebConfigSchema {
         for (String key : source.getKeys(false)) {
             Object value = source.get(key);
             if (value instanceof ConfigurationSection section) {
-                copy.set(key, jsonToConfigValue(sectionToJson(section)));
+                setConfigValue(copy, key, jsonToConfigValue(sectionToJson(section)));
             } else {
                 copy.set(key, value);
             }

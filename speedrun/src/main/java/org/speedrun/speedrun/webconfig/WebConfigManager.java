@@ -1,10 +1,12 @@
 package org.speedrun.speedrun.webconfig;
 
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.scheduler.BukkitTask;
 import org.json.JSONObject;
 import org.speedrun.speedrun.Speedrun;
 
@@ -16,14 +18,17 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Local-only HTTP server for browser-based plugin configuration.
@@ -31,11 +36,13 @@ import java.util.concurrent.Executors;
 public class WebConfigManager {
     private static final String RESOURCE_ROOT = "web-config/";
     private static final SecureRandom RANDOM = new SecureRandom();
+    static final int MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+    private static final long SYNC_TIMEOUT_SECONDS = 10;
 
     private final Speedrun plugin;
     private HttpServer server;
     private ExecutorService executor;
-    private String token;
+    private volatile String token;
     private String bindAddress;
     private int port;
 
@@ -59,13 +66,13 @@ public class WebConfigManager {
         try {
             InetSocketAddress address = new InetSocketAddress(InetAddress.getByName(bindAddress), port);
             server = HttpServer.create(address, 0);
-            server.createContext("/", this::handleStatic);
-            server.createContext("/api/config", this::handleConfig);
-            server.createContext("/api/config/validate", exchange -> handleMutation(exchange, MutationMode.VALIDATE));
-            server.createContext("/api/config/save", exchange -> handleMutation(exchange, MutationMode.SAVE));
-            server.createContext("/api/config/apply", exchange -> handleMutation(exchange, MutationMode.APPLY));
-            server.createContext("/api/config/save-apply", exchange -> handleMutation(exchange, MutationMode.SAVE_APPLY));
-            server.createContext("/api/status", this::handleStatus);
+            server.createContext("/", closedHandler(null, this::handleStatic));
+            server.createContext("/api/config", closedHandler("/api/config", this::handleConfig));
+            server.createContext("/api/config/validate", closedHandler("/api/config/validate", exchange -> handleMutation(exchange, MutationMode.VALIDATE)));
+            server.createContext("/api/config/save", closedHandler("/api/config/save", exchange -> handleMutation(exchange, MutationMode.SAVE)));
+            server.createContext("/api/config/apply", closedHandler("/api/config/apply", exchange -> handleMutation(exchange, MutationMode.APPLY)));
+            server.createContext("/api/config/save-apply", closedHandler("/api/config/save-apply", exchange -> handleMutation(exchange, MutationMode.SAVE_APPLY)));
+            server.createContext("/api/status", closedHandler("/api/status", this::handleStatus));
             executor = Executors.newSingleThreadExecutor(runnable -> {
                 Thread thread = new Thread(runnable, "Speedrun-WebConfig");
                 thread.setDaemon(true);
@@ -78,7 +85,7 @@ public class WebConfigManager {
                 plugin.getLogger().warning("Web config is bound to " + bindAddress
                         + ". This can expose configuration controls outside this machine.");
             }
-            plugin.getLogger().info("Speedrun web config: " + getUrl());
+            plugin.getLogger().info("Speedrun web config is ready. Administrators can use /run webconfig to obtain an access link.");
         } catch (IOException ex) {
             server = null;
             plugin.getLogger().severe("Failed to start web config server on " + bindAddress + ":" + port + ": " + ex.getMessage());
@@ -141,7 +148,15 @@ public class WebConfigManager {
         if (!requireMethod(exchange, "POST") || !requireToken(exchange)) {
             return;
         }
-        String rawBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        String rawBody;
+        try {
+            rawBody = new String(readRequestBody(exchange.getRequestBody()), StandardCharsets.UTF_8);
+        } catch (RequestBodyTooLargeException ex) {
+            sendJson(exchange, 413, new JSONObject()
+                    .put("ok", false)
+                    .put("error", "Request body exceeds the 1 MiB limit."));
+            return;
+        }
         JSONObject body;
         try {
             body = rawBody.isBlank() ? new JSONObject() : new JSONObject(rawBody);
@@ -232,9 +247,13 @@ public class WebConfigManager {
     private boolean requireToken(HttpExchange exchange) throws IOException {
         String provided = exchange.getRequestHeaders().getFirst("X-Speedrun-Token");
         if (provided == null || provided.isBlank()) {
-            provided = query(exchange).get("token");
+            try {
+                provided = query(exchange).get("token");
+            } catch (IllegalArgumentException ex) {
+                provided = null;
+            }
         }
-        if (!Objects.equals(token, provided)) {
+        if (!tokensMatch(token, provided)) {
             sendJson(exchange, 403, new JSONObject()
                     .put("ok", false)
                     .put("error", "Invalid or missing web config token."));
@@ -249,21 +268,39 @@ public class WebConfigManager {
         }
 
         CompletableFuture<JSONObject> future = new CompletableFuture<>();
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            try {
-                future.complete(callable.call());
-            } catch (Exception ex) {
-                future.completeExceptionally(ex);
-            }
-        });
+        BukkitTask task;
+        try {
+            task = Bukkit.getScheduler().runTask(plugin, () -> {
+                if (future.isDone()) {
+                    return;
+                }
+                try {
+                    future.complete(callable.call());
+                } catch (Exception ex) {
+                    future.completeExceptionally(ex);
+                }
+            });
+        } catch (RuntimeException ex) {
+            return requestFailure(ex);
+        }
 
         try {
-            return future.join();
-        } catch (RuntimeException ex) {
-            plugin.getLogger().severe("Web config request failed: " + ex.getMessage());
+            return future.get(SYNC_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            future.cancel(false);
+            task.cancel();
             return new JSONObject()
                     .put("ok", false)
-                    .put("error", "Request failed: " + ex.getMessage());
+                    .put("error", "Request interrupted. Refresh the configuration before retrying.");
+        } catch (TimeoutException ex) {
+            future.cancel(false);
+            task.cancel();
+            return new JSONObject()
+                    .put("ok", false)
+                    .put("error", "Request timed out. Refresh the configuration to check whether it completed before retrying.");
+        } catch (ExecutionException ex) {
+            return requestFailure(ex.getCause());
         }
     }
 
@@ -271,11 +308,45 @@ public class WebConfigManager {
         try {
             return callable.call();
         } catch (Exception ex) {
-            plugin.getLogger().severe("Web config request failed: " + ex.getMessage());
-            return new JSONObject()
-                    .put("ok", false)
-                    .put("error", "Request failed: " + ex.getMessage());
+            return requestFailure(ex);
         }
+    }
+
+    private JSONObject requestFailure(Throwable failure) {
+        plugin.getLogger().severe("Web config request failed (" + failure.getClass().getSimpleName() + ").");
+        return new JSONObject()
+                .put("ok", false)
+                .put("error", "Request failed. Check the server console for the failure type.");
+    }
+
+    static byte[] readRequestBody(InputStream input) throws IOException {
+        byte[] body = input.readNBytes(MAX_REQUEST_BODY_BYTES + 1);
+        if (body.length > MAX_REQUEST_BODY_BYTES) {
+            throw new RequestBodyTooLargeException();
+        }
+        return body;
+    }
+
+    static boolean tokensMatch(String expected, String provided) {
+        return expected != null && !expected.isBlank() && provided != null
+                && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8));
+    }
+
+    static HttpHandler closedHandler(String exactPath, HttpHandler handler) {
+        return exchange -> {
+            try {
+                if (exactPath != null && !exactPath.equals(exchange.getRequestURI().getRawPath())) {
+                    exchange.sendResponseHeaders(404, -1);
+                    return;
+                }
+                handler.handle(exchange);
+            } finally {
+                exchange.close();
+            }
+        };
+    }
+
+    static final class RequestBodyTooLargeException extends IOException {
     }
 
     private void sendJson(HttpExchange exchange, JSONObject json) throws IOException {

@@ -614,27 +614,33 @@ public class GameListener implements Listener {
                     .orTimeout(plugin.getConfigManager().getPortalSearchTimeout(), java.util.concurrent.TimeUnit.SECONDS)
                     .exceptionally(ex -> null) // on timeout -> use fallback
                     .thenAccept(preciseExitLoc -> {
-                        if (portalSearchGeneration.get() != searchGeneration) {
+                        if (!plugin.isEnabled() || portalSearchGeneration.get() != searchGeneration) {
                             return;
                         }
-                        if (handled.compareAndSet(false, true)) {
-                            timeoutTask.cancel();
-                            Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
-                            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                        plugin.getServer().getScheduler().runTask(plugin, () -> {
+                            // Reset/stop can invalidate the search while this callback is queued.
+                            if (portalSearchGeneration.get() != searchGeneration) {
+                                return;
+                            }
+                            if (handled.compareAndSet(false, true)) {
+                                timeoutTask.cancel();
+                                Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
                                 plugin.getTraceLogger().trace("portal", "portal_search_completed",
                                         "player", event.getPlayer(),
                                         "precise_exit", preciseExitLoc,
                                         "final_location", finalLocation,
                                         "generation", searchGeneration);
                                 handlePortalLogic(event, finalLocation);
-                            });
-                        }
+                            }
+                        });
                     });
         } else {
             // Fallback to a synchronous (potentially laggy) method for Spigot/Bukkit.
             // Резервний синхронний (потенційно лагаючий) метод для Spigot/Bukkit.
             Location preciseExitLoc = findPortalBlockSync(to, TELEPORT_PORTAL_SEARCH_RADIUS);
             Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
+            handled.set(true);
+            timeoutTask.cancel();
             plugin.getTraceLogger().trace("portal", "portal_search_completed_sync",
                     "player", event.getPlayer(),
                     "precise_exit", preciseExitLoc,
@@ -784,15 +790,13 @@ public class GameListener implements Listener {
     }
 
     /**
-     * Asynchronously finds the nearest portal block using Paper's API.
-     * It first loads all necessary chunks in parallel, then scans them.
-     * |
-     * Асинхронно знаходить найближчий блок порталу за допомогою Paper API.
-     * Спочатку паралельно завантажує всі необхідні чанки, а потім сканує їх.
+     * Loads each required chunk once, captures its snapshot on Paper's main-thread
+     * completion callback, and scans only immutable snapshots off-thread.
+     * Must be called from the server thread.
      *
-     * @param centerLoc      Central location for search (from event.getTo()).
-     * @param searchRadius   Search radius in blocks.
-     * @return CompletableFuture with the location of the portal block or null if not found.
+     * @param centerLoc central search location from the portal event
+     * @param searchRadius search radius in blocks
+     * @return the first portal block in the existing traversal order, or null
      */
     public CompletableFuture<Location> findPortalBlockAsync(Location centerLoc, int searchRadius) {
         if (centerLoc == null || centerLoc.getWorld() == null) {
@@ -803,39 +807,65 @@ public class GameListener implements Listener {
         int centerX = centerLoc.getBlockX();
         int centerY = centerLoc.getBlockY();
         int centerZ = centerLoc.getBlockZ();
+        int minHeight = world.getMinHeight();
+        int maxHeight = world.getMaxHeight();
+        List<CompletableFuture<ChunkSnapshot>> snapshotFutures =
+                loadPortalChunkSnapshots(world, centerX, centerZ, searchRadius);
 
-        // Step 1: Collect futures for all unique chunks in the search radius.
-        // Крок 1: Збираємо ф'ючерси для всіх унікальних чанків у радіусі пошуку.
-        Set<CompletableFuture<Chunk>> chunkFutures = new HashSet<>();
-        for (int x = centerX - searchRadius; x <= centerX + searchRadius; x++) {
-            for (int z = centerZ - searchRadius; z <= centerZ + searchRadius; z++) {
-                chunkFutures.add(world.getChunkAtAsync(x >> 4, z >> 4));
-            }
-        }
-
-        // Step 2: When all chunks are loaded, proceed to scan them.
-        // Крок 2: Коли всі чанки завантажені, переходимо до їх сканування.
-        return CompletableFuture.allOf(chunkFutures.toArray(new CompletableFuture[0]))
-                .thenApplyAsync(v -> {
-                    // Step 3: Now that chunks are in memory, this scan is fast and safe.
-                    // Крок 3: Тепер, коли чанки в пам'яті, це сканування є швидким і безпечним.
-                    for (int x = -searchRadius; x <= searchRadius; x++) {
-                        for (int y = -searchRadius; y <= searchRadius; y++) {
-                            for (int z = -searchRadius; z <= searchRadius; z++) {
-                                int checkX = centerX + x;
-                                int checkY = centerY + y;
-                                int checkZ = centerZ + z;
-
-                                // The getBlockAt check will now be instantaneous, as the chunk is already in memory.
-                                if (world.getBlockAt(checkX, checkY, checkZ).getType() == Material.NETHER_PORTAL) {
-                                    return new Location(world, checkX, checkY, checkZ); // Found / знайдено.
-                                }
-                            }
-                        }
-                    }
-                    return null; // Not found / Не знайдено.
+        return CompletableFuture.allOf(snapshotFutures.toArray(new CompletableFuture<?>[0]))
+                .thenApplyAsync(ignored -> {
+                    List<ChunkSnapshot> snapshots = snapshotFutures.stream()
+                            .map(CompletableFuture::join)
+                            .toList();
+                    PortalBlockPosition found = findPortalBlockInSnapshots(snapshots,
+                            centerX, centerY, centerZ, searchRadius, minHeight, maxHeight);
+                    return found == null ? null : new Location(world, found.x(), found.y(), found.z());
                 });
     }
+
+    static List<CompletableFuture<ChunkSnapshot>> loadPortalChunkSnapshots(
+            World world, int centerX, int centerZ, int searchRadius) {
+        List<CompletableFuture<ChunkSnapshot>> snapshots = new ArrayList<>();
+        int minChunkX = (centerX - searchRadius) >> 4;
+        int maxChunkX = (centerX + searchRadius) >> 4;
+        int minChunkZ = (centerZ - searchRadius) >> 4;
+        int maxChunkZ = (centerZ + searchRadius) >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                // Paper completes this future on the server thread. Do not use thenApplyAsync here.
+                snapshots.add(world.getChunkAtAsync(chunkX, chunkZ)
+                        .thenApply(chunk -> chunk.getChunkSnapshot(false, false, false)));
+            }
+        }
+        return snapshots;
+    }
+
+    static PortalBlockPosition findPortalBlockInSnapshots(Collection<ChunkSnapshot> snapshots,
+            int centerX, int centerY, int centerZ, int searchRadius, int minHeight, int maxHeight) {
+        Map<Long, ChunkSnapshot> byChunk = new HashMap<>();
+        for (ChunkSnapshot snapshot : snapshots) {
+            byChunk.put(portalChunkKey(snapshot.getX(), snapshot.getZ()), snapshot);
+        }
+        int minY = Math.max(minHeight, centerY - searchRadius);
+        int maxY = Math.min(maxHeight - 1, centerY + searchRadius);
+        for (int x = centerX - searchRadius; x <= centerX + searchRadius; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = centerZ - searchRadius; z <= centerZ + searchRadius; z++) {
+                    ChunkSnapshot snapshot = byChunk.get(portalChunkKey(x >> 4, z >> 4));
+                    if (snapshot != null && snapshot.getBlockType(x & 15, y, z & 15) == Material.NETHER_PORTAL) {
+                        return new PortalBlockPosition(x, y, z);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static long portalChunkKey(int chunkX, int chunkZ) {
+        return ((long) chunkX << 32) | (chunkZ & 0xffffffffL);
+    }
+
+    record PortalBlockPosition(int x, int y, int z) { }
 
     private boolean isStainedGlass(Material material) {
         return material.name().endsWith("_STAINED_GLASS") ||

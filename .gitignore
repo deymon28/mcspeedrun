@@ -23,11 +23,22 @@
 hs_err_pid*
 replay_pid*
 
-/.idea/
+**/.idea/
 .gradle/
 build/
-gradle/
 speedrun/.gradle/
 speedrun/build/
-speedrun/gradle/
 mcserver/
+
+# Keep the reproducible build wrapper; exclude local tools and runtime data.
+!speedrun/gradle/wrapper/gradle-wrapper.jar
+.tooling/
+files_for_agent/
+.agents/
+.codex/
+AGENTS.md
+CLAUDE.md
+**/cloc.exe
+.env
+.env.*
+!.env.example

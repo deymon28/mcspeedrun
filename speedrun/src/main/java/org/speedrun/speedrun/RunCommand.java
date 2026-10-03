@@ -21,6 +21,7 @@ import org.speedrun.speedrun.utils.MessageUtil;
 import org.speedrun.speedrun.webconfig.RuntimeConfigApplier;
 
 import java.util.*;
+import java.util.function.BiFunction;
 
 /**
  * Handles the `/run` command and its subcommands.
@@ -32,13 +33,19 @@ import java.util.*;
 public class RunCommand implements CommandExecutor, TabCompleter {
 
     private final Speedrun plugin;
+    private final BiFunction<String, String[], String> messageProvider;
     // Temporary storage for player positions for the stronghold triangulation command.
     // Тимчасове сховище для позицій гравця для команди тріангуляції фортеці.
     private final Map<UUID, Location> playerPos1 = new HashMap<>();
     private final Map<UUID, Location> playerPos2 = new HashMap<>();
 
     public RunCommand(Speedrun plugin) {
+        this(plugin, (key, replacements) -> plugin.getConfigManager().getFormattedText(key, replacements));
+    }
+
+    RunCommand(Speedrun plugin, BiFunction<String, String[], String> messageProvider) {
         this.plugin = plugin;
+        this.messageProvider = Objects.requireNonNull(messageProvider);
     }
 
 
@@ -211,6 +218,10 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                     return handleGiveCompassCommand(player, args);
 
                 case "remove":
+                    if (!player.hasPermission("speedrun.admin")) {
+                        send(player, message("commands.no-permission"));
+                        return true;
+                    }
                     if (args.length < 2) {
                         send(player, message("commands.usage-remove"));
                         return true;
@@ -552,7 +563,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
     }
 
     private String message(String key, String... replacements) {
-        return plugin.getConfigManager().getFormattedText(key, replacements);
+        return messageProvider.apply(key, replacements);
     }
 
     private void send(CommandSender sender, String message) {
