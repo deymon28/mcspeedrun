@@ -6,46 +6,40 @@ import org.bukkit.configuration.ConfigurationSection;
 /**
  * Represents a single speedrun task.
  * A task can be to collect items or find a structure.
- * |
- * Представляє одне завдання спідрану.
- * Завданням може бути збір предметів або пошук структури.
  */
 public class Task {
 
     public enum Type {
-        /** A task to collect a certain amount of an item. / Завдання зібрати певну кількість предметів. */
+        /** A task to collect a certain amount of an item. */
         ITEM,
-        /** A task to find a specific structure. / Завдання знайти певну структуру. */
+        /** A task to find a specific structure. */
         STRUCTURE
     }
 
-    final String key; // The internal key, e.g., "DIAMOND" or "STRUCTURE_FORTRESS". / Внутрішній ключ, напр., "DIAMOND" або "STRUCTURE_FORTRESS".
+    final String key; // The internal key, e.g., "DIAMOND" or "STRUCTURE_FORTRESS".
     final Type taskType;
-    public String displayName; // The user-facing name, e.g., "Find a Fortress". / Ім'я, яке бачить користувач, напр., "Знайти фортецю".
-    final int baseRequiredAmount; // The required amount for a single player. / Необхідна кількість для одного гравця.
-    public int requiredAmount; // The scaled amount based on player count. / Масштабована кількість, що залежить від числа гравців.
+    public String displayName; // The user-facing name, e.g., "Find a Fortress".
+    final int baseRequiredAmount; // The required amount for a single player.
+    public int requiredAmount; // The scaled amount based on player count.
     public int progress = 0;
     public boolean completed = false;
     private long completedAtMillis = 0L;
-    final World.Environment world; // The world where this task is active. / Світ, у якому це завдання активне.
-    private final boolean srbpEnabled; // srbp = Scale Resources By Playercount. / srbp = Масштабувати Ресурси відносно кількості Гравців.
+    final World.Environment world; // The world where this task is active.
+    private final boolean srbpEnabled; // srbp = Scale Resources By Playercount.
 
     /**
      * Constructs a Task from a configuration section.
-     * |
-     * Створює Завдання з секції конфігурації.
      *
-     * @param key The unique key for the task. / Унікальний ключ завдання.
-     * @param cs The ConfigurationSection containing task details. / ConfigurationSection, що містить деталі завдання.
-     * @param world The world environment for this task. / Світ для цього завдання.
-     * @param plugin A reference to the main plugin instance. / Посилання на головний екземпляр плагіна.
+     * @param key The unique key for the task.
+     * @param cs The ConfigurationSection containing task details.
+     * @param world The world environment for this task.
+     * @param plugin A reference to the main plugin instance.
      */
     public Task(String key, ConfigurationSection cs, World.Environment world, Speedrun plugin) {
         this.key = key;
         this.world = world;
 
         // Load the display name from the language file first, with a fallback to the config.yml.
-        // Спочатку завантажуємо відображуване ім'я з мовного файлу, з резервним варіантом з config.yml.
         String langKey = "tasks." + key;
         String fallbackName = cs.getString("display-name", key);
         this.displayName = plugin.getConfigManager().getLangString(langKey, fallbackName);
@@ -59,7 +53,6 @@ public class Task {
         }
         this.requiredAmount = this.baseRequiredAmount;
         // Read the scaling flag from the config, defaulting to false if not specified.
-        // Читаємо прапорець масштабування з конфігу, за замовчуванням false, якщо не вказано.
         this.srbpEnabled = cs.getBoolean("srbp", false);
     }
 
@@ -76,12 +69,9 @@ public class Task {
     /**
      * Scales the required amount of items based on the number of players.
      * This only applies if the 'srbp' flag is true for this task in the config.
-     * |
-     * Масштабує необхідну кількість предметів залежно від кількості гравців.
-     * Це застосовується, тільки якщо прапорець 'srbp' встановлено в true для цього завдання в конфізі.
      *
-     * @param playerCount The current number of online players. / Поточна кількість гравців онлайн.
-     * @param multiplier The scaling factor from the config. / Коефіцієнт масштабування з конфігу.
+     * @param playerCount The current number of online players.
+     * @param multiplier The scaling factor from the config.
      */
     public void scale(int playerCount, double multiplier) {
         this.requiredAmount = calculateRequiredAmount(baseRequiredAmount, srbpEnabled, playerCount, multiplier);
@@ -96,10 +86,8 @@ public class Task {
 
     /**
      * Checks if the task's progress meets the required amount and marks it as complete if so.
-     * |
-     * Перевіряє, чи прогрес завдання досяг необхідної кількості, і, якщо так, позначає його як виконане.
      *
-     * @param plugin A reference to the main plugin instance to execute rewards. / Посилання на плагін для виконання винагород.
+     * @param plugin A reference to the main plugin instance to execute rewards.
      */
     public void updateCompletionStatus(Speedrun plugin) {
         if (completed) return;
@@ -112,22 +100,18 @@ public class Task {
     /**
      * Forcibly marks the task as complete, regardless of progress.
      * Triggers completion effects like logging and rewards.
-     * |
-     * Примусово позначає завдання як виконане, незалежно від прогресу.
-     * Спричиняє ефекти завершення, як-от логування та винагороди.
      *
-     * @param plugin A reference to the main plugin instance. / Посилання на головний екземпляр плагіна.
+     * @param plugin A reference to the main plugin instance.
      */
     public void forceComplete(Speedrun plugin) {
         if (completed) return;
 
         completed = true;
         completedAtMillis = System.currentTimeMillis();
-        progress = requiredAmount; // Cap progress at the required amount. / Обмежуємо прогрес необхідною кількістю.
+        progress = requiredAmount; // Cap progress at the required amount.
 
         plugin.getGameManager().getLogger().logCompletedTask(displayName, progress);
         // Pass null for the player if it's a general task completion.
-        // Передаємо null для гравця, якщо це загальне завершення завдання.
         plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
     }
 

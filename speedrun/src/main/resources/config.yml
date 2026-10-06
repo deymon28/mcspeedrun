@@ -1,107 +1,123 @@
 # ----------------------------------------------------------------
-# Speedrun Plugin Configuration
-# EN: Main configuration file for the Speedrun plugin
-# UA: Головний конфігураційний файл для плагіна Speedrun
+# Speedrun - main configuration
+#
+# You can edit this file directly or use the browser editor:
+#   /run webconfig   (administrators only, opens a private local link)
+#
+# After editing this file by hand, run /run reload or restart the server.
+# Full reference: docs/configuration.md in the project repository.
 # ----------------------------------------------------------------
 
+# Managed by the plugin. When a different plugin version starts, the
+# configuration is upgraded automatically: your values are kept, new settings
+# get their defaults, and a backup is written to config-backups/.
+# Do not edit these two values.
+config-version: 1
+plugin-version: "${version}"
+
 web-config:
-  # EN: Starts a local browser UI for editing this config. A one-run token is printed in the server console.
-  # UA: Starts a local browser UI for editing this config.
+  # Local browser editor for this file. Administrators get a private access link with /run webconfig.
   enabled: true
-  # EN: Keep this on 127.0.0.1 unless you intentionally expose the editor outside the server machine.
-  # UA: Keep this on 127.0.0.1 unless you intentionally expose the editor outside the server machine.
+  # Network address of the editor. Keep 127.0.0.1 unless you deliberately expose it outside this machine.
   bind: "127.0.0.1"
+  # TCP port of the editor (1024-65535).
   port: 8765
+  # Allow the editor to add reward entries that run console commands. Sound and particle
+  # rewards ("api:" entries) are always allowed. Console commands can still be added here by hand.
+  allow-console-reward-commands: false
 
 settings:
-  # EN: NORMAL or CASUAL/HARDCORE - all locations have coordinates from start (with landmarks). In Nether, gold blocks are highlighted (within radius from config)./
-  # UA: NORMAL або CASUAL/HARDCORE - всі локації зі старту мають координати (і мають орієнтири). В Незері підсвічуються золоті блоки (в радіусі з конфіга)./Або тільки таймер.
+  # NORMAL: timer, tasks, and location tracking.
+  # CASUAL: everything in NORMAL plus a navigation compass, waypoints, Nether gold highlighting, and tab coordinates.
+  # HARDCORE: only the timer; all assistance is disabled.
   gamemode: "NORMAL"
 
-  # EN: The language file to use from the 'lang' folder (e.g., 'en', 'uk').
-  # UA: Мовний файл для використання з папки 'lang' (наприклад, 'en', 'uk').
+  # Language of in-game messages: en, uk, de, es, fr, pt_BR, pl, zh_CN.
+  # Message files are in plugins/Speedrun/lang and can be customized.
   language: "en"
 
-  # EN: Timer will start automatically when the first player joins the server. If 'false', the timer starts from the moment the server is launched.
-  # UA: Таймер запуститься автоматично, коли перший гравець приєднається до сервера. При 'false' таймер іде з моменту запуску сервера.
+  # Start the timer when the first player joins. If false, the timer starts when the server starts.
   start-on-first-join: true
 
-  # EN: When start-on-first-join starts the run, also set loaded worlds to day time.
-  # UA: Коли start-on-first-join запускає забіг, також встановити день у завантажених світах.
+  # When the first player join starts a run, also set the Overworld time to morning.
   reset_time_on_join: true
 
-  # EN: The ability to reassign the coordinates of any location using the command '/run new LOC_NAME'. If 'False', only works for 'Nether portal'.
-  # UA: Можливість перепризначити координати будь-якої локації за допомогою команди '/run new LOC_NAME'. Якщо 'False', працює лише для 'Nether portal'.
+  # Pause the timer automatically while nobody is online and resume when a player returns.
+  # Runs paused manually with /run pause stay paused.
+  pause-when-empty: false
+
+  # Allow /run new <location> to move locations that were already found. If false, only empty locations can be set.
   allow-reassigning-locations: true
 
-  # EN: Time in seconds to find the village before the task is removed. 600 = 10 minutes.
-  # UA: Час у секундах для знаходження села перед видаленням завдання. 600 = 10 хвилин.
+  # Seconds to find a village before the village target is dropped. 600 = 10 minutes.
   village-search-timeout: 600
 
-  # EN: How to track player resources for tasks.
-  # UA: Як відстежувати ресурси гравця для завдань.
-  # INVENTORY: Only counts items currently in players' inventories.
-  # CUMULATIVE: Counts all items ever picked up or crafted by players during the run. (More demanding on the server)
-  # INVENTORY: Рахує лише предмети, які зараз знаходяться в інвентарі гравців.
-  # CUMULATIVE: Рахує всі предмети, які коли-небудь підбирались або крафтились гравцями під час забігу. (Більш вимогливо до сервера)
+  # How collected resources count towards tasks:
+  #   INVENTORY  - items currently in online players' inventories.
+  #   CUMULATIVE - every item picked up or crafted during the run, even if used later.
   task-tracking-mode: "INVENTORY"
 
-  # EN: Dynamically scale required resource amounts based on the number of players online.
-  # UA: Динамічне масштабування необхідної кількості ресурсів на основі кількості гравців онлайн.
+  # Scale required resource amounts with the number of online players (only tasks with srbp: true).
   scale-resources-by-playercount:
     enabled: true
-    # EN: Formula: base_amount * (1 + (player_count - 1) * multiplier)
-    # EN: A value of 0.5 means each additional player adds 50% of the base requirement.
-    # UA: Значення 0.5 означає, що кожен додатковий гравець додає 50% базової вимоги.
+    # Required amount = base * (1 + (players - 1) * multiplier). 0.5 adds 50% per extra player.
     multiplier: 0.5
 
-  # EN: Log details of each speedrun attempt to 'logs/speedrun-log'.
-  # UA: Записувати деталі кожної спроби спідрана в 'logs/speedrun-log'.
+  # Write a text and a JSON log for every attempt to plugins/Speedrun/logs.
   log-attempts: true
 
+  # Notify administrators on join about configuration upgrades and how to open the editor.
+  notify-admins-on-join: true
+
   chunk-biome-logging:
-    # EN: Logs each visited Overworld chunk once with its sampled biome for activity-map analysis.
-    # UA: Логує кожен відвіданий чанк Overworld один раз з біомом для аналізу карти активності.
+    # Log each visited Overworld chunk once with its biome (for activity maps in the JSON log).
     enabled: true
 
   coordinate-display:
-    # EN: UNIFIED shows linked Overworld/Nether coordinates together, SEPARATE adds the source world, CONDITIONAL changes by player dimension.
-    # UA: UNIFIED показує пов'язані координати Верхнього світу/Незеру разом, SEPARATE додає світ-джерело, CONDITIONAL змінює вигляд залежно від виміру гравця.
+    # How coordinates appear on the scoreboard:
+    #   UNIFIED     - always show the coordinates of the world where the location is.
+    #   SEPARATE    - only show locations of the world the player is in.
+    #   CONDITIONAL - convert Overworld/Nether coordinates to the player's current world.
     mode: "CONDITIONAL"
 
-  # EN: Settings for the automatic structure scanner
-  # UA: Налаштування для автоматичного сканера структур
+  scoreboard:
+    # Hide the red numbers on the right side of the sidebar (Paper only; ignored elsewhere).
+    hide-score-numbers: true
+
+  # Automatic detection of locations around players.
   proximity-scanner:
     lava-pool:
-      # EN: Radius in blocks to scan for lava pools
-      # UA: Радіус у блоках для сканування лавових озер
+      # Horizontal radius in blocks to look for lava pools around each player.
       radius: 16
-      # EN: Minimum number of lava source blocks required to consider it a valid lava pool
-      # UA: Мінімальна кількість джерельних блоків лави, необхідних для розгляду як валідне лавове озеро
+      # Lava source blocks needed to count as a pool.
       required-source-blocks: 12
     village:
-      # EN: Radius in blocks to scan for village structures
-      # UA: Радіус у блоках для сканування структур села
+      # Radius in blocks to look for village bells around each player.
       radius: 32
     nether-portal:
-      # EN: Radius to check if player is near an existing nether portal
-      # UA: Радіус для перевірки, чи знаходиться гравець поблизу існуючого незерського порталу
+      # Radius in blocks around a lit block or portal entry to find the portal frame.
       check-radius: 4
-      # EN: Radius for precise search of the Nezer portal
-      # UA: Радіус для точного пошуку Незер порталу
+      # Radius in blocks to find the exact exit portal after a player travels through a portal (maximum 160).
       search-radius: 90
 
-    # EN:
-    # UA: Час пошуку точних координат порталу для серверів Paper, після якого буде використано приблизні координати(потрібно для виключення ситуації з непрогрузкою чанків, через що координати не знаходились)
+    # Seconds to wait for the exact exit portal search before the approximate arrival point is used.
     portal-search-timeout: 15
 
 # ----------------------------------------------------------------
-# Tracking and logging options
+# Personal bests and splits
+# ----------------------------------------------------------------
+records:
+  # Remember the best completion time and the best time for each stage in records.yml.
+  enabled: true
+  # Announce the time and the difference to the best split whenever a stage is completed.
+  announce-splits: true
+
+# ----------------------------------------------------------------
+# Tracking and logging
 # ----------------------------------------------------------------
 tracking:
   player-blocks:
-    # EN: Logs player block coordinates on movement for future map/video playback analysis. Can produce large JSON logs.
-    # UA: Логує блокові координати гравця під час руху для майбутнього аналізу карти/відеоповтору. Може створювати великі JSON-логи.
+    # Log block coordinates of every player movement for replay/map analysis. Produces large JSON logs.
     enabled: false
 
 # ----------------------------------------------------------------
@@ -109,46 +125,47 @@ tracking:
 # ----------------------------------------------------------------
 diagnostics:
   trace:
-    # EN: Writes detailed JSONL diagnostics to plugins/Speedrun/traces. Enable when reproducing bugs.
-    # UA: Записує детальну JSONL-діагностику у plugins/Speedrun/traces. Вмикайте під час відтворення багів.
+    # Write detailed JSONL diagnostics to plugins/Speedrun/traces. Enable while reproducing a bug.
     enabled: false
-    # EN: Also mirror trace events to the normal server console/log.
-    # UA: Також дублювати trace-події у звичайну консоль/лог сервера.
+    # Also print trace events to the server console.
     mirror-to-console: false
-    # EN: ALL, or selected categories: diagnostics, lifecycle, compass, lodestone, scanner, structure, portal.
-    # UA: ALL або окремі категорії: diagnostics, lifecycle, compass, lodestone, scanner, structure, portal.
+    # ALL, or a list of: diagnostics, lifecycle, compass, lodestone, scanner, structure, portal.
     categories: ["ALL"]
 
 # ----------------------------------------------------------------
-# CASUAL MODE SETTINGS
+# CASUAL mode
 # ----------------------------------------------------------------
 casual:
+  # Master switch for CASUAL features when settings.gamemode is CASUAL.
   enabled: true
   start-pre-scan:
-    # EN: Enables controlled discovery when a Casual run starts. Locate API calls are used only by LOCATE mode.
-    # UA: Вмикає контрольований пошук на старті Casual-забігу. API locate використовується лише в режимі LOCATE.
+    # Search for structures in the background when a CASUAL run starts.
     enabled: false
-    # EN: SAFE scans only already loaded chunks. BALANCED/AGGRESSIVE add a bounded Paper async chunk queue. LOCATE uses bounded Bukkit/Paper locate API calls plus loaded-chunk fallback.
-    # UA: SAFE сканує лише вже завантажені чанки. BALANCED/AGGRESSIVE додають обмежену Paper async-чергу чанків. LOCATE використовує обмежені Bukkit/Paper locate API виклики плюс fallback по завантажених чанках.
+    # SAFE       - only chunks that are already loaded.
+    # BALANCED   - also loads a limited number of missing chunks (async on Paper).
+    # AGGRESSIVE - larger chunk budget, also scans the Nether.
+    # LOCATE     - uses the server's structure locate function in small steps.
     mode: "BALANCED"
+    # Maximum distance in blocks from spawn/players for background scanning.
     radius: 1000
+    # Radius in chunks around each player that is scanned when chunks are already loaded.
     loaded-chunk-radius: 10
+    # Also look for lava pools during the pre-scan.
     include-lava-pool: true
+    # Allow BALANCED/AGGRESSIVE to load missing chunks on servers without asynchronous chunk
+    # loading (Spigot/CraftBukkit). Loads are limited to one chunk per tick but may still cost TPS.
+    allow-sync-chunk-loading: false
     lava-pool-vertical-scan:
-      # EN: Blocks below the player origin to scan for start pre-scan lava pools.
-      # UA: Кількість блоків нижче позиції гравця для пошуку лавових озер під час start pre-scan.
+      # Blocks below the scan origin to look for lava pools.
       below-player: 12
-      # EN: Blocks above the player origin to scan for start pre-scan lava pools.
-      # UA: Кількість блоків вище позиції гравця для пошуку лавових озер під час start pre-scan.
+      # Blocks above the scan origin to look for lava pools.
       above-player: 32
     safety:
-      # EN: Hard caps applied even if a profile is configured higher, protecting the server from accidental massive chunk generation.
-      # UA: Жорсткі ліміти застосовуються навіть якщо профіль налаштований вище, захищаючи сервер від випадкової масової генерації чанків.
+      # Hard limits applied on top of every profile to protect the server from mass chunk generation.
       max-chunks-per-run: 8
       max-queued-chunks: 5000
     locate:
-      # EN: LOCATE mode only. Radius is in API search units/chunks; calls are synchronous, so keep calls-per-run low.
-      # UA: Тільки режим LOCATE. Радіус у API одиницях/чанках пошуку; виклики синхронні, тому calls-per-run має бути малим.
+      # LOCATE mode only. Search radius in chunks. Each call runs on the server thread, so keep calls-per-run low.
       radius-chunks: 96
       period-ticks: 20
       calls-per-run: 1
@@ -157,6 +174,7 @@ casual:
         village: true
         stronghold: true
         nether-structures: true
+    # Budgets for each mode. chunks-per-run chunks are processed every period-ticks.
     profiles:
       SAFE:
         chunks-per-run: 0
@@ -191,87 +209,71 @@ casual:
         scan-players: false
         include-nether: false
   compass:
-    # EN: Shows the old test-only Nether Reference destination. Disabled by default because it is not tied to actual run state.
-    # UA: Показує старий тестовий пункт Nether Reference. Вимкнено за замовчуванням, бо він не прив'язаний до реального стану забігу.
+    # Show the legacy fixed "Nether Reference" destination (not linked to the run).
     show-nether-reference: false
     death-location:
-      # EN: Adds the player's own last death location to their compass menu.
-      # UA: Додає власну останню точку смерті гравця у його меню компаса.
+      # Add each player's last death point to their own compass menu.
       enabled: true
-  # EN: Optional waypoints for navigating the world (no nether, no end).
-  # UA: Опціональні орієнтири для навігації світом (без незеру, без енду).
+  # Light beams above found Overworld locations.
   structure_waypoints:
-    # EN: Enable or disable structure waypoints in casual mode
-    # UA: Увімкнути або вимкнути орієнтири структур у казуальному режимі
     enabled: true
-    # EN: END_GATEWAY is the default compact beam marker. BEACON remains available as an alternate marker type.
-    # UA: END_GATEWAY є стандартним компактним маркером з променем. BEACON лишається доступним альтернативним типом маркера.
+    # END_GATEWAY: compact beam. BEACON: classic beacon beam.
     type: "END_GATEWAY"
-    # EN: Horizontal offset from the detected structure, so the marker does not overwrite important blocks.
-    # UA: Горизонтальний відступ від знайденої структури, щоб маркер не перезаписував важливі блоки.
+    # Horizontal distance from the location so the marker does not replace important blocks.
     offset-blocks: 10
-    # EN: How often waypoint positions are refreshed.
-    # UA: Як часто оновлюються позиції вейпоінтів.
+    # Seconds between waypoint refreshes.
     update-interval-seconds: 10
 
+  # Show each player's own coordinates at the top of the tab list.
   player-tab-coordinates: true
 
   nether_gold_highlight:
-    # EN: Highlight gold blocks around players while they are in the Nether.
-    # UA: Підсвічувати золоті блоки навколо гравців, коли вони в Незері.
+    # Make gold blocks glow around players in the Nether and inside found bastions.
     enabled: true
+    # Radius in blocks around each player in the Nether.
     radius: 24
 
 # ----------------------------------------------------------------
-# Task Progression
-# EN: Define the stages and the tasks within each stage.
-# EN: The plugin will progress from one stage to the next as all tasks are completed.
-# UA: Визначити етапи та завдання в кожному етапі.
-# UA: Плагін буде переходити з одного етапу до наступного, коли всі завдання виконані.
+# Task progression
+# Stages are completed in order (sorted by their key). When all tasks of a
+# stage are done, the next stage starts.
+#   world: NORMAL, NETHER, or THE_END - where the stage's tasks are shown.
+#   tasks: <MATERIAL or STRUCTURE_<LOCATION>>: { amount, display-name, srbp }
+#     srbp: scale the amount by player count (see settings.scale-resources-by-playercount).
+#   Special keys: OAK_LOG counts every log/wood type, BREAD counts every cooked food.
+#   Structure keys: STRUCTURE_VILLAGE, STRUCTURE_LAVA_POOL, STRUCTURE_NETHER_PORTAL,
+#     STRUCTURE_FORTRESS, STRUCTURE_BASTION, STRUCTURE_END_PORTAL.
 # ----------------------------------------------------------------
 progression:
   settings:
-    # EN: ACTIVE_STAGE shows only the current stage. ALL_STAGES shows all tasks for the player's current world. ALL_GAME_STAGES groups all tasks by world on the scoreboard.
-    # UA: ACTIVE_STAGE показує лише поточний етап. ALL_STAGES показує всі завдання для поточного світу гравця. ALL_GAME_STAGES групує всі завдання за світами на скорборді.
+    # ACTIVE_STAGE: only the current stage. ALL_STAGES: all tasks of the player's world.
+    # ALL_GAME_STAGES: all tasks grouped by world.
     task-display-mode: "ALL_GAME_STAGES"
     completed-task-hide:
-      # EN: If enabled, completed tasks disappear from task displays after timeout-seconds.
-      # UA: Якщо увімкнено, завершені завдання зникають з відображення після timeout-seconds.
+      # Hide completed tasks after timeout-seconds.
       enabled: true
       timeout-seconds: 10
 
-  # EN: Stage 1: Basic setup - Initial resource gathering phase
-  # UA: Етап 1: Базова підготовка - фаза початкового збору ресурсів
   1_GETTING_STARTED:
     display-name: "Getting Started"
-    # EN: Tasks are displayed when the player is in this world.
-    # UA: Завдання відображаються, коли гравець знаходиться в цьому світі.
     world: "NORMAL"
     tasks:
-      # EN: Use any log type as the key; the plugin aggregates all wood types. OAK_LOG is recommended.
-      # UA: Використовуйте будь-який тип колоди як ключ; плагін агрегує всі типи деревини. OAK_LOG рекомендується.
-      OAK_LOG: { amount: 16, display-name: "Wood", srbp: true}
-      COBBLESTONE: { amount: 16, display-name: "Cobblestone", srbp: true}
+      OAK_LOG: { amount: 16, display-name: "Wood", srbp: true }
+      COBBLESTONE: { amount: 16, display-name: "Cobblestone", srbp: true }
 
-  # EN: Stage 2: Advancing to Iron Age - Tool and equipment upgrade phase
-  # UA: Етап 2: Перехід до Залізного віку - фаза покращення інструментів та обладнання
   2_IRON_AGE:
     display-name: "Iron Age"
     world: "NORMAL"
     tasks:
-      IRON_INGOT: { amount: 7, display-name: "Iron Ingots", srbp: false}
-      # EN: Use BREAD as a key for all cooked foods. The plugin will aggregate them.
-      # UA: Використовуйте BREAD як ключ для всіх приготованих продуктів. Плагін агрегує їх.
-      BREAD: { amount: 16, display-name: "Cooked Food", srbp: true}
+      IRON_INGOT: { amount: 7, display-name: "Iron Ingots", srbp: false }
+      BREAD: { amount: 16, display-name: "Cooked Food", srbp: true }
 
-  # EN: Stage 3: Nether Exploration - Preparation for End dimension
-  # UA: Етап 3: Дослідження Незеру - підготовка до виміру Енду
   3_NETHER_EXPLORATION:
     display-name: "Nether Preparation"
     world: "NETHER"
     tasks:
-      ENDER_PEARL: { amount: 16, display-name: "Ender Pearls", srbp: false}
-      BLAZE_ROD: { amount: 8, display-name: "Blaze Rods", srbp: false}
+      ENDER_PEARL: { amount: 16, display-name: "Ender Pearls", srbp: false }
+      BLAZE_ROD: { amount: 8, display-name: "Blaze Rods", srbp: false }
 
   4_NETHER_STRUCTURES:
     display-name: "Nether Structures"
@@ -284,27 +286,22 @@ progression:
     tasks: {}
 
 # ----------------------------------------------------------------
-# Optional cosmetic rewards for completing tasks or stages.
+# Rewards for completed tasks and stages
+#   "api:sound <sound> [volume] [pitch]"
+#   "api:particle <particle> [count] [offsetX] [offsetY] [offsetZ] [speed]"
+#   Any other line is run as a console command; %player% is replaced with each player's name.
 # ----------------------------------------------------------------
 rewards:
-  # EN: Reward system configuration for visual and audio feedback
-  # UA: Конфігурація системи винагород для візуального та звукового зворотнього зв'язку
-  # EN: Set to true to enable rewards
-  # UA: Встановити true для увімкнення винагород
   enabled: true
 
-  # EN: Command to run from the console when a single task is completed.
-  # UA: Команда для виконання з консолі, коли окреме завдання виконано.
   on-task-complete:
-    - "api:sound minecraft:entity.player.levelup 1.0 1.5"  # EN: Level up sound effect / UA: Звуковий ефект підвищення рівня
-    - "api:sound minecraft:item.totem.use 1.0 1.0"         # EN: Totem use sound effect / UA: Звуковий ефект використання тотема
-    - "api:particle minecraft:totem_of_undying 30 0.5 0.5 0.5 0"  # EN: Totem particles / UA: Частки тотема
-    - "api:particle minecraft:heart 10 0.2 0.2 0.2 0.1"   # EN: Heart particles / UA: Частки сердець
+    - "api:sound minecraft:entity.player.levelup 1.0 1.5"
+    - "api:sound minecraft:item.totem.use 1.0 1.0"
+    - "api:particle minecraft:totem_of_undying 30 0.5 0.5 0.5 0"
+    - "api:particle minecraft:heart 10 0.2 0.2 0.2 0.1"
 
-  # EN: Commands to run when an entire stage is completed
-  # UA: Команди для виконання, коли весь етап завершено
   on-stage-complete:
-    - "api:sound minecraft:block.end_portal.spawn 1.0 1.0"     # EN: End portal spawn sound / UA: Звук появи енд порталу
-    - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"       # EN: Spark particles / UA: Частки іскор
-    - "api:particle minecraft:flash 1 0 0 0 0"                 # EN: Flash particle / UA: Частка спалаху
-    - "api:particle minecraft:explosion_emitter 1 0 0 0 0"     # EN: Explosion emitter particle / UA: Частка вибуху
+    - "api:sound minecraft:block.end_portal.spawn 1.0 1.0"
+    - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"
+    - "api:particle minecraft:flash 1 0 0 0 0"
+    - "api:particle minecraft:explosion_emitter 1 0 0 0 0"

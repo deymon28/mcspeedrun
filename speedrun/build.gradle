@@ -5,42 +5,94 @@ plugins {
 }
 
 group = 'org.speedrun'
-version = '26.1.2-3.5.4-BETA'
+version = '26.3-4.0.0-BETA'
 
-def targetMinecraftVersion = '26.1.2'
-def paperApiVersion = '26.1.2.build.69-stable'
+// Minecraft release the plugin is built and tested against.
+def targetMinecraftVersion = '26.3'
+// Oldest server API generation accepted by plugin.yml (Bukkit api-version).
+def minimumApiVersion = '26.1'
+def spigotApiVersion = '26.3-R0.1-SNAPSHOT'
+def paperApiVersion = '26.3.build.157-beta'
+def adventureVersion = '5.2.0'
 
 repositories {
     mavenCentral()
     maven {
+        name = "spigot-snapshots"
+        url = "https://hub.spigotmc.org/nexus/repository/snapshots/"
+    }
+    maven {
         name = "papermc-repo"
         url = "https://repo.papermc.io/repository/maven-public/"
     }
-    maven {
-        name = "sonatype"
-        url = "https://oss.sonatype.org/content/groups/public/"
+}
+
+// Paper-only adapter code. It is compiled against the Paper API, bundled unrelocated,
+// and loaded reflectively only after Paper has been detected at runtime.
+sourceSets {
+    paper {
+        java.srcDir('src/paper/java')
+        compileClasspath += sourceSets.main.output
     }
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:${paperApiVersion}")
+    // The common code targets the Bukkit/Spigot API so it loads on CraftBukkit, Spigot, and Paper.
+    compileOnly("org.spigotmc:spigot-api:${spigotApiVersion}")
+    compileOnly("org.jetbrains:annotations:26.0.2")
+
     implementation("org.json:json:20260719")
+    // Adventure is shaded and relocated so MiniMessage formatting works on servers without native Adventure.
+    implementation("net.kyori:adventure-api:${adventureVersion}")
+    implementation("net.kyori:adventure-text-minimessage:${adventureVersion}")
+    implementation("net.kyori:adventure-text-serializer-legacy:${adventureVersion}")
+
+    paperCompileOnly("io.papermc.paper:paper-api:${paperApiVersion}")
 
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("io.papermc.paper:paper-api:${paperApiVersion}")
+    testImplementation("org.spigotmc:spigot-api:${spigotApiVersion}")
+    testCompileOnly("org.jetbrains:annotations:26.0.2")
+}
+
+jar {
+    archiveClassifier.set('plain')
 }
 
 shadowJar {
     archiveBaseName.set('speedrun')
+    archiveClassifier.set('shaded')
+    archiveVersion.set(version)
+    relocate('net.kyori', 'org.speedrun.speedrun.libs.kyori')
+    relocate('org.json', 'org.speedrun.speedrun.libs.json')
+    relocate('org.jspecify', 'org.speedrun.speedrun.libs.jspecify')
+    exclude('META-INF/maven/**')
+    exclude('META-INF/versions/*/module-info.class')
+    exclude('module-info.class')
+}
+
+// Final plugin jar: relocated common code plus the unrelocated Paper adapter.
+def pluginJar = tasks.register('pluginJar', Jar) {
+    group = 'build'
+    description = 'Assembles the distributable plugin jar.'
+    dependsOn(tasks.named('shadowJar'), tasks.named('paperClasses'))
+    archiveBaseName.set('speedrun')
     archiveClassifier.set('')
     archiveVersion.set(version)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(zipTree(tasks.named('shadowJar').flatMap { it.archiveFile }))
+    from(sourceSets.paper.output)
+}
+
+tasks.named('assemble') {
+    dependsOn(pluginJar)
 }
 
 tasks {
     runServer {
         minecraftVersion(targetMinecraftVersion)
+        pluginJars.setFrom(pluginJar.flatMap { it.archiveFile })
     }
 }
 
@@ -56,10 +108,7 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        options.release.set(targetJavaVersion)
-    }
+    options.release.set(targetJavaVersion)
 }
 
 tasks.withType(Test).configureEach {
@@ -69,11 +118,11 @@ tasks.withType(Test).configureEach {
 processResources {
     def props = [
             version: version,
-            minecraftVersion: targetMinecraftVersion
+            apiVersion: minimumApiVersion
     ]
     inputs.properties props
     filteringCharset 'UTF-8'
-    filesMatching('plugin.yml') {
+    filesMatching(['plugin.yml', 'config.yml']) {
         expand props
     }
 }

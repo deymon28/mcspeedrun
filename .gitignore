@@ -30,15 +30,8 @@ speedrun/.gradle/
 speedrun/build/
 mcserver/
 
-# Keep the reproducible build wrapper; exclude local tools and runtime data.
+# Keep the reproducible build wrapper; exclude runtime data.
 !speedrun/gradle/wrapper/gradle-wrapper.jar
-.tooling/
-files_for_agent/
-.agents/
-.codex/
-AGENTS.md
-CLAUDE.md
-**/cloc.exe
 .env
 .env.*
 !.env.example

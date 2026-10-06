@@ -86,21 +86,33 @@ public class ScoreboardManager {
 
     @NotNull
     private Objective createObjective(@NotNull Scoreboard board) {
-        // Use non-deprecated method if available
-        try {
-            // Try modern method first
-            return board.registerNewObjective(
-                    "speedrun",
-                    Criteria.DUMMY,
-                    net.kyori.adventure.text.Component.text("Speedrun"),
-                    RenderType.INTEGER
-            );
-        } catch (NoSuchMethodError e) {
+        Objective objective = board.registerNewObjective("speedrun", Criteria.DUMMY, getTitle(), RenderType.INTEGER);
+        applyNumberFormat(objective);
+        return objective;
+    }
 
-            return board.registerNewObjective("speedrun", "dummy", getTitle());
-            // Fallback to legacy method
-            //return board.registerNewObjective("speedrun", "dummy", getTitle());
+    private void applyNumberFormat(Objective objective) {
+        if (plugin.getPlatform() != null) {
+            plugin.getPlatform().setScoreNumbersHidden(objective, plugin.getConfigManager().isScoreNumbersHidden());
         }
+    }
+
+    /** Re-applies display options after a configuration change. */
+    public void applyDisplayOptions() {
+        for (Scoreboard board : playerBoards.values()) {
+            Objective objective = board.getObjective("speedrun");
+            if (objective != null) {
+                applyNumberFormat(objective);
+            }
+        }
+        lastTitles.clear();
+    }
+
+    /** Forgets a player's board when they leave. */
+    public void removePlayer(UUID playerId) {
+        playerBoards.remove(playerId);
+        lastLines.remove(playerId);
+        lastTitles.remove(playerId);
     }
 
     @NotNull

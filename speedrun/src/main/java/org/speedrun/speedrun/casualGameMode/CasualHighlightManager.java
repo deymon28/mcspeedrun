@@ -1,155 +1,182 @@
 package org.speedrun.speedrun.casualGameMode;
 
-import org.speedrun.speedrun.Speedrun;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.entity.EntityType;
+import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Shulker;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.BoundingBox;
-import org.bukkit.metadata.FixedMetadataValue;
-import org.speedrun.speedrun.utils.PaperCheckUtil;
-// No need for these specific imports if not using Paper's SearchResult methods
-// import org.bukkit.generator.structure.Structure;
-// import org.bukkit.generator.structure.StructureType;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
+import org.speedrun.speedrun.Speedrun;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Casual-mode gold block highlighting in bastions and around players in the Nether.
+ *
+ * <p>Every few seconds the manager captures snapshots of the loaded chunks inside the active
+ * areas on the server thread, searches them for gold blocks on a worker thread, and then
+ * spawns or removes glowing block displays on the server thread. Block displays have no
+ * hitbox, so highlighted blocks can still be mined and nothing blocks movement. Displays
+ * are non-persistent, so they are never saved with the world.</p>
+ */
 public class CasualHighlightManager implements Listener {
+    private static final Material HIGHLIGHT_MATERIAL = Material.GOLD_BLOCK;
+    private static final double HEURISTIC_BASTION_SIZE_RADIUS = 32.0;
+    private static final long UPDATE_INTERVAL_TICKS = 20 * 3;
+    /** Upper bound for simultaneous highlight entities, protecting clients in gold-heavy areas. */
+    private static final int MAX_HIGHLIGHTS = 256;
+    private static final String HIGHLIGHT_METADATA_KEY = "SPEEDRUN_HIGHLIGHT_ENTITY";
+    private static final Color GLOW_COLOR = Color.fromRGB(255, 196, 0);
 
     private final Speedrun plugin;
-    private BukkitTask highlightUpdateTask;
-
-    // Map to store spawned glowing entities (Shulkers)
-    // Key: Location of the gold block, Value: UUID of the spawned shulker
-    private final Map<Location, UUID> glowingEntities = new ConcurrentHashMap<>();
-
-    // Store known bastion heuristic bounding boxes
-    // Key: Bastion's central location from detection, Value: The estimated BoundingBox
-    private final Map<Location, BoundingBox> knownBastionBoundingBoxes = new ConcurrentHashMap<>();
-
-    private final Set<Material> HIGHLIGHT_MATERIALS = Collections.singleton(Material.GOLD_BLOCK);
+    private final Map<BlockKey, UUID> glowingEntities = new HashMap<>();
+    private final Map<Location, BoundingBox> knownBastionBoundingBoxes = new HashMap<>();
     private final AtomicBoolean scanInProgress = new AtomicBoolean(false);
-
-    // Define a heuristic size for bastion bounding boxes (e.g., 64x64x64 blocks)
-    // This is a cube of side length 64, centered around the detected bastion location.
-    private static final double HEURISTIC_BASTION_SIZE_RADIUS = 32.0; // Half of 64, for BoundingBox.of(center, radiusX, radiusY, radiusZ)
-
-    private static final long UPDATE_INTERVAL_TICKS = 20 * 3; // Update every 3 seconds
-    private static final String HIGHLIGHT_METADATA_KEY = "SPEEDRUN_HIGHLIGHT_ENTITY";
+    private BukkitTask highlightUpdateTask;
+    private long scanGeneration;
 
     public CasualHighlightManager(Speedrun plugin) {
         this.plugin = plugin;
-        Bukkit.getPluginManager().registerEvents(this, plugin); // Register self as listener
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     /**
-     * Call this when a Bastion Remnant is detected (e.g., from your StructureFoundEvent).
-     * This will create and store a heuristic bounding box for the bastion.
-     *
-     * @param bastionCenter The center location of the found bastion.
-     * @param world The world the bastion is in.
+     * Registers a detected Bastion Remnant with a heuristic bounding box around its location
+     * and triggers an immediate scan.
      */
     public void addDetectedBastion(Location bastionCenter, World world) {
-        if (!knownBastionBoundingBoxes.containsKey(bastionCenter)) {
-            // Create a heuristic bounding box around the detected center.
-            // BoundingBox.of(center, sizeX, sizeY, sizeZ) creates a box with given size around center.
-            // Or BoundingBox.of(loc1, loc2) for min/max corners.
-            // Using BoundingBox.of(center, radiusX, radiusY, radiusZ) is good for centered boxes.
-            BoundingBox heuristicBox = BoundingBox.of(bastionCenter, HEURISTIC_BASTION_SIZE_RADIUS, HEURISTIC_BASTION_SIZE_RADIUS, HEURISTIC_BASTION_SIZE_RADIUS);
-
-            knownBastionBoundingBoxes.put(bastionCenter, heuristicBox);
-            plugin.getLogger().info("Registered Bastion Remnant (heuristic box) at " + bastionCenter.toVector() + " with estimated bounding box: " + heuristicBox);
-
-            // Trigger an immediate scan for this new bastion's gold blocks
-            // This is run on the main thread because updateHighlighting involves Bukkit API calls
-            Bukkit.getScheduler().runTask(plugin, this::updateHighlighting);
-        }
-    }
-
-
-    /**
-     * Starts the periodic task to update highlighting for known bastions.
-     */
-    public void startHighlightingUpdateTask() {
-        if (highlightUpdateTask != null && !highlightUpdateTask.isCancelled()) {
-            plugin.getLogger().warning("Highlight update task already running.");
+        if (bastionCenter == null || world == null || knownBastionBoundingBoxes.containsKey(bastionCenter)) {
             return;
         }
+        BoundingBox heuristicBox = BoundingBox.of(bastionCenter,
+                HEURISTIC_BASTION_SIZE_RADIUS, HEURISTIC_BASTION_SIZE_RADIUS, HEURISTIC_BASTION_SIZE_RADIUS);
+        knownBastionBoundingBoxes.put(bastionCenter.clone(), heuristicBox);
+        plugin.getTraceLogger().trace("structure", "bastion_highlight_area_registered",
+                "center", bastionCenter, "box", heuristicBox.toString());
+        Bukkit.getScheduler().runTask(plugin, this::updateHighlighting);
+    }
 
-        plugin.getLogger().info("Starting casual highlight update task.");
-
-        highlightUpdateTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                updateHighlighting();
-            }
-        }.runTaskTimer(plugin, 0L, UPDATE_INTERVAL_TICKS); // Start immediately, repeat every interval
+    /** Starts the periodic highlight refresh. */
+    public void startHighlightingUpdateTask() {
+        if (highlightUpdateTask != null && !highlightUpdateTask.isCancelled()) {
+            return;
+        }
+        highlightUpdateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateHighlighting, 0L, UPDATE_INTERVAL_TICKS);
     }
 
     private void updateHighlighting() {
-        if (PaperCheckUtil.IsPaper()) {
-            updateHighlightingAsync();
+        if (!scanInProgress.compareAndSet(false, true)) {
             return;
         }
 
-        updateHighlightingSync();
-    }
+        List<ScanArea> areas = new ArrayList<>();
+        Map<UUID, Map<Long, ChunkSnapshot>> snapshotsByWorld = new HashMap<>();
 
-    private void updateHighlightingSync() {
-        // This set will contain all gold block locations that *should* be glowing in this tick
-        Set<Location> goldBlocksToHighlightThisTick = new HashSet<>();
-
-        // Iterate through all known bastions
         for (Map.Entry<Location, BoundingBox> entry : knownBastionBoundingBoxes.entrySet()) {
-            Location bastionCenter = entry.getKey();
-            BoundingBox heuristicBastionBox = entry.getValue();
-            World world = bastionCenter.getWorld();
+            World world = entry.getKey().getWorld();
+            BoundingBox box = entry.getValue();
+            if (world != null && isAnyPlayerInside(world, box)) {
+                addArea(world, box, areas, snapshotsByWorld);
+            }
+        }
 
-            if (world == null) continue; // Skip if world is no longer loaded
-
-            // Check if any player is near this bastion's heuristic box
-            boolean playerNearOrInBastion = false;
+        if (plugin.getConfigManager().isNetherGoldHighlightEnabled()) {
+            int radius = plugin.getConfigManager().getNetherGoldHighlightRadius();
             for (Player player : Bukkit.getOnlinePlayers()) {
-                // Check if player's location is within the heuristic bounding box
-                if (heuristicBastionBox.contains(player.getLocation().toVector())) {
-                    playerNearOrInBastion = true;
-                    break; // Found a player, no need to check other players for this bastion
+                if (player.getWorld().getEnvironment() == World.Environment.NETHER) {
+                    addArea(player.getWorld(), BoundingBox.of(player.getLocation(), radius, radius, radius),
+                            areas, snapshotsByWorld);
                 }
             }
+        }
 
-            // Only process this bastion if a player is nearby and its main chunk is loaded
-            // Checking one chunk is a simplification; a full check would be needed for larger boxes.
-            if (playerNearOrInBastion && world.isChunkLoaded((int)heuristicBastionBox.getMinX() >> 4, (int)heuristicBastionBox.getMinZ() >> 4)) {
-                // Iterate blocks within the heuristic bounding box
-                for (int x = (int) heuristicBastionBox.getMinX(); x <= (int) heuristicBastionBox.getMaxX(); x++) {
-                    for (int y = (int) heuristicBastionBox.getMinY(); y <= (int) heuristicBastionBox.getMaxY(); y++) {
-                        for (int z = (int) heuristicBastionBox.getMinZ(); z <= (int) heuristicBastionBox.getMaxZ(); z++) {
-                            Location blockLoc = new Location(world, x, y, z);
-                            Block block = blockLoc.getBlock();
-                            if (HIGHLIGHT_MATERIALS.contains(block.getType())) {
-                                goldBlocksToHighlightThisTick.add(blockLoc);
-                                if (!glowingEntities.containsKey(blockLoc)) {
-                                    // If not already glowing, spawn a shulker
-                                    spawnGlowingEntity(blockLoc);
+        if (areas.isEmpty()) {
+            applyHighlightedGoldBlocks(Set.of());
+            scanInProgress.set(false);
+            return;
+        }
+
+        long generation = scanGeneration;
+        plugin.getPlatform().compute(() -> scanSnapshotsForGold(areas, snapshotsByWorld))
+                .whenComplete((found, error) -> {
+                    scanInProgress.set(false);
+                    if (error != null || found == null) {
+                        return;
+                    }
+                    plugin.getPlatform().executeSync(() -> {
+                        if (generation == scanGeneration && highlightUpdateTask != null) {
+                            applyHighlightedGoldBlocks(found);
+                        }
+                    });
+                });
+    }
+
+    private void addArea(World world, BoundingBox box, List<ScanArea> areas,
+                         Map<UUID, Map<Long, ChunkSnapshot>> snapshotsByWorld) {
+        int minY = Math.max(world.getMinHeight(), (int) Math.floor(box.getMinY()));
+        int maxY = Math.min(world.getMaxHeight() - 1, (int) Math.floor(box.getMaxY()));
+        areas.add(new ScanArea(world.getUID(), (int) Math.floor(box.getMinX()), minY, (int) Math.floor(box.getMinZ()),
+                (int) Math.floor(box.getMaxX()), maxY, (int) Math.floor(box.getMaxZ())));
+
+        Map<Long, ChunkSnapshot> snapshots = snapshotsByWorld.computeIfAbsent(world.getUID(), ignored -> new HashMap<>());
+        int minChunkX = ((int) Math.floor(box.getMinX())) >> 4;
+        int maxChunkX = ((int) Math.floor(box.getMaxX())) >> 4;
+        int minChunkZ = ((int) Math.floor(box.getMinZ())) >> 4;
+        int maxChunkZ = ((int) Math.floor(box.getMaxZ())) >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                long key = chunkKey(chunkX, chunkZ);
+                if (!snapshots.containsKey(key) && world.isChunkLoaded(chunkX, chunkZ)) {
+                    snapshots.put(key, world.getChunkAt(chunkX, chunkZ).getChunkSnapshot(false, false, false));
+                }
+            }
+        }
+    }
+
+    /** Worker-thread search over immutable snapshots. */
+    static Set<BlockKey> scanSnapshotsForGold(List<ScanArea> areas, Map<UUID, Map<Long, ChunkSnapshot>> snapshotsByWorld) {
+        Set<BlockKey> result = new HashSet<>();
+        for (ScanArea area : areas) {
+            Map<Long, ChunkSnapshot> snapshots = snapshotsByWorld.getOrDefault(area.world(), Map.of());
+            for (int chunkX = area.minX() >> 4; chunkX <= area.maxX() >> 4; chunkX++) {
+                for (int chunkZ = area.minZ() >> 4; chunkZ <= area.maxZ() >> 4; chunkZ++) {
+                    ChunkSnapshot snapshot = snapshots.get(chunkKey(chunkX, chunkZ));
+                    if (snapshot == null) {
+                        continue;
+                    }
+                    int minX = Math.max(area.minX(), chunkX << 4);
+                    int maxX = Math.min(area.maxX(), (chunkX << 4) + 15);
+                    int minZ = Math.max(area.minZ(), chunkZ << 4);
+                    int maxZ = Math.min(area.maxZ(), (chunkZ << 4) + 15);
+                    for (int x = minX; x <= maxX; x++) {
+                        for (int z = minZ; z <= maxZ; z++) {
+                            for (int y = area.minY(); y <= area.maxY(); y++) {
+                                if (snapshot.getBlockType(x & 15, y, z & 15) == HIGHLIGHT_MATERIAL) {
+                                    result.add(new BlockKey(area.world(), x, y, z));
+                                    if (result.size() >= MAX_HIGHLIGHTS) {
+                                        return result;
+                                    }
                                 }
                             }
                         }
@@ -157,184 +184,11 @@ public class CasualHighlightManager implements Listener {
                 }
             }
         }
-
-        if (plugin.getConfigManager().isNetherGoldHighlightEnabled()) {
-            addPlayerRelativeNetherGoldBlocks(goldBlocksToHighlightThisTick);
-        }
-
-        // Clean up entities for gold blocks that should no longer be highlighted
-        // This handles blocks that are broken, or if a player moves away from a bastion
-        // and it's no longer being actively scanned this tick.
-        glowingEntities.entrySet().removeIf(entry -> {
-            Location loc = entry.getKey();
-            UUID entityId = entry.getValue();
-            org.bukkit.entity.Entity entity = Bukkit.getEntity(entityId);
-
-            // If the block is not in the set of blocks that should be highlighted this tick,
-            // or its type changed, or the entity disappeared, remove it.
-            if (!goldBlocksToHighlightThisTick.contains(loc) || loc.getBlock().getType() != Material.GOLD_BLOCK || entity == null) {
-                if (entity != null) {
-                    entity.remove();
-                    plugin.getLogger().fine("Removed glowing entity at " + loc.toVector() + " (block broken or no longer in active bastion scan).");
-                }
-                return true; // Remove from map
-            }
-            return false; // Keep this one
-        });
-    }
-
-    private void updateHighlightingAsync() {
-        if (!scanInProgress.compareAndSet(false, true)) {
-            return;
-        }
-
-        Map<World, Set<ChunkSnapshot>> snapshotsByWorld = new ConcurrentHashMap<>();
-        Map<Location, BoundingBox> activeBoxes = new ConcurrentHashMap<>();
-
-        for (Map.Entry<Location, BoundingBox> entry : knownBastionBoundingBoxes.entrySet()) {
-            Location bastionCenter = entry.getKey();
-            BoundingBox heuristicBastionBox = entry.getValue();
-            World world = bastionCenter.getWorld();
-
-            if (world == null || !isAnyPlayerInside(heuristicBastionBox)) {
-                continue;
-            }
-
-            activeBoxes.put(bastionCenter, heuristicBastionBox);
-            int minChunkX = ((int) Math.floor(heuristicBastionBox.getMinX())) >> 4;
-            int maxChunkX = ((int) Math.floor(heuristicBastionBox.getMaxX())) >> 4;
-            int minChunkZ = ((int) Math.floor(heuristicBastionBox.getMinZ())) >> 4;
-            int maxChunkZ = ((int) Math.floor(heuristicBastionBox.getMaxZ())) >> 4;
-
-            Set<ChunkSnapshot> snapshots = snapshotsByWorld.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
-            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-                for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                    if (!world.isChunkLoaded(chunkX, chunkZ)) {
-                        continue;
-                    }
-                    Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-                    snapshots.add(chunk.getChunkSnapshot(false, false, false));
-                }
-            }
-        }
-
-        if (plugin.getConfigManager().isNetherGoldHighlightEnabled()) {
-            int radius = plugin.getConfigManager().getNetherGoldHighlightRadius();
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getWorld().getEnvironment() != World.Environment.NETHER) {
-                    continue;
-                }
-
-                Location playerLocation = player.getLocation();
-                BoundingBox playerBox = BoundingBox.of(playerLocation, radius, radius, radius);
-                activeBoxes.put(playerLocation.clone(), playerBox);
-                collectLoadedChunkSnapshots(player.getWorld(), playerBox, snapshotsByWorld);
-            }
-        }
-
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                Set<Location> foundGoldBlocks = scanSnapshotsForGold(activeBoxes, snapshotsByWorld);
-                Bukkit.getScheduler().runTask(plugin, () -> applyHighlightedGoldBlocks(foundGoldBlocks));
-            } finally {
-                scanInProgress.set(false);
-            }
-        });
-    }
-
-    private Set<Location> scanSnapshotsForGold(Map<Location, BoundingBox> activeBoxes, Map<World, Set<ChunkSnapshot>> snapshotsByWorld) {
-        Set<Location> result = new HashSet<>();
-
-        for (Map.Entry<Location, BoundingBox> boxEntry : activeBoxes.entrySet()) {
-            World world = boxEntry.getKey().getWorld();
-            BoundingBox box = boxEntry.getValue();
-            if (world == null) {
-                continue;
-            }
-
-            Set<ChunkSnapshot> snapshots = snapshotsByWorld.getOrDefault(world, Collections.emptySet());
-            int minY = Math.max(world.getMinHeight(), (int) Math.floor(box.getMinY()));
-            int maxY = Math.min(world.getMaxHeight() - 1, (int) Math.floor(box.getMaxY()));
-
-            for (ChunkSnapshot snapshot : snapshots) {
-                int baseX = snapshot.getX() << 4;
-                int baseZ = snapshot.getZ() << 4;
-                int minX = Math.max((int) Math.floor(box.getMinX()), baseX);
-                int maxX = Math.min((int) Math.floor(box.getMaxX()), baseX + 15);
-                int minZ = Math.max((int) Math.floor(box.getMinZ()), baseZ);
-                int maxZ = Math.min((int) Math.floor(box.getMaxZ()), baseZ + 15);
-
-                for (int x = minX; x <= maxX; x++) {
-                    for (int y = minY; y <= maxY; y++) {
-                        for (int z = minZ; z <= maxZ; z++) {
-                            if (HIGHLIGHT_MATERIALS.contains(snapshot.getBlockType(x & 15, y, z & 15))) {
-                                result.add(new Location(world, x, y, z));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         return result;
     }
 
-    private void collectLoadedChunkSnapshots(World world, BoundingBox box, Map<World, Set<ChunkSnapshot>> snapshotsByWorld) {
-        int minChunkX = ((int) Math.floor(box.getMinX())) >> 4;
-        int maxChunkX = ((int) Math.floor(box.getMaxX())) >> 4;
-        int minChunkZ = ((int) Math.floor(box.getMinZ())) >> 4;
-        int maxChunkZ = ((int) Math.floor(box.getMaxZ())) >> 4;
-
-        Set<ChunkSnapshot> snapshots = snapshotsByWorld.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                if (!world.isChunkLoaded(chunkX, chunkZ)) {
-                    continue;
-                }
-                Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-                snapshots.add(chunk.getChunkSnapshot(false, false, false));
-            }
-        }
-    }
-
-    private void addPlayerRelativeNetherGoldBlocks(Set<Location> goldBlocksToHighlightThisTick) {
-        int radius = plugin.getConfigManager().getNetherGoldHighlightRadius();
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getWorld().getEnvironment() != World.Environment.NETHER) {
-                continue;
-            }
-
-            Location center = player.getLocation();
-            World world = center.getWorld();
-            if (world == null) {
-                continue;
-            }
-
-            int minY = Math.max(world.getMinHeight(), center.getBlockY() - radius);
-            int maxY = Math.min(world.getMaxHeight() - 1, center.getBlockY() + radius);
-
-            for (int x = center.getBlockX() - radius; x <= center.getBlockX() + radius; x++) {
-                for (int y = minY; y <= maxY; y++) {
-                    for (int z = center.getBlockZ() - radius; z <= center.getBlockZ() + radius; z++) {
-                        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
-                            continue;
-                        }
-                        Location blockLoc = new Location(world, x, y, z);
-                        if (HIGHLIGHT_MATERIALS.contains(blockLoc.getBlock().getType())) {
-                            goldBlocksToHighlightThisTick.add(blockLoc);
-                            if (!glowingEntities.containsKey(blockLoc)) {
-                                spawnGlowingEntity(blockLoc);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private boolean isAnyPlayerInside(BoundingBox box) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
+    private boolean isAnyPlayerInside(World world, BoundingBox box) {
+        for (Player player : world.getPlayers()) {
             if (box.contains(player.getLocation().toVector())) {
                 return true;
             }
@@ -342,108 +196,114 @@ public class CasualHighlightManager implements Listener {
         return false;
     }
 
-    private void applyHighlightedGoldBlocks(Set<Location> goldBlocksToHighlightThisTick) {
-        for (Location blockLoc : goldBlocksToHighlightThisTick) {
-            if (!glowingEntities.containsKey(blockLoc) && blockLoc.getBlock().getType() == Material.GOLD_BLOCK) {
-                spawnGlowingEntity(blockLoc);
-            }
-        }
-
-        glowingEntities.entrySet().removeIf(entry -> {
-            Location loc = entry.getKey();
-            UUID entityId = entry.getValue();
-            org.bukkit.entity.Entity entity = Bukkit.getEntity(entityId);
-
-            if (!goldBlocksToHighlightThisTick.contains(loc) || loc.getBlock().getType() != Material.GOLD_BLOCK || entity == null) {
+    private void applyHighlightedGoldBlocks(Set<BlockKey> wanted) {
+        Iterator<Map.Entry<BlockKey, UUID>> iterator = glowingEntities.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<BlockKey, UUID> entry = iterator.next();
+            Entity entity = Bukkit.getEntity(entry.getValue());
+            Block block = entry.getKey().block();
+            if (entity == null || block == null || !wanted.contains(entry.getKey()) || block.getType() != HIGHLIGHT_MATERIAL) {
                 if (entity != null) {
                     entity.remove();
-                    plugin.getLogger().fine("Removed glowing entity at " + loc.toVector() + " (block broken or no longer in active bastion scan).");
                 }
-                return true;
+                iterator.remove();
             }
-            return false;
-        });
+        }
+
+        for (BlockKey key : wanted) {
+            if (glowingEntities.size() >= MAX_HIGHLIGHTS) {
+                break;
+            }
+            if (!glowingEntities.containsKey(key)) {
+                Block block = key.block();
+                if (block != null && block.getType() == HIGHLIGHT_MATERIAL) {
+                    spawnGlowingEntity(key, block);
+                }
+            }
+        }
     }
 
-    /**
-     * Spawns an invisible Shulker with the glowing effect at the given location.
-     */
-    private void spawnGlowingEntity(Location loc) {
-        World world = loc.getWorld();
-        // Check if the world is valid and the chunk where the block is located is loaded
-        if (world == null || !world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
-            plugin.getLogger().warning("Cannot spawn glowing entity: world is null or chunk not loaded for location: " + loc);
+    private void spawnGlowingEntity(BlockKey key, Block block) {
+        World world = block.getWorld();
+        if (!world.isChunkLoaded(block.getX() >> 4, block.getZ() >> 4)) {
             return;
         }
-
-        Location spawnLoc = loc.clone().add(0.5, 0, 0.5); // Center the shulker within the block
-
         try {
-            Shulker shulker = (Shulker) world.spawnEntity(spawnLoc, EntityType.SHULKER);
-            shulker.setSilent(true);
-            shulker.setAI(false);
-            shulker.setGravity(false);
-            shulker.setInvulnerable(true);
-            shulker.setAware(false);
-            shulker.setPersistent(false);
-            shulker.setNoDamageTicks(Integer.MAX_VALUE);
-            shulker.setCollidable(false);
-            shulker.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
-            shulker.setInvisible(true);
-            shulker.setMetadata(HIGHLIGHT_METADATA_KEY, new FixedMetadataValue(plugin, true));
-
-            glowingEntities.put(loc, shulker.getUniqueId());
-            plugin.getLogger().fine("Spawned glowing Shulker at " + loc.toVector() + " for block highlighting.");
-        } catch (Exception e) {
-            plugin.getLogger().severe("Failed to spawn Shulker at " + loc.toVector() + ": " + e.getMessage());
+            BlockDisplay display = world.spawn(block.getLocation(), BlockDisplay.class, entity -> {
+                entity.setBlock(HIGHLIGHT_MATERIAL.createBlockData());
+                entity.setPersistent(false);
+                entity.setGlowing(true);
+                entity.setGlowColorOverride(GLOW_COLOR);
+                entity.setInvulnerable(true);
+                entity.setSilent(true);
+                entity.setGravity(false);
+                // Slightly larger than the block to avoid z-fighting with its faces.
+                entity.setTransformation(new Transformation(
+                        new Vector3f(-0.002f, -0.002f, -0.002f), new AxisAngle4f(),
+                        new Vector3f(1.004f, 1.004f, 1.004f), new AxisAngle4f()));
+                entity.setMetadata(HIGHLIGHT_METADATA_KEY, new FixedMetadataValue(plugin, true));
+            });
+            glowingEntities.put(key, display.getUniqueId());
+        } catch (RuntimeException failure) {
+            plugin.getLogger().warning("Failed to spawn a gold highlight at " + block.getX() + " " + block.getY() + " "
+                    + block.getZ() + ": " + failure.getClass().getSimpleName());
         }
     }
 
-    /**
-     * Stops the highlighting task and removes all spawned glowing entities.
-     */
+    /** Stops the refresh task and removes all highlight entities and known bastion areas. */
     public void stopHighlightingTask() {
         if (highlightUpdateTask != null) {
             highlightUpdateTask.cancel();
             highlightUpdateTask = null;
-            plugin.getLogger().info("Stopped casual highlight update task.");
         }
-
-        // Remove all active shulkers
-        glowingEntities.values().forEach(uuid -> {
-            org.bukkit.entity.Entity entity = Bukkit.getEntity(uuid);
+        scanGeneration++;
+        for (UUID uuid : glowingEntities.values()) {
+            Entity entity = Bukkit.getEntity(uuid);
             if (entity != null) {
                 entity.remove();
             }
-        });
+        }
         glowingEntities.clear();
-        knownBastionBoundingBoxes.clear(); // Clear known bastions on disable
-        plugin.getLogger().info("Removed all temporary glowing entities and cleared known bastions.");
+        knownBastionBoundingBoxes.clear();
     }
-    public void reset() {
-        // First, stop the current task and clear data
-        stopHighlightingTask();
 
-        // Then, immediately restart the task
+    public void reset() {
+        stopHighlightingTask();
         startHighlightingUpdateTask();
-        plugin.getLogger().info("CasualHighlightManager reset complete: data cleared and task restarted.");
     }
-    /**
-     * Listens for block breaks to remove highlighting when gold blocks are mined.
-     */
-    @EventHandler
+
+    /** Removes the highlight immediately when a highlighted gold block is mined. */
+    @EventHandler(ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Block brokenBlock = event.getBlock();
-        if (HIGHLIGHT_MATERIALS.contains(brokenBlock.getType())) {
-            Location loc = brokenBlock.getLocation();
-            UUID entityId = glowingEntities.remove(loc); // Remove from map
-            if (entityId != null) {
-                org.bukkit.entity.Entity entity = Bukkit.getEntity(entityId);
-                if (entity != null) {
-                    entity.remove(); // Remove the shulker
-                    plugin.getLogger().fine("Removed glowing entity for broken gold block at " + loc.toVector());
-                }
+        if (brokenBlock.getType() != HIGHLIGHT_MATERIAL) {
+            return;
+        }
+        UUID entityId = glowingEntities.remove(BlockKey.of(brokenBlock));
+        if (entityId != null) {
+            Entity entity = Bukkit.getEntity(entityId);
+            if (entity != null) {
+                entity.remove();
             }
+        }
+    }
+
+    private static long chunkKey(int chunkX, int chunkZ) {
+        return ((long) chunkX << 32) | (chunkZ & 0xffffffffL);
+    }
+
+    record ScanArea(UUID world, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+    }
+
+    record BlockKey(UUID world, int x, int y, int z) {
+        static BlockKey of(Block block) {
+            return new BlockKey(block.getWorld().getUID(), block.getX(), block.getY(), block.getZ());
+        }
+
+        /** The live block, or null when its world or chunk is not loaded (never loads chunks). */
+        Block block() {
+            World loaded = Bukkit.getWorld(world);
+            return loaded == null || !loaded.isChunkLoaded(x >> 4, z >> 4) ? null : loaded.getBlockAt(x, y, z);
         }
     }
 }

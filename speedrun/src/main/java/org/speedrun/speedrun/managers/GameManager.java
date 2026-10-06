@@ -3,7 +3,9 @@ package org.speedrun.speedrun.managers;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -22,9 +24,6 @@ import java.util.stream.Collectors;
 /**
  * Manages the core game state of the speedrun.
  * This includes the main timer, game status (running, paused), and proximity scanners for structures.
- * |
- * Керує основним ігровим станом спідрану.
- * Це включає головний таймер, статус гри (триває, на паузі) та сканери для пошуку структур поблизу.
  */
 public class GameManager {
 
@@ -34,23 +33,20 @@ public class GameManager {
     private CompassListener compassListener;
 
     // Game state fields
-    // Поля стану гри
     private long totalSeconds = 0;
     private boolean isRunning = false;
     private boolean isPaused = false;
-    private boolean dragonKilledEnd = false; // True if the run ended by killing the dragon. / True, якщо гра завершилась вбивством дракона.
+    private boolean dragonKilledEnd = false; // True if the run ended by killing the dragon.
+    private boolean autoPaused = false; // True while settings.pause-when-empty paused the timer.
 
     // Task schedulers
-    // Планувальники завдань
     private BukkitTask mainTimerTask;
     private BukkitTask proximityScannerTask;
 
     // Specific task timers
-    // Таймери для конкретних завдань
     public long villageTimeElapsed = 0;
 
     // Event counters for logging
-    // Лічильники подій для логування
     private final Map<String, Integer> counters = new HashMap<>();
 
     public GameManager(Speedrun plugin) {
@@ -59,7 +55,6 @@ public class GameManager {
         this.casualModeStructureManager = new CasualModeStructureManager(plugin);
 
         // If not configured to wait for the first player, start the run immediately.
-        // Якщо не налаштовано очікування першого гравця, починаємо гру негайно.
         if (!plugin.getConfigManager().isStartOnFirstJoin()) {
             startRun();
         }
@@ -68,9 +63,6 @@ public class GameManager {
     /**
      * Starts a new speedrun session.
      * Resets all timers and states, reloads tasks, and starts the main timer and scanners.
-     * |
-     * Починає нову сесію спідрану.
-     * Скидає всі таймери та стани, перезавантажує завдання та запускає головний таймер і сканери.
      */
     public void startRun() {
         if (isRunning) return;
@@ -83,7 +75,11 @@ public class GameManager {
         totalSeconds = 0;
         villageTimeElapsed = 0;
         dragonKilledEnd = false;
+        autoPaused = false;
         counters.clear();
+        if (plugin.getRecordsManager() != null) {
+            plugin.getRecordsManager().startRun();
+        }
 
         if (plugin.getConfigManager().isLogAttemptsEnabled()) {
             logger.start();
@@ -112,14 +108,15 @@ public class GameManager {
     /**
      * Forcibly resets the current run.
      * Called by an admin command.
-     * |
-     * Примусово скидає поточний спідран.
-     * Викликається командою адміністратора.
      */
     public void resetRun() {
         logger.info("Speedrun is being reset by an admin.");
         plugin.getTraceLogger().trace("lifecycle", "run_reset_requested");
-        stopRun(false); // Stop without triggering a win condition. / Зупинка без спрацювання умови перемоги.
+        stopRun(false); // Stop without triggering a win condition.
+        if (plugin.getPlatform() != null) {
+            // Drop chunk loads and worker results that belong to the previous run.
+            plugin.getPlatform().invalidatePendingWork();
+        }
         if (plugin.getGameListener() != null) {
             plugin.getGameListener().resetRuntimeCaches();
         }
@@ -132,10 +129,8 @@ public class GameManager {
 
     /**
      * Stops the current speedrun.
-     * |
-     * Зупиняє поточний спідран.
      *
-     * @param dragonKilled True if the run ended because the Ender Dragon was killed. / True, якщо гра завершилась через вбивство Дракона Краю.
+     * @param dragonKilled True if the run ended because the Ender Dragon was killed.
      */
     public void stopRun(boolean dragonKilled) {
         if (!isRunning && !dragonKilled) return;
@@ -145,7 +140,6 @@ public class GameManager {
                 "running", isRunning);
 
         // Cancel all scheduled tasks.
-        // Скасування всіх запланованих завдань.
         if (mainTimerTask != null) {
             mainTimerTask.cancel();
             mainTimerTask = null;
@@ -164,12 +158,14 @@ public class GameManager {
         String finalTime = getFormattedTime();
 
         if (dragonKilled) {
-            isPaused = true; // Pause to freeze the timer on the final time. / Ставимо на паузу, щоб зафіксувати фінальний час.
+            isPaused = true; // Pause to freeze the timer on the final time.
             dragonKilledEnd = true;
             MessageUtil.broadcast(plugin.getConfigManager().getFormatted("messages.dragon-slain"));
             MessageUtil.broadcast(plugin.getConfigManager().getFormatted("messages.final-time", "%time%", finalTime));
+            if (plugin.getRecordsManager() != null && isRunning) {
+                plugin.getRecordsManager().onRunCompleted(totalSeconds);
+            }
             // Update scoreboards one last time to show the final state.
-            // Оновлюємо скорборди востаннє, щоб показати фінальний стан.
             Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
         }
 
@@ -187,13 +183,11 @@ public class GameManager {
     /**
      * Toggles the pause state of the game timer.
      * While paused, the main timer does not increment.
-     * |
-     * Перемикає стан паузи ігрового таймера.
-     * Під час паузи головний таймер не збільшується.
      */
     public void togglePause() {
         if (!isRunning || dragonKilledEnd) return;
         isPaused = !isPaused;
+        autoPaused = false;
         MessageUtil.broadcast(plugin.getConfigManager().getFormatted(
                 isPaused ? "commands.timer-paused" : "commands.timer-resumed"));
         logger.info("Timer " + (isPaused ? "paused." : "resumed."));
@@ -202,9 +196,6 @@ public class GameManager {
     /**
      * Starts the main timer task, which runs every second (20 ticks).
      * It increments the total time and updates tasks and scoreboards.
-     * |
-     * Запускає завдання головного таймера, яке виконується щосекунди (20 тіків).
-     * Воно збільшує загальний час та оновлює завдання і скорборди.
      */
     private void startTimer() {
         if (mainTimerTask != null) mainTimerTask.cancel();
@@ -224,7 +215,6 @@ public class GameManager {
                 }
                 if (!plugin.getConfigManager().isHardcoreModeEnabled()) {
                     // These updates need to run even when paused to reflect progress.
-                    // Ці оновлення мають працювати навіть на паузі, щоб відображати прогрес.
                     plugin.getTaskManager().updateItemTasks();
                     plugin.getStructureManager().checkVillageTimeout();
                 }
@@ -236,9 +226,6 @@ public class GameManager {
     /**
      * Starts the proximity scanner task.
      * This task periodically checks the surroundings of each player for specific structures like villages or lava pools.
-     * |
-     * Запускає завдання сканера близькості.
-     * Це завдання періодично перевіряє оточення кожного гравця на наявність структур, як-от села чи озера лави.
      */
     private void startProximityScanner() {
         if (proximityScannerTask != null) proximityScannerTask.cancel();
@@ -263,13 +250,9 @@ public class GameManager {
                     if (needsLava) findNearbyLavaPool(player);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 60L); // Runs every 3 seconds (60 ticks), starts after 5 seconds. / Працює кожні 3 сек, починається через 5 сек.
+        }.runTaskTimer(plugin, 100L, 60L); // Runs every 3 seconds (60 ticks), starts after 5 seconds.
     }
 
-    /**
-     * Scans for a village bell near the player to detect a village.
-     * Сканує наявність дзвона біля гравця для виявлення села.
-     */
     /**
      * Re-evaluates scanner tasks after a live config change.
      */
@@ -292,54 +275,78 @@ public class GameManager {
 
     private void findNearbyBell(Player player) {
         // Already found?  Stop scanning.
-        if (plugin.getStructureManager().getFoundStructures().containsKey("VILLAGE")
-                && plugin.getStructureManager().getFoundStructures().get("VILLAGE") != null
+        if (plugin.getStructureManager().getFoundStructures().get("VILLAGE") != null
                 && !plugin.getStructureManager().isApproximateStructure("VILLAGE")) {
             return;
         }
-        scanForBlock(player, plugin.getConfigManager().getVillageBellRadius(), Material.BELL, "VILLAGE");
+        Location bell = findBellNear(player.getLocation(), plugin.getConfigManager().getVillageBellRadius());
+        if (bell != null) {
+            plugin.getStructureManager().structureFound(player, "VILLAGE", bell);
+        }
     }
 
     /**
-     * Scans for a significant number of lava source blocks to detect a lava pool.
-     * Сканує наявність значної кількості джерел лави для виявлення лавового озера.
+     * Finds a bell inside the cube of the given radius around a location. Bells are block
+     * entities, so only the block-entity lists of the loaded chunks in range are inspected
+     * instead of every block in the cube.
      */
-    private void findNearbyLavaPool(Player player) {
-        final int radius = plugin.getConfigManager().getLavaPoolRadius();
-        final int requiredSources = plugin.getConfigManager().getLavaPoolRequiredSources();
-        int lavaCount = 0;
-        Location playerLoc = player.getLocation();
-
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -4; y <= 4; y++) { // Scan a limited vertical range. / Скануємо обмежений вертикальний діапазон.
-                for (int z = -radius; z <= radius; z++) {
-                    Block block = playerLoc.clone().add(x, y, z).getBlock();
-                    // Check for lava source blocks (level 0).
-                    // Перевірка на блоки-джерела лави (рівень 0).
-                    if (block.getType() == Material.LAVA && block.getBlockData() instanceof Levelled level && level.getLevel() == 0) {
-                        if (++lavaCount >= requiredSources) {
-                            plugin.getStructureManager().structureFound(player, "LAVA_POOL", block.getLocation());
-                            return; // Found, no need to continue scanning. / Знайдено, не потрібно продовжувати.
-                        }
+    static Location findBellNear(Location center, int radius) {
+        World world = center.getWorld();
+        if (world == null) {
+            return null;
+        }
+        int centerX = center.getBlockX();
+        int centerY = center.getBlockY();
+        int centerZ = center.getBlockZ();
+        for (int chunkX = (centerX - radius) >> 4; chunkX <= (centerX + radius) >> 4; chunkX++) {
+            for (int chunkZ = (centerZ - radius) >> 4; chunkZ <= (centerZ + radius) >> 4; chunkZ++) {
+                if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                    continue;
+                }
+                for (BlockState state : world.getChunkAt(chunkX, chunkZ).getTileEntities()) {
+                    if (state.getType() == Material.BELL
+                            && Math.abs(state.getX() - centerX) <= radius
+                            && Math.abs(state.getY() - centerY) <= radius
+                            && Math.abs(state.getZ() - centerZ) <= radius) {
+                        return state.getLocation();
                     }
                 }
             }
         }
+        return null;
     }
 
     /**
-     * A generic method to scan for a specific block material in a radius around a player.
-     * Загальний метод для сканування певного матеріалу блоку в радіусі навколо гравця.
+     * Scans for a significant number of lava source blocks to detect a lava pool.
+     * Only loaded chunks are read, so the scanner never loads terrain.
      */
-    private void scanForBlock(Player player, int radius, Material material, String structureKey) {
+    private void findNearbyLavaPool(Player player) {
+        final int radius = plugin.getConfigManager().getLavaPoolRadius();
+        final int requiredSources = plugin.getConfigManager().getLavaPoolRequiredSources();
         Location playerLoc = player.getLocation();
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    Block block = playerLoc.clone().add(x, y, z).getBlock();
-                    if (block.getType() == material) {
-                        plugin.getStructureManager().structureFound(player, structureKey, block.getLocation());
-                        return;
+        World world = playerLoc.getWorld();
+        if (world == null) {
+            return;
+        }
+        int centerX = playerLoc.getBlockX();
+        int centerY = playerLoc.getBlockY();
+        int centerZ = playerLoc.getBlockZ();
+        int minY = Math.max(world.getMinHeight(), centerY - 4);
+        int maxY = Math.min(world.getMaxHeight() - 1, centerY + 4);
+        int lavaCount = 0;
+
+        for (int x = centerX - radius; x <= centerX + radius; x++) {
+            for (int z = centerZ - radius; z <= centerZ + radius; z++) {
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                    continue;
+                }
+                for (int y = minY; y <= maxY; y++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (block.getType() == Material.LAVA && block.getBlockData() instanceof Levelled level && level.getLevel() == 0) {
+                        if (++lavaCount >= requiredSources) {
+                            plugin.getStructureManager().structureFound(player, "LAVA_POOL", block.getLocation());
+                            return;
+                        }
                     }
                 }
             }
@@ -350,13 +357,47 @@ public class GameManager {
     // Getters and State Checks
     // =========================================================================================
 
-    /** @return The speedrun logger instance. / Екземпляр логера спідрану. */
+    /**
+     * Applies settings.pause-when-empty after a player left. Must run after the quitting
+     * player is no longer counted as online (one tick after the quit event).
+     */
+    public void handleServerEmptyCheck() {
+        if (!plugin.getConfigManager().isPauseWhenEmptyEnabled() || !isRunning || isPaused || dragonKilledEnd) {
+            return;
+        }
+        if (Bukkit.getOnlinePlayers().isEmpty()) {
+            isPaused = true;
+            autoPaused = true;
+            logger.info("Timer paused automatically: no players online.");
+        }
+    }
+
+    /** Resumes a run that was paused only because the server was empty. */
+    public void handlePlayerReturn() {
+        if (autoPaused && isRunning && isPaused) {
+            isPaused = false;
+            autoPaused = false;
+            MessageUtil.broadcast(plugin.getConfigManager().getFormatted("commands.timer-resumed"));
+            logger.info("Timer resumed automatically: a player joined.");
+        }
+    }
+
+    public boolean isAutoPaused() {
+        return autoPaused;
+    }
+
+    /** @return Elapsed run time in seconds, excluding pauses. */
+    public long getTotalSeconds() {
+        return totalSeconds;
+    }
+
+    /** @return The speedrun logger instance. */
     public SpeedrunLogger getLogger() { return logger; }
 
-    /** @return A map of event counters for logging purposes. / Мапа лічильників подій для логування. */
+    /** @return A map of event counters for logging purposes. */
     public Map<String, Integer> getCounters() { return counters; }
 
-    /** Increments a named counter by one. / Збільшує іменований лічильник на одиницю. */
+    /** Increments a named counter by one. */
     public void incrementCounter(String key) {
         counters.put(key, counters.getOrDefault(key, 0) + 1);
     }
@@ -371,15 +412,15 @@ public class GameManager {
         return compassListener;
     }
 
-    /** @return The manager for casual mode features. / Менеджер функцій казуального режиму. */
+    /** @return The manager for casual mode features. */
     public CasualModeStructureManager getCasualModeStructureManager() {
         return casualModeStructureManager;
     }
 
-    /** @return The total elapsed time of the run, formatted as HH:MM:SS. / Загальний час гри, відформатований як ГГ:ХХ:СС. */
+    /** @return The total elapsed time of the run, formatted as HH:MM:SS. */
     public String getFormattedTime() { return TimeUtil.format(totalSeconds); }
 
-    /** @return The remaining time in seconds to find a village. / Залишок часу в секундах на пошук села. */
+    /** @return The remaining time in seconds to find a village. */
     public long getVillageTimeRemaining() {
         return plugin.getConfigManager().getVillageTimeout() - villageTimeElapsed;
     }
@@ -388,12 +429,12 @@ public class GameManager {
         return villageTimeElapsed;
     }
 
-    /** @return True if the speedrun is currently active. / True, якщо спідран наразі активний. */
+    /** @return True if the speedrun is currently active. */
     public boolean isRunning() { return isRunning; }
 
-    /** @return True if the speedrun timer is paused. / True, якщо таймер спідрану на паузі. */
+    /** @return True if the speedrun timer is paused. */
     public boolean isPaused() { return isPaused; }
 
-    /** @return True if the run ended by killing the Ender Dragon. / True, якщо гра завершилась вбивством Дракона Краю. */
+    /** @return True if the run ended by killing the Ender Dragon. */
     public boolean isDragonKilledEnd() { return dragonKilledEnd; }
 }

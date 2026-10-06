@@ -1,43 +1,53 @@
 package org.speedrun.speedrun.managers;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 import org.speedrun.speedrun.Speedrun;
+import org.speedrun.speedrun.config.ConfigFileStore;
+import org.speedrun.speedrun.config.ConfigMigrationReport;
+import org.speedrun.speedrun.config.ConfigMigrationService;
+import org.speedrun.speedrun.config.LanguageConfigLoader;
+import org.speedrun.speedrun.config.LanguageFiles;
 import org.speedrun.speedrun.utils.MessageUtil;
 import org.speedrun.speedrun.utils.RewardUtil;
 
-import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
- * Manages plugin configurations.
- * Handles loading and provides access to `config.yml` and language files.
- * |
- * Керує конфігураціями плагіна.
- * Обробляє завантаження та надає доступ до `config.yml` та мовних файлів.
+ * Single access point for {@code config.yml}, message files, game mode, and message formatting.
+ *
+ * <p>On every load the configuration passes through {@link ConfigMigrationService}, which keeps
+ * the file in step with the running plugin version. Message files are resolved from the
+ * customizable disk copy, then the bundled translation, then bundled English.</p>
  */
 public class ConfigManager {
 
     private final Speedrun plugin;
+    private final ConfigMigrationService migrationService = new ConfigMigrationService();
     private FileConfiguration config;
     private FileConfiguration lang;
-    private static final String DEFAULT_LANGUAGE = "en";
-    private static final Set<String> SUPPORTED_LANGUAGES = Set.of("en", "uk");
+    private YamlConfiguration bundledDefaults;
+    private ConfigMigrationReport migrationReport;
+    private static final String DEFAULT_LANGUAGE = LanguageFiles.DEFAULT_LANGUAGE;
 
     /**
      * Defines how player-collected resources are tracked for tasks.
-     * Визначає, як відстежуються зібрані гравцями ресурси для завдань.
      */
     public enum TrackingMode {
-        /** Count only items currently in a player's inventory. / Рахувати лише предмети, що є в інвентарі гравця. */
+        /** Count only items currently in a player's inventory. */
         INVENTORY,
-        /** Count all items ever collected by players during the run. / Рахувати всі предмети, зібрані гравцями протягом гри. */
+        /** Count all items ever collected by players during the run. */
         CUMULATIVE
     }
 
@@ -77,18 +87,77 @@ public class ConfigManager {
     }
 
     /**
-     * Reloads all configuration files from disk.
-     * Saves the default config if it doesn't exist and loads the appropriate language file.
-     * |
-     * Перезавантажує всі файли конфігурації з диска.
-     * Зберігає стандартний конфіг, якщо він не існує, та завантажує відповідний мовний файл.
+     * Loads {@code config.yml} (creating or upgrading it when needed) and the message files.
+     * Invalid YAML never overwrites the file: the built-in defaults are used until it is fixed.
      */
     public void reload() {
-        plugin.saveDefaultConfig();
-        ensureBundledLanguageFiles();
-        plugin.reloadConfig();
-        config = plugin.getConfig();
+        bundledDefaults = loadBundledYaml("config.yml");
+        String version = plugin.getDescription().getVersion();
+        Path configPath = plugin.getConfigFile().toPath();
+        try {
+            ConfigMigrationService.Result result = migrationService.migrate(configPath, bundledDefaults, version);
+            config = result.config();
+            migrationReport = result.report();
+        } catch (IOException | InvalidConfigurationException failure) {
+            plugin.getLogger().severe("config.yml could not be loaded: " + failure.getMessage()
+                    + " Built-in defaults are used until the file is fixed (then run /run reload).");
+            config = ConfigFileStore.copy(bundledDefaults);
+            migrationReport = ConfigMigrationReport.failed(version, failure.getMessage());
+        }
+        config.setDefaults(bundledDefaults);
+        reportMigration();
+        upgradeLanguageFiles();
         reloadLanguageFromCurrentConfig();
+    }
+
+    private void reportMigration() {
+        switch (migrationReport.status()) {
+            case "CREATED" -> plugin.getLogger().info("Created config.yml with default settings. Use /run webconfig to configure the plugin in your browser.");
+            case "MIGRATED" -> {
+                List<String> lines = migrationReport.describe();
+                lines.forEach(line -> plugin.getLogger().info(line));
+                writeMigrationLog(lines);
+            }
+            case "CURRENT" -> migrationReport.changes().forEach(change ->
+                    plugin.getLogger().warning("config.yml: " + change.path() + " - " + change.reason()));
+            default -> {
+                // FAILED was already logged.
+            }
+        }
+    }
+
+    private void writeMigrationLog(List<String> lines) {
+        try {
+            Path folder = plugin.getDataFolder().toPath().resolve(ConfigMigrationService.BACKUP_FOLDER);
+            Files.createDirectories(folder);
+            Path log = folder.resolve("migration-report.txt");
+            StringBuilder text = new StringBuilder("# ").append(LocalDateTime.now()).append(System.lineSeparator());
+            lines.forEach(line -> text.append(line).append(System.lineSeparator()));
+            text.append(System.lineSeparator());
+            Files.writeString(log, text, StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (IOException failure) {
+            plugin.getLogger().warning("Could not write the configuration migration report: " + failure.getMessage());
+        }
+    }
+
+    /** Extracts missing message files and adds new messages to customized ones. */
+    private void upgradeLanguageFiles() {
+        for (String code : LanguageFiles.SUPPORTED) {
+            String bundled = readBundledText("lang/" + code + ".yml");
+            if (bundled == null) {
+                continue;
+            }
+            try {
+                int added = LanguageFiles.upgrade(languageFile(code), bundled);
+                if (added > 0) {
+                    plugin.getLogger().info("lang/" + code + ".yml: added " + added
+                            + " new messages; your customized messages were kept (backup in lang-backups/).");
+                }
+            } catch (IOException | InvalidConfigurationException failure) {
+                plugin.getLogger().warning("lang/" + code + ".yml could not be updated: " + failure.getMessage());
+            }
+        }
     }
 
     public void reloadLanguageFromCurrentConfig() {
@@ -101,16 +170,44 @@ public class ConfigManager {
             }
             config.set("settings.language", langCode);
         }
-        ensureBundledLanguageFiles();
-        File langFile = new File(plugin.getDataFolder(), "lang/" + langCode + ".yml");
 
-        if (!langFile.exists()) {
-            // If the specified lang file doesn't exist, save it from the JAR's resources.
-            // Якщо вказаний мовний файл не існує, зберігаємо його з ресурсів JAR-файлу.
-            plugin.saveResource("lang/" + langCode + ".yml", false);
+        YamlConfiguration english = loadBundledYaml("lang/" + DEFAULT_LANGUAGE + ".yml");
+        YamlConfiguration selected = DEFAULT_LANGUAGE.equals(langCode) ? new YamlConfiguration() : loadBundledYaml("lang/" + langCode + ".yml");
+        YamlConfiguration custom = new YamlConfiguration();
+        Path file = languageFile(langCode);
+        if (Files.exists(file)) {
+            try {
+                custom = ConfigFileStore.read(file);
+            } catch (IOException | InvalidConfigurationException failure) {
+                plugin.getLogger().warning("lang/" + langCode + ".yml is invalid and was ignored: " + failure.getMessage());
+            }
         }
+        lang = LanguageConfigLoader.merge(english, selected, custom);
+    }
 
-        lang = YamlConfiguration.loadConfiguration(langFile);
+    private Path languageFile(String code) {
+        return plugin.getDataFolder().toPath().resolve("lang").resolve(code + ".yml");
+    }
+
+    private String readBundledText(String resource) {
+        try (InputStream input = plugin.getResource(resource)) {
+            return input == null ? null : new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            return null;
+        }
+    }
+
+    private YamlConfiguration loadBundledYaml(String resource) {
+        String text = readBundledText(resource);
+        if (text == null) {
+            return new YamlConfiguration();
+        }
+        try {
+            return ConfigFileStore.parse(text);
+        } catch (InvalidConfigurationException failure) {
+            plugin.getLogger().severe("Bundled resource " + resource + " is invalid: " + failure.getMessage());
+            return new YamlConfiguration();
+        }
     }
 
     public static String normalizeLanguageCode(String rawCode) {
@@ -119,36 +216,52 @@ public class ConfigManager {
     }
 
     public static String normalizeSupportedLanguageCode(String rawCode) {
-        if (rawCode == null) {
-            return null;
-        }
-        String normalized = rawCode.trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "en", "eng", "english" -> "en";
-            case "uk", "ua", "ukrainian" -> "uk";
-            default -> SUPPORTED_LANGUAGES.contains(normalized) ? normalized : null;
-        };
+        return LanguageFiles.normalize(rawCode);
     }
 
+    /** Replaces the active configuration (used by the web editor after validation). */
     public void replaceRuntimeConfig(FileConfiguration config) {
+        if (bundledDefaults != null && config.getDefaults() == null) {
+            config.setDefaults(bundledDefaults);
+        }
         this.config = config;
     }
 
-    private void ensureBundledLanguageFiles() {
-        for (String langCode : SUPPORTED_LANGUAGES) {
-            File langFile = new File(plugin.getDataFolder(), "lang/" + langCode + ".yml");
-            if (!langFile.exists()) {
-                plugin.saveResource("lang/" + langCode + ".yml", false);
-            }
-        }
+    /** The bundled default configuration, including comments. */
+    public YamlConfiguration getBundledDefaults() {
+        return bundledDefaults;
+    }
+
+    /** Result of the last configuration load or upgrade. */
+    public ConfigMigrationReport getMigrationReport() {
+        return migrationReport;
+    }
+
+    public boolean isAdminJoinNotificationEnabled() {
+        return config.getBoolean("settings.notify-admins-on-join", true);
+    }
+
+    public boolean isPauseWhenEmptyEnabled() {
+        return config.getBoolean("settings.pause-when-empty", false);
+    }
+
+    public boolean areRecordsEnabled() {
+        return config.getBoolean("records.enabled", true);
+    }
+
+    public boolean areSplitAnnouncementsEnabled() {
+        return areRecordsEnabled() && config.getBoolean("records.announce-splits", true);
+    }
+
+    public boolean areConsoleRewardCommandsEditableOnWeb() {
+        return config.getBoolean("web-config.allow-console-reward-commands", false);
     }
 
     /**
      * Gets a raw message string from the language file.
-     * Отримує "сирий" рядок повідомлення з мовного файлу.
      *
-     * @param path The path to the message in the lang file. / Шлях до повідомлення у мовному файлі.
-     * @return The message string. / Рядок повідомлення.
+     * @param path The path to the message in the lang file.
+     * @return The message string.
      */
     public String getMessage(String path) {
         return lang.getString(path, "Missing translation: " + path);
@@ -156,11 +269,10 @@ public class ConfigManager {
 
     /**
      * Gets a raw message string from the language file with a default fallback.
-     * Отримує "сирий" рядок повідомлення з мовного файлу з резервним значенням.
      *
-     * @param key The path to the message. / Шлях до повідомлення.
-     * @param defaultValue The value to return if the path is not found. / Значення, що повертається, якщо шлях не знайдено.
-     * @return The message string. / Рядок повідомлення.
+     * @param key The path to the message.
+     * @param defaultValue The value to return if the path is not found.
+     * @return The message string.
      */
     public String getLangString(String key, String defaultValue) {
         return lang.getString(key, defaultValue);
@@ -168,23 +280,20 @@ public class ConfigManager {
 
     public List<String> getFormattedTextList(String key) {
         return lang.getStringList(key).stream()
-                .map(line -> LegacyComponentSerializer.legacySection().serialize(
-                        MessageUtil.parse(line)))
+                .map(MessageUtil::toLegacy)
                 .toList();
     }
 
     /**
      * Gets a fully formatted message Component, including prefix, colors, and placeholder replacements.
-     * Отримує повністю відформатований `Component` повідомлення, включаючи префікс, кольори та заміну плейсхолдерів.
      *
-     * @param key The path to the message in the lang file. / Шлях до повідомлення у мовному файлі.
-     * @param replacements A list of key-value pairs for placeholders (e.g., "%player%", "Steve"). / Список пар ключ-значення для плейсхолдерів (напр., "%player%", "Steve").
-     * @return The formatted message as a Component. / Відформатоване повідомлення як Component.
+     * @param key The path to the message in the lang file.
+     * @param replacements A list of key-value pairs for placeholders (e.g., "%player%", "Steve").
+     * @return The formatted message as a Component.
      */
     public Component getFormatted(String key, String... replacements) {
         String message = getMessage(key);
         // Combine prefix and message, then apply color codes.
-        // Поєднуємо префікс та повідомлення, а потім застосовуємо коди кольорів.
         String rawMessage = getMessage("prefix") + message;
 
         for (int i = 0; i < replacements.length; i += 2) {
@@ -196,11 +305,10 @@ public class ConfigManager {
 
     /**
      * Gets a formatted string with color codes, primarily for use in legacy contexts like scoreboards.
-     * Отримує відформатований рядок з кодами кольорів, переважно для використання в застарілих контекстах, як-от скорборди.
      *
-     * @param key The path to the message. / Шлях до повідомлення.
-     * @param replacements A list of key-value pairs for placeholders. / Список пар ключ-значення для плейсхолдерів.
-     * @return The formatted message as a String with section symbols (§). / Відформатоване повідомлення як String із символами секцій (§).
+     * @param key The path to the message.
+     * @param replacements A list of key-value pairs for placeholders.
+     * @return The formatted message as a String with section symbols (§).
      */
     public String getFormattedText(String key, String... replacements) {
         String message = getMessage(key);
@@ -208,19 +316,15 @@ public class ConfigManager {
         for (int i = 0; i < replacements.length; i += 2) {
             message = message.replace(replacements[i], replacements[i + 1]);
         }
-        return LegacyComponentSerializer.legacySection().serialize(
-                MessageUtil.parse(message));
+        return MessageUtil.toLegacy(message);
     }
 
     /**
      * Executes reward commands defined in the config.
      * Can execute console commands or special "api:" commands for sounds and particles.
-     * |
-     * Виконує команди-винагороди, визначені в конфігурації.
-     * Може виконувати консольні команди або спеціальні команди "api:" для звуків та партиклів.
      *
-     * @param key The sub-key under "rewards" in config.yml. / Підключ у секції "rewards" в config.yml.
-     * @param player The target player, or null to target all online players. / Цільовий гравець, або null для всіх гравців онлайн.
+     * @param key The sub-key under "rewards" in config.yml.
+     * @param player The target player, or null to target all online players.
      */
     public void executeRewardCommands(String key, @Nullable Player player) {
         RewardUtil.executeRewardCommands(plugin, key, player);
@@ -230,18 +334,17 @@ public class ConfigManager {
     // Configuration Getters
     // =========================================================================================
     public String getFormattedString(String key, String... replacements) {
-        Component component = getFormatted(key, replacements);
-        return LegacyComponentSerializer.legacySection().serialize(component);
+        return MessageUtil.toLegacy(getFormatted(key, replacements));
     }
 
     public int getPortalSearchTimeout() {
         return config.getInt("settings.proximity-scanner.portal-search-timeout", 15);
     }
 
-    /** @return The raw FileConfiguration object for config.yml. / "Сирий" об'єкт FileConfiguration для config.yml. */
+    /** @return The raw FileConfiguration object for config.yml. */
     public FileConfiguration getRawConfig() { return config; }
 
-    /** @return Whether the timer should start automatically when the first player joins. / Чи має таймер запускатися автоматично при вході першого гравця. */
+    /** @return Whether the timer should start automatically when the first player joins. */
     public boolean isStartOnFirstJoin() {
         return config.getBoolean("settings.start-on-first-join", true);
     }
@@ -250,12 +353,12 @@ public class ConfigManager {
         return config.getBoolean("settings.reset_time_on_join", true);
     }
 
-    /** @return The time limit in seconds for the village search task. / Ліміт часу в секундах для завдання з пошуку села. */
+    /** @return The time limit in seconds for the village search task. */
     public long getVillageTimeout() {
         return config.getLong("settings.village-search-timeout", 600);
     }
 
-    /** @return The currently configured resource tracking mode. / Поточний налаштований режим відстеження ресурсів. */
+    /** @return The currently configured resource tracking mode. */
     public TrackingMode getTrackingMode() {
         return TrackingMode.valueOf(config.getString("settings.task-tracking-mode", "INVENTORY").toUpperCase());
     }
@@ -287,17 +390,17 @@ public class ConfigManager {
         return seconds * 1000L;
     }
 
-    /** @return Whether resource requirements for tasks should scale with the player count. / Чи повинні вимоги до ресурсів для завдань масштабуватися з кількістю гравців. */
+    /** @return Whether resource requirements for tasks should scale with the player count. */
     public boolean isPlayerScalingEnabled() {
         return config.getBoolean("settings.scale-resources-by-playercount.enabled", true);
     }
 
-    /** @return The multiplier used for player-based resource scaling. / Множник, що використовується для масштабування ресурсів залежно від гравців. */
+    /** @return The multiplier used for player-based resource scaling. */
     public double getPlayerScalingMultiplier() {
         return config.getDouble("settings.scale-resources-by-playercount.multiplier", 0.5);
     }
 
-    /** @return Whether to create log files for each speedrun attempt. / Чи створювати файли логів для кожної спроби спідрану. */
+    /** @return Whether to create log files for each speedrun attempt. */
     public boolean isLogAttemptsEnabled() {
         return config.getBoolean("settings.log-attempts", true);
     }
@@ -483,6 +586,16 @@ public class ConfigManager {
         return config.getBoolean("casual.start-pre-scan.locate.targets.nether-structures", true);
     }
 
+    /** Allows BALANCED/AGGRESSIVE pre-scan to load missing chunks on servers without async chunk loading. */
+    public boolean isStartPreScanSyncChunkLoadingAllowed() {
+        return config.getBoolean("casual.start-pre-scan.allow-sync-chunk-loading", false);
+    }
+
+    /** Hides the red sidebar score numbers on servers that support it (Paper). */
+    public boolean isScoreNumbersHidden() {
+        return config.getBoolean("settings.scoreboard.hide-score-numbers", true);
+    }
+
     public boolean isDeathLocationCompassEnabled() {
         return isCasualGameModeEnabled()
                 && config.getBoolean("casual.compass.death-location.enabled", true);
@@ -506,37 +619,37 @@ public class ConfigManager {
         }
     }
 
-    /** @return The radius for detecting a lava pool. / Радіус для виявлення озера лави. */
+    /** @return The radius for detecting a lava pool. */
     public int getLavaPoolRadius() {
         return config.getInt("settings.proximity-scanner.lava-pool.radius", 16);
     }
 
-    /** @return The minimum number of lava source blocks to qualify as a "pool". / Мінімальна кількість блоків-джерел лави, щоб вважатися "озером". */
+    /** @return The minimum number of lava source blocks to qualify as a "pool". */
     public int getLavaPoolRequiredSources() {
         return config.getInt("settings.proximity-scanner.lava-pool.required-source-blocks", 12);
     }
 
-    /** @return The radius for detecting a village by scanning for a bell. / Радіус для виявлення села шляхом сканування дзвона. */
+    /** @return The radius for detecting a village by scanning for a bell. */
     public int getVillageBellRadius() {
         return config.getInt("settings.proximity-scanner.village.radius", 32);
     }
 
-    /** @return Whether admins can reassign structure locations using commands. / Чи можуть адміністратори перепризначати розташування структур за допомогою команд. */
+    /** @return Whether admins can reassign structure locations using commands. */
     public boolean isReassigningLocationsEnabled() {
         return config.getBoolean("settings.allow-reassigning-locations", true);
     }
 
-    /** @return The radius around a lit block to check for a Nether Portal frame. / Радіус навколо запаленого блоку для перевірки наявності рамки порталу в Незер. */
+    /** @return The radius around a lit block to check for a Nether Portal frame. */
     public int getNetherPortalCheckRadius() {
         return config.getInt("settings.proximity-scanner.nether-portal.check-radius", 4);
     }
 
-    /** @return The search radius to find the precise portal block after a player teleports. / Радіус пошуку для знаходження точного блоку порталу після телепортації гравця. */
+    /** @return The search radius to find the precise portal block after a player teleports. */
     public int getTeleportPortalSearchRadius() {
         return config.getInt("settings.proximity-scanner.nether-portal.search-radius", 90);
     }
 
-    /** @return Whether waypoints should be created for found structures in casual mode. / Чи створювати вейпоінти для знайдених структур у казуальному режимі. */
+    /** @return Whether waypoints should be created for found structures in casual mode. */
     public boolean areWaypointsEnabled() {
         return isCasualGameModeEnabled() && config.getBoolean("casual.structure_waypoints.enabled", true);
     }

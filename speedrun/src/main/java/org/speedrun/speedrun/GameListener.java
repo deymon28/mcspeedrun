@@ -26,7 +26,6 @@ import org.speedrun.speedrun.events.StructureFoundEvent;
 import org.speedrun.speedrun.managers.ConfigManager;
 import org.speedrun.speedrun.managers.GameManager;
 import org.speedrun.speedrun.utils.MessageUtil;
-import org.speedrun.speedrun.utils.PaperCheckUtil;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,27 +35,24 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Listens for various Bukkit events to drive the speedrun logic.
  * This class handles everything from player joins and deaths to structure detection and task progress.
- * |
- * Прослуховує різноманітні події Bukkit для керування логікою спідрану.
- * Цей клас обробляє все: від входів та смертей гравців до виявлення структур та прогресу завдань.
  */
 public class GameListener implements Listener {
     private final Speedrun plugin;
     private final GameManager gameManager;
 
     // Cooldown to prevent spamming bell interactions.
-    // Кулдаун для запобігання спаму взаємодіями з дзвоном.
     private final Map<UUID, Long> lastBellInteract = new ConcurrentHashMap<>();
     private final Set<String> loggedBiomeChunks = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> lastLoggedPlayerBlocks = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
 
     // Cached config values for performance.
-    // Кешовані значення конфігу для продуктивності.
     private final int NETHER_PORTAL_CHECK_RADIUS; // Radius for checking nearby blocks for portals when lighting
     private final int TELEPORT_PORTAL_SEARCH_RADIUS; // Increased radius for finding portal block after teleportation
     private final AtomicLong portalSearchGeneration = new AtomicLong();
     private static final String STRUCTURE_MARKER_METADATA = "indestructible";
+    /** Keeps one exit-portal search within the platform's chunk queue capacity (21 x 21 chunks). */
+    static final int MAX_PORTAL_SEARCH_RADIUS = 160;
 
     private static final Set<EntityType> FOOD_MOBS = Set.of(
             EntityType.SHEEP,
@@ -124,7 +120,6 @@ public class GameListener implements Listener {
 
 
         // If configured, start the run when the first player joins.
-        // Якщо налаштовано, починаємо гру, коли приєднується перший гравець.
         if (plugin.getConfigManager().isStartOnFirstJoin() && !plugin.getGameManager().isRunning()) {
             if (Bukkit.getOnlinePlayers().size() == 1) {
                 plugin.getGameManager().startRun();
@@ -135,12 +130,13 @@ public class GameListener implements Listener {
         }
 
         // Rescale tasks if player scaling is enabled.
-        // Перемасштабуємо завдання, якщо увімкнено масштабування від гравців.
         if (plugin.getConfigManager().isPlayerScalingEnabled()) {
             plugin.getTaskManager().rescaleTasksForOnlinePlayers();
         }
 
+        plugin.getGameManager().handlePlayerReturn();
         plugin.getScoreboardManager().updateScoreboard(event.getPlayer());
+        plugin.getAdminNotices().onJoin(player);
 
         logger.logPlayerJoinOrQuit(event.getPlayer().getName(), "join");
     }
@@ -163,13 +159,20 @@ public class GameListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         SpeedrunLogger logger = gameManager.getLogger();
 
-        // Rescale tasks for the new player count.
-        // Перемасштабуємо завдання для нової кількості гравців.
-        if (plugin.getConfigManager().isPlayerScalingEnabled()) {
-            plugin.getTaskManager().rescaleTasksForOnlinePlayers();
-        }
-
         logger.logPlayerJoinOrQuit(event.getPlayer().getName(), "quit");
+        plugin.getScoreboardManager().removePlayer(event.getPlayer().getUniqueId());
+        lastBellInteract.remove(event.getPlayer().getUniqueId());
+        lastLoggedPlayerBlocks.remove(event.getPlayer().getUniqueId());
+        if (gameManager.getCompassListener() != null) {
+            gameManager.getCompassListener().forgetPlayer(event.getPlayer());
+        }
+        // The quitting player still counts as online during this event, so react one tick later.
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (plugin.getConfigManager().isPlayerScalingEnabled()) {
+                plugin.getTaskManager().rescaleTasksForOnlinePlayers();
+            }
+            plugin.getGameManager().handleServerEmptyCheck();
+        });
     }
 
     @EventHandler
@@ -254,13 +257,11 @@ public class GameListener implements Listener {
         String mob = mobType.name();
 
         // Check if the Ender Dragon was killed to end the run.
-        // Перевіряємо, чи був убитий Дракон Краю, щоб завершити гру.
         if (mobType == EntityType.ENDER_DRAGON) {
             plugin.getGameManager().stopRun(true);
         }
 
         // Log mob kills for statistics.
-        // Логуємо вбивства мобів для статистики.
         if(event.getEntity().getKiller() != null){
             logger.logMobKill(event.getEntity().getKiller(), mob, event.getEntity().getLocation());
 
@@ -342,7 +343,6 @@ public class GameListener implements Listener {
             }
 
             // If enabled, create a temporary beacon waypoint at the structure's location.
-            // Якщо увімкнено, створюємо тимчасовий вейпоінт-маяк на місці структури.
             if (plugin.getConfigManager().areWaypointsEnabled()) {
                 if(Objects.equals(event.getStructureKey(), "NETHER_PORTAL")){ return; }
                 gameManager.getCasualModeStructureManager().trackStructureWaypoint(event.getLocation(), event.getStructureKey());
@@ -356,7 +356,6 @@ public class GameListener implements Listener {
         Material type = block.getType();
 
         // Protect the beacon waypoints from being destroyed.
-        // Захищаємо вейпоінти-маяки від руйнування.
         if ((block.getType() == Material.BEACON ||
                 block.getType() == Material.END_GATEWAY ||
                 block.getType() == Material.IRON_BLOCK ||
@@ -380,7 +379,6 @@ public class GameListener implements Listener {
             return;
         }
         // Update tasks when in INVENTORY tracking mode.
-        // Оновлюємо завдання в режимі відстеження INVENTORY.
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.INVENTORY) {
             plugin.getTaskManager().updateItemTasks();
         }
@@ -401,7 +399,6 @@ public class GameListener implements Listener {
         }
 
         // Update tasks when in CUMULATIVE tracking mode.
-        // Оновлюємо завдання в режимі відстеження CUMULATIVE.
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
             plugin.getTaskManager().trackItemPickup(player, item);
             plugin.getTaskManager().updateItemTasks();
@@ -416,7 +413,6 @@ public class GameListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         // Update tasks when in CUMULATIVE tracking mode.
-        // Оновлюємо завдання в режимі відстеження CUMULATIVE.
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
             plugin.getTaskManager().trackItemCraft(player, event.getCurrentItem());
             plugin.getTaskManager().updateItemTasks();
@@ -439,16 +435,13 @@ public class GameListener implements Listener {
         Advancement adv = event.getAdvancement();
 
         // Advancements are namespaced, we only care about the key itself.
-        // Досягнення мають простори імен, нас цікавить лише сам ключ.
         String key = adv.getKey().getKey();
         Player player = event.getPlayer();
 
         String playerName = player.getName();
 
         // Use advancements to automatically detect certain structures or milestones.
-        // Використовуємо досягнення для автоматичного виявлення певних структур або етапів.
         // Log all relevant advancements.
-        // Логуємо всі релевантні досягнення.
         final Map<String, Runnable> handlers = new HashMap<>() {{
             put("story/mine_stone", () -> logger.logMilestone(playerName, "spawned"));
             put("story/mine_iron", () -> logger.logMilestone(playerName, "first_iron"));
@@ -486,7 +479,6 @@ public class GameListener implements Listener {
             return;
         }
         // Manual village detection by interacting with a bell.
-        // Ручне виявлення села через взаємодію з дзвоном.
         if ((event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK)
                 && event.getClickedBlock() != null
                 && event.getClickedBlock().getType() == Material.BELL) {
@@ -506,7 +498,6 @@ public class GameListener implements Listener {
         }
 
         // Detect when a player lights a portal.
-        // Виявляємо, коли гравець запалює портал.
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK
                 && event.getItem() != null
                 && (event.getItem().getType() == Material.FLINT_AND_STEEL
@@ -514,7 +505,6 @@ public class GameListener implements Listener {
             Block clickedBlock = event.getClickedBlock();
             if (clickedBlock != null) {
                 // A short delay is needed to allow the portal block to physically appear in the world.
-                // Потрібна невелика затримка, щоб блок порталу фізично з'явився у світі.
                 new BukkitRunnable() {
                     @Override
                     public void run() {
@@ -526,7 +516,7 @@ public class GameListener implements Listener {
                             }
                         }
                     }
-                }.runTaskLater(plugin, 2L); // 2 ticks should be enough. / 2 тіків має вистачити.
+                }.runTaskLater(plugin, 2L); // 2 ticks should be enough.
             }
         }
     }
@@ -588,7 +578,8 @@ public class GameListener implements Listener {
 
         seedPortalEntry(event);
         Location to = event.getTo();
-        long searchGeneration = portalSearchGeneration.incrementAndGet();
+        // Searches of different players run side by side; only reset/remove invalidates them.
+        long searchGeneration = portalSearchGeneration.get();
 
         AtomicBoolean handled = new AtomicBoolean(false);
         long timeout = 20L * plugin.getConfigManager().getPortalSearchTimeout();
@@ -607,52 +598,31 @@ public class GameListener implements Listener {
             }
         }, timeout);
 
-        // Use an async, non-blocking method on Paper servers for better performance.
-        // Використовуємо асинхронний, неблокуючий метод на серверах Paper для кращої продуктивності.
-        if (PaperCheckUtil.IsPaper()) {
-            findPortalBlockAsync(to, TELEPORT_PORTAL_SEARCH_RADIUS)
-                    .orTimeout(plugin.getConfigManager().getPortalSearchTimeout(), java.util.concurrent.TimeUnit.SECONDS)
-                    .exceptionally(ex -> null) // on timeout -> use fallback
-                    .thenAccept(preciseExitLoc -> {
-                        if (!plugin.isEnabled() || portalSearchGeneration.get() != searchGeneration) {
-                            return;
-                        }
-                        plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            // Reset/stop can invalidate the search while this callback is queued.
-                            if (portalSearchGeneration.get() != searchGeneration) {
-                                return;
-                            }
-                            if (handled.compareAndSet(false, true)) {
-                                timeoutTask.cancel();
-                                Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
-                                plugin.getTraceLogger().trace("portal", "portal_search_completed",
-                                        "player", event.getPlayer(),
-                                        "precise_exit", preciseExitLoc,
-                                        "final_location", finalLocation,
-                                        "generation", searchGeneration);
-                                handlePortalLogic(event, finalLocation);
-                            }
-                        });
-                    });
-        } else {
-            // Fallback to a synchronous (potentially laggy) method for Spigot/Bukkit.
-            // Резервний синхронний (потенційно лагаючий) метод для Spigot/Bukkit.
-            Location preciseExitLoc = findPortalBlockSync(to, TELEPORT_PORTAL_SEARCH_RADIUS);
-            Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
-            handled.set(true);
-            timeoutTask.cancel();
-            plugin.getTraceLogger().trace("portal", "portal_search_completed_sync",
-                    "player", event.getPlayer(),
-                    "precise_exit", preciseExitLoc,
-                    "final_location", finalLocation,
-                    "generation", searchGeneration);
-            handlePortalLogic(event, finalLocation);
-        }
+        // Chunks are loaded through the platform queue (async on Paper, one per tick elsewhere)
+        // and scanned as snapshots on a worker thread, so no platform blocks the server thread.
+        findPortalBlockAsync(to, Math.min(MAX_PORTAL_SEARCH_RADIUS, plugin.getConfigManager().getTeleportPortalSearchRadius()))
+                .orTimeout(plugin.getConfigManager().getPortalSearchTimeout(), java.util.concurrent.TimeUnit.SECONDS)
+                .exceptionally(ex -> null) // on timeout or failure -> use fallback
+                .thenAccept(preciseExitLoc -> plugin.getPlatform().executeSync(() -> {
+                    // Reset/stop can invalidate the search while this callback is queued.
+                    if (portalSearchGeneration.get() != searchGeneration) {
+                        return;
+                    }
+                    if (handled.compareAndSet(false, true)) {
+                        timeoutTask.cancel();
+                        Location finalLocation = (preciseExitLoc != null) ? preciseExitLoc : to;
+                        plugin.getTraceLogger().trace("portal", "portal_search_completed",
+                                "player", event.getPlayer(),
+                                "precise_exit", preciseExitLoc,
+                                "final_location", finalLocation,
+                                "generation", searchGeneration);
+                        handlePortalLogic(event, finalLocation);
+                    }
+                }));
     }
 
     /**
      * Handles the logic after a player has teleported and the precise exit location has been found.
-     * Обробляє логіку після телепортації гравця та знаходження точної локації виходу.
      */
     private void handlePortalLogic(PlayerPortalEvent event, Location finalLocation) {
 
@@ -669,7 +639,6 @@ public class GameListener implements Listener {
                 "known_nether_portal", plugin.getStructureManager().getNetherPortalLocation());
 
         // If we teleported to a dimension where the portal location is unknown, record it.
-        // Якщо ми телепортувалися у вимір, де локація порталу невідома, записуємо її.
         if (fromWorld == World.Environment.NORMAL && toWorld == World.Environment.NETHER) {
             if (plugin.getStructureManager().getNetherPortalLocation() == null) {
                 plugin.getStructureManager().portalExitFound(finalLocation);
@@ -734,10 +703,9 @@ public class GameListener implements Listener {
 
     /**
      * Helper method for obtaining blocks within a specified radius around the initial block.
-     * Допоміжний метод для отримання блоків у заданому радіусі навколо початкового блоку.
-     * @param start Initial block / Початковий блок.
-     * @param radius Search radius / Радіус пошуку.
-     * @return List of blocks within the radius / Список блоків у радіусі.
+     * @param start Initial block
+     * @param radius Search radius
+     * @return List of blocks within the radius
      */
     private List<Block> getNearbyBlocks(Block start, int radius) {
         List<Block> blocks = new ArrayList<>();
@@ -753,7 +721,6 @@ public class GameListener implements Listener {
 
     /**
      * Synchronously scans for a portal block. Can cause server lag.
-     * Синхронно сканує блок порталу. Може викликати лаги сервера.
      */
     private Location findPortalBlockSync(Location centerLoc, int searchRadius) {
         if (centerLoc == null || centerLoc.getWorld() == null) {
@@ -790,8 +757,8 @@ public class GameListener implements Listener {
     }
 
     /**
-     * Loads each required chunk once, captures its snapshot on Paper's main-thread
-     * completion callback, and scans only immutable snapshots off-thread.
+     * Loads each required chunk once through the platform queue, captures its snapshot on the
+     * server thread, and scans only immutable snapshots on a worker thread.
      * Must be called from the server thread.
      *
      * @param centerLoc central search location from the portal event
@@ -809,22 +776,36 @@ public class GameListener implements Listener {
         int centerZ = centerLoc.getBlockZ();
         int minHeight = world.getMinHeight();
         int maxHeight = world.getMaxHeight();
-        List<CompletableFuture<ChunkSnapshot>> snapshotFutures =
-                loadPortalChunkSnapshots(world, centerX, centerZ, searchRadius);
+        List<CompletableFuture<ChunkSnapshot>> snapshotFutures = loadPortalChunkSnapshots(
+                (chunkX, chunkZ) -> plugin.getPlatform().snapshotChunk(world, chunkX, chunkZ),
+                centerX, centerZ, searchRadius);
 
         return CompletableFuture.allOf(snapshotFutures.toArray(new CompletableFuture<?>[0]))
-                .thenApplyAsync(ignored -> {
+                .thenCompose(ignored -> {
                     List<ChunkSnapshot> snapshots = snapshotFutures.stream()
-                            .map(CompletableFuture::join)
+                            .map(future -> future.getNow(null))
+                            .filter(Objects::nonNull)
                             .toList();
-                    PortalBlockPosition found = findPortalBlockInSnapshots(snapshots,
-                            centerX, centerY, centerZ, searchRadius, minHeight, maxHeight);
-                    return found == null ? null : new Location(world, found.x(), found.y(), found.z());
+                    return plugin.getPlatform().compute(() -> {
+                        PortalBlockPosition found = findPortalBlockInSnapshots(snapshots,
+                                centerX, centerY, centerZ, searchRadius, minHeight, maxHeight);
+                        return found == null ? null : new Location(world, found.x(), found.y(), found.z());
+                    });
                 });
     }
 
+    /** Supplies a chunk snapshot future for chunk coordinates. */
+    @FunctionalInterface
+    interface ChunkSnapshotLoader {
+        CompletableFuture<ChunkSnapshot> load(int chunkX, int chunkZ);
+    }
+
+    /**
+     * Requests every chunk overlapping the square search area exactly once. Individual load
+     * failures resolve to null so one unavailable chunk does not abort the whole search.
+     */
     static List<CompletableFuture<ChunkSnapshot>> loadPortalChunkSnapshots(
-            World world, int centerX, int centerZ, int searchRadius) {
+            ChunkSnapshotLoader loader, int centerX, int centerZ, int searchRadius) {
         List<CompletableFuture<ChunkSnapshot>> snapshots = new ArrayList<>();
         int minChunkX = (centerX - searchRadius) >> 4;
         int maxChunkX = (centerX + searchRadius) >> 4;
@@ -832,9 +813,7 @@ public class GameListener implements Listener {
         int maxChunkZ = (centerZ + searchRadius) >> 4;
         for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
             for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                // Paper completes this future on the server thread. Do not use thenApplyAsync here.
-                snapshots.add(world.getChunkAtAsync(chunkX, chunkZ)
-                        .thenApply(chunk -> chunk.getChunkSnapshot(false, false, false)));
+                snapshots.add(loader.load(chunkX, chunkZ).exceptionally(ignored -> null));
             }
         }
         return snapshots;

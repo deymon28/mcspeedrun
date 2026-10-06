@@ -1,0 +1,731 @@
+{
+  "meta": {
+    "language": "Español",
+    "code": "es"
+  },
+  "ui": {
+    "skip": "Ir a los ajustes",
+    "brandSubtitle": "Ajustes del servidor",
+    "search": "Buscar en todos los ajustes",
+    "searchPlaceholder": "Temporizador, brújula, tareas…",
+    "interfaceLanguage": "Idioma de la interfaz",
+    "theme": "Tema",
+    "themeAuto": "Sistema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "connecting": "Conectando…",
+    "connected": "Conectado",
+    "disconnected": "Sin conexión",
+    "localOnly": "Se ejecuta en tu servidor. Sin cuenta en la nube.",
+    "refresh": "Recargar",
+    "configuration": "Configuración",
+    "connectTitle": "Conectar con tu servidor",
+    "connectHelp": "Ejecuta /run webconfig en el juego o en la consola del servidor y abre el enlace que aparece. La clave de acceso solo se conserva en esta pestaña del navegador.",
+    "accessToken": "Enlace o clave de acceso",
+    "connect": "Conectar",
+    "invalidToken": "Se rechazó la clave de acceso. Abre un enlace nuevo con /run webconfig.",
+    "throttled": "Demasiados intentos fallidos. Espera un minuto y abre un enlace nuevo con /run webconfig.",
+    "hideInactive": "Ocultar ajustes inactivos",
+    "showingAll": "Se muestran todos los ajustes.",
+    "showingFiltered": "Se muestran {visible} de {total} ajustes.",
+    "noMatches": "Ningún ajuste coincide con tu búsqueda.",
+    "searchResults": "Resultados de la búsqueda",
+    "searchResultsFor": "Ajustes que coinciden con «{query}»",
+    "review": "Revisar cambios",
+    "noChanges": "No hay cambios sin guardar.",
+    "changesCount": "{count} cambio(s) sin guardar",
+    "statusSaved": "Todo guardado",
+    "statusDirty": "Sin guardar",
+    "rawPatch": "Mostrar detalles técnicos",
+    "saveApply": "Guardar y aplicar",
+    "save": "Solo guardar",
+    "apply": "Aplicar sin guardar",
+    "validate": "Comprobar",
+    "discard": "Deshacer todo",
+    "actionHelp": "Guardar escribe config.yml. Aplicar modifica el servidor en ejecución. Algunos ajustes esperan a que termine la partida o a un reinicio.",
+    "shortcutHint": "Ctrl+S guarda y aplica.",
+    "revert": "Deshacer",
+    "resetDefault": "Usar valor predeterminado",
+    "defaultValue": "Predeterminado: {value}",
+    "changed": "Modificado",
+    "inactive": "Inactivo",
+    "pendingSaved": "Guardado, aún no activo",
+    "caution": "Con cuidado",
+    "danger": "Gran impacto",
+    "unsavedLeave": "Hay cambios sin guardar. ¿Salir de todos modos?",
+    "validationPassed": "Todo en orden.",
+    "saved": "Guardado en config.yml.",
+    "appliedNow": "Aplicado al servidor en ejecución.",
+    "savedAndApplied": "Guardado y aplicado.",
+    "nothingToSend": "No hay cambios que enviar.",
+    "conflict": "La configuración se modificó en otro lugar (otra pestaña, una edición manual o /run reload). Recarga para ver los valores actuales; tus cambios sin guardar se conservan.",
+    "reloadKeepEdits": "Recargar y conservar mis cambios",
+    "requestFailed": "La solicitud falló: {message}",
+    "networkError": "No se pudo contactar con el servidor. ¿Está en ejecución?",
+    "yes": "Sí",
+    "no": "No",
+    "listHint": "Una entrada por línea.",
+    "addItem": "Añadir",
+    "remove": "Quitar",
+    "close": "Cerrar",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "notSet": "sin definir",
+    "beforeAfter": "{before} → {after}",
+    "impact": {
+      "INSTANT": "Se aplica de inmediato",
+      "RESTART_TASK": "Reinicia la función relacionada",
+      "RUN_SENSITIVE": "Se aplica cuando no hay ninguna partida activa",
+      "STARTUP_ONLY": "Requiere /run reload o un reinicio"
+    },
+    "fieldState": {
+      "saved": "Guardado",
+      "applied": "Aplicado",
+      "applied-unsaved": "Aplicado, sin guardar",
+      "pending-restart": "Guardado, se activa tras /run reload o un reinicio",
+      "pending-run-end": "Guardado, vuelve a aplicarlo cuando termine la partida",
+      "not-applied": "No aplicado",
+      "unknown": "Desconocido, revisa el servidor"
+    },
+    "pendingTitle": "Cambios guardados que aún no están activos",
+    "pendingHelp": "Estos ajustes están guardados en config.yml, pero el servidor en ejecución sigue usando los valores anteriores.",
+    "applySaved": "Aplicar cambios guardados",
+    "reloadRequired": "Un cambio anterior no terminó. Detén la partida y usa /run reload.",
+    "overview": {
+      "title": "Resumen",
+      "summary": "Estado del servidor, qué ha cambiado y por dónde empezar.",
+      "server": "Servidor",
+      "software": "Software del servidor",
+      "minecraft": "Minecraft",
+      "plugin": "Versión del plugin",
+      "gamemode": "Modo de juego",
+      "language": "Idioma de los mensajes",
+      "capabilities": "Funciones de la plataforma",
+      "asyncChunks": "Carga asíncrona de chunks",
+      "nativeText": "Componentes de texto nativos",
+      "actionBar": "HUD en la barra de acción",
+      "hiddenNumbers": "Números del marcador ocultos",
+      "workers": "Hilos de escaneo en segundo plano",
+      "available": "Disponible",
+      "unavailable": "No disponible en este servidor",
+      "run": "Partida actual",
+      "running": "En curso",
+      "paused": "En pausa",
+      "finished": "Completada",
+      "idle": "Sin ejecutar",
+      "time": "Tiempo",
+      "stage": "Etapa",
+      "players": "Jugadores en línea",
+      "migrationTitle": "Actualización de la configuración",
+      "migrationCreated": "Se creó un config.yml nuevo con los ajustes predeterminados.",
+      "migrationMigrated": "config.yml se actualizó de {from} a {to}. Se conservaron {transferred} ajustes.",
+      "migrationCurrent": "config.yml coincide con esta versión del plugin.",
+      "migrationFailed": "No se pudo cargar config.yml. Se usan los ajustes predeterminados hasta que se corrija el archivo.",
+      "migrationBackup": "Copia de seguridad del archivo anterior: plugins/Speedrun/{file}",
+      "migrationDetails": "Mostrar ajustes afectados",
+      "quickStart": "Inicio rápido",
+      "quickStartSteps": [
+        "Elige un modo de juego en General: Normal para seguimiento, Casual con ayuda completa, Hardcore solo con temporizador.",
+        "Ajusta las tareas y las etapas en Tareas y etapas.",
+        "Pulsa Guardar y aplicar. La mayoría de los cambios surten efecto de inmediato.",
+        "En el juego: /run start inicia una partida, /run reset empieza de nuevo, /run help muestra todos los comandos."
+      ],
+      "openGuide": "Abrir la guía"
+    },
+    "action": {
+      "DEFAULTED": "Nuevo",
+      "RESET": "Restablecido",
+      "RENAMED": "Renombrado",
+      "REMOVED": "Eliminado",
+      "UNKNOWN_KEPT": "Desconocido, conservado",
+      "INVALID": "No válido",
+      "FAILED": "Error"
+    },
+    "progression": {
+      "intro": "Las etapas se ejecutan en el orden de sus claves (por ejemplo 1_..., 2_...). Una etapa se completa cuando todas sus tareas están hechas. Los cambios en las etapas se aplican cuando no hay ninguna partida activa.",
+      "stageKey": "Clave de la etapa",
+      "displayName": "Nombre visible",
+      "world": "Se muestra en",
+      "tasks": "Tareas",
+      "taskKey": "Objeto o estructura",
+      "amount": "Cantidad",
+      "scale": "Escalar según jugadores",
+      "addTask": "Añadir tarea",
+      "addStage": "Añadir etapa",
+      "removeStage": "Quitar etapa",
+      "newStagePrompt": "Clave de la nueva etapa (letras, dígitos, guion bajo). Las etapas se ejecutan en orden alfabético, p. ej. 6_END:",
+      "invalidKey": "Usa solo letras, dígitos y guiones bajos.",
+      "duplicateKey": "Esta clave ya existe.",
+      "emptyTasks": "Sin tareas. La etapa se completa de inmediato.",
+      "taskKeyHelp": "Nombre de un objeto de Minecraft (IRON_INGOT) o STRUCTURE_<LOCATION>. OAK_LOG cuenta toda la madera, BREAD toda la comida cocinada.",
+      "worlds": {
+        "NORMAL": "Superficie",
+        "NETHER": "Nether",
+        "THE_END": "El End"
+      }
+    },
+    "rewards": {
+      "intro": "Las recompensas se reproducen al completar una tarea o una etapa. Usa entradas de sonido y de partículas; los comandos de consola solo se pueden añadir en config.yml.",
+      "inactive": "Las recompensas están desactivadas. Las listas se conservan y se usarán cuando se activen las recompensas.",
+      "taskList": "Al completar una tarea",
+      "stageList": "Al completar una etapa",
+      "syntax": "api:sound <sound> [volume] [pitch] · api:particle <particle> [count] [dx] [dy] [dz] [speed]",
+      "consoleWarning": "Ejecuta un comando de consola"
+    }
+  },
+  "sections": {
+    "Overview": {
+      "label": "Resumen",
+      "summary": "Estado del servidor y primeros pasos."
+    },
+    "General": {
+      "label": "General",
+      "summary": "Modo de juego, idioma, comportamiento del temporizador, visualización y el editor web."
+    },
+    "Casual": {
+      "label": "Modo Casual",
+      "summary": "Funciones de ayuda para CASUAL: brújula, puntos de ruta, resaltado de oro, coordenadas en la lista de jugadores."
+    },
+    "Scanner": {
+      "label": "Detección",
+      "summary": "Cómo se detectan las ubicaciones alrededor de los jugadores y en segundo plano, con límites de rendimiento."
+    },
+    "Progression": {
+      "label": "Tareas y etapas",
+      "summary": "Etapas, sus tareas y cómo se muestran las tareas."
+    },
+    "Rewards": {
+      "label": "Recompensas",
+      "summary": "Sonidos y partículas para las tareas y etapas completadas."
+    },
+    "Diagnostics": {
+      "label": "Diagnóstico",
+      "summary": "Registros detallados para análisis e informes de errores."
+    },
+    "Guide": {
+      "label": "Guía",
+      "summary": "Cómo funciona el plugin y cómo configurarlo."
+    }
+  },
+  "groups": {
+    "general.web-config": "Editor web",
+    "general.runtime": "Temporizador y partida",
+    "general.resource-scaling": "Escalado según el número de jugadores",
+    "general.display": "Visualización",
+    "general.records": "Mejores marcas personales",
+    "general.logging": "Registros de partidas",
+    "progression.display": "Visualización de tareas",
+    "casual.mode": "Modo Casual",
+    "casual.compass": "Brújula de navegación",
+    "casual.waypoints": "Puntos de ruta de ubicaciones",
+    "casual.nether-gold": "Resaltado de oro del Nether",
+    "scanner.proximity": "Detección alrededor de los jugadores",
+    "scanner.proximity.lava": "Lagos de lava",
+    "scanner.proximity.village": "Aldeas",
+    "scanner.proximity.portal": "Portales del Nether",
+    "scanner.pre-scan": "Búsqueda en segundo plano al iniciar la partida",
+    "scanner.pre-scan.lava": "Búsqueda de lagos de lava en segundo plano",
+    "scanner.pre-scan.safety": "Límites de seguridad",
+    "scanner.pre-scan.locate": "Modo LOCATE",
+    "scanner.pre-scan.profile.SAFE": "Perfil SAFE",
+    "scanner.pre-scan.profile.BALANCED": "Perfil BALANCED",
+    "scanner.pre-scan.profile.AGGRESSIVE": "Perfil AGGRESSIVE",
+    "scanner.pre-scan.profile.LOCATE": "Perfil LOCATE",
+    "diagnostics.tracking": "Seguimiento de movimiento",
+    "diagnostics.trace": "Diagnóstico de trazas",
+    "rewards.general": "Recompensas"
+  },
+  "dependency": {
+    "casual.structure_waypoints.enabled": "Activo cuando los puntos de ruta de ubicaciones están activados.",
+    "casual.nether_gold_highlight.enabled": "Activo cuando el resaltado de oro del Nether está activado.",
+    "casual.start-pre-scan.mode": "Solo se usa en el modo LOCATE.",
+    "casual.start-pre-scan.enabled": "Activo cuando la búsqueda en segundo plano está activada.",
+    "settings.gamemode": "Activo solo en el modo de juego CASUAL.",
+    "rewards.enabled": "Activo cuando las recompensas están activadas.",
+    "records.enabled": "Activo cuando las mejores marcas personales están activadas.",
+    "settings.scale-resources-by-playercount.enabled": "Activo cuando el escalado según el número de jugadores está activado."
+  },
+  "fields": {
+    "web-config.enabled": {
+      "label": "Editor en el navegador",
+      "help": "Ejecutar este editor. Al desactivarlo, el cambio surte efecto tras /run reload o un reinicio."
+    },
+    "web-config.bind": {
+      "label": "Dirección de red",
+      "help": "127.0.0.1 mantiene el editor privado en la máquina del servidor. Cámbialo solo si sabes lo que haces."
+    },
+    "web-config.port": {
+      "label": "Puerto",
+      "help": "Puerto TCP del editor. Cámbialo si otro programa usa el 8765."
+    },
+    "settings.gamemode": {
+      "label": "Modo de juego",
+      "help": "Normal registra el progreso, Casual añade ayuda de navegación, Hardcore muestra solo el temporizador."
+    },
+    "settings.language": {
+      "label": "Idioma de los mensajes",
+      "help": "Idioma del chat, el marcador y los textos de objetos en el juego. Los mensajes se pueden personalizar en plugins/Speedrun/lang."
+    },
+    "settings.pause-when-empty": {
+      "label": "Pausar cuando el servidor está vacío",
+      "help": "Detiene el temporizador mientras no haya nadie en línea y lo reanuda cuando vuelve un jugador."
+    },
+    "settings.start-on-first-join": {
+      "label": "Iniciar cuando entra el primer jugador",
+      "help": "Si está desactivado, el temporizador arranca en cuanto el servidor está en marcha."
+    },
+    "settings.reset_time_on_join": {
+      "label": "Poner la mañana al inicio",
+      "help": "Cuando la primera conexión inicia una partida, pone la hora de la superficie en la mañana."
+    },
+    "settings.allow-reassigning-locations": {
+      "label": "Permitir mover ubicaciones encontradas",
+      "help": "Permite que /run new mueva una ubicación que ya se encontró."
+    },
+    "settings.village-search-timeout": {
+      "label": "Tiempo de búsqueda de aldea (segundos)",
+      "help": "Si no se encuentra ninguna aldea en este tiempo, se descarta el objetivo de la aldea. 600 = 10 minutos."
+    },
+    "settings.task-tracking-mode": {
+      "label": "Cómo cuentan los objetos",
+      "help": "Inventory cuenta lo que los jugadores llevan ahora; Cumulative cuenta todo lo recogido o fabricado durante la partida."
+    },
+    "settings.scale-resources-by-playercount.enabled": {
+      "label": "Escalar según el número de jugadores",
+      "help": "Aumenta las cantidades requeridas de las tareas marcadas con «Escalar según jugadores» cuando hay más jugadores en línea."
+    },
+    "settings.scale-resources-by-playercount.multiplier": {
+      "label": "Extra por cada jugador adicional",
+      "help": "0.5 suma el 50 % de la cantidad base por cada jugador después del primero."
+    },
+    "settings.log-attempts": {
+      "label": "Registros de partidas",
+      "help": "Escribe un registro de texto y otro JSON de cada intento en plugins/Speedrun/logs."
+    },
+    "settings.notify-admins-on-join": {
+      "label": "Avisos para administradores",
+      "help": "Informa a los administradores al entrar sobre actualizaciones de la configuración y cómo abrir este editor."
+    },
+    "settings.scoreboard.hide-score-numbers": {
+      "label": "Ocultar números del marcador",
+      "help": "Quita los números rojos del lado derecho de la barra lateral. Solo Paper."
+    },
+    "records.enabled": {
+      "label": "Mejores marcas personales",
+      "help": "Recuerda el mejor tiempo de finalización y el mejor tiempo de cada etapa."
+    },
+    "records.announce-splits": {
+      "label": "Anunciar tiempos de etapa",
+      "help": "Al completar una etapa, muestra su tiempo y la diferencia con el mejor tiempo."
+    },
+    "settings.coordinate-display.mode": {
+      "label": "Visualización de coordenadas",
+      "help": "Cómo aparecen en el marcador las coordenadas de la superficie y del Nether."
+    },
+    "settings.chunk-biome-logging.enabled": {
+      "label": "Registro de biomas",
+      "help": "Añade cada chunk de la superficie visitado y su bioma al registro JSON de la partida."
+    },
+    "progression.settings.task-display-mode": {
+      "label": "Qué tareas se muestran",
+      "help": "Solo la etapa actual, todas las tareas del mundo del jugador o todas las tareas agrupadas por mundo."
+    },
+    "progression.settings.completed-task-hide.enabled": {
+      "label": "Ocultar tareas completadas",
+      "help": "Las tareas completadas desaparecen del marcador tras un breve tiempo."
+    },
+    "progression.settings.completed-task-hide.timeout-seconds": {
+      "label": "Ocultar tras (segundos)",
+      "help": "Cuánto tiempo permanece visible una tarea completada."
+    },
+    "casual.enabled": {
+      "label": "Funciones Casual",
+      "help": "Interruptor general de todas las funciones Casual cuando el modo de juego es Casual."
+    },
+    "casual.player-tab-coordinates": {
+      "label": "Coordenadas en la lista de jugadores",
+      "help": "Muestra las coordenadas de cada jugador en la parte superior de la lista de jugadores."
+    },
+    "casual.compass.show-nether-reference": {
+      "label": "Punto de referencia del Nether (obsoleto)",
+      "help": "Añade a la brújula un antiguo destino de prueba fijo. No está vinculado a la partida; normalmente déjalo desactivado."
+    },
+    "casual.compass.death-location.enabled": {
+      "label": "Última muerte en la brújula",
+      "help": "Cada jugador puede apuntar su brújula hacia su última muerte."
+    },
+    "casual.structure_waypoints.enabled": {
+      "label": "Rayos de luz sobre ubicaciones",
+      "help": "Coloca un rayo de luz junto a cada ubicación encontrada en la superficie."
+    },
+    "casual.structure_waypoints.type": {
+      "label": "Tipo de rayo",
+      "help": "La pasarela del End da un rayo compacto; el faro, el rayo clásico del faro."
+    },
+    "casual.structure_waypoints.offset-blocks": {
+      "label": "Distancia a la ubicación",
+      "help": "El rayo se coloca a esta cantidad de bloques para que nunca reemplace bloques importantes."
+    },
+    "casual.structure_waypoints.update-interval-seconds": {
+      "label": "Intervalo de actualización (segundos)",
+      "help": "Con qué frecuencia se comprueban y restauran los rayos."
+    },
+    "casual.nether_gold_highlight.enabled": {
+      "label": "Resaltar bloques de oro",
+      "help": "Los bloques de oro brillan alrededor de los jugadores en el Nether y dentro de los bastiones encontrados."
+    },
+    "casual.nether_gold_highlight.radius": {
+      "label": "Radio de resaltado",
+      "help": "Distancia en bloques alrededor de cada jugador en el Nether. Los valores altos cuestan más rendimiento."
+    },
+    "settings.proximity-scanner.lava-pool.radius": {
+      "label": "Radio de búsqueda de lagos de lava",
+      "help": "Distancia en bloques alrededor de cada jugador en la que se buscan lagos de lava."
+    },
+    "settings.proximity-scanner.lava-pool.required-source-blocks": {
+      "label": "Bloques de lava para un lago",
+      "help": "Cuántos bloques fuente de lava cuentan como un lago de lava."
+    },
+    "settings.proximity-scanner.village.radius": {
+      "label": "Radio de búsqueda de campanas de aldea",
+      "help": "Distancia en bloques alrededor de cada jugador en la que se buscan campanas de aldea."
+    },
+    "settings.proximity-scanner.nether-portal.check-radius": {
+      "label": "Radio de comprobación del marco del portal",
+      "help": "Distancia alrededor de un bloque encendido o de la entrada a un portal en la que se busca el portal."
+    },
+    "settings.proximity-scanner.nether-portal.search-radius": {
+      "label": "Radio de búsqueda del portal de salida",
+      "help": "Distancia alrededor del punto de llegada en la que se busca el portal de salida exacto."
+    },
+    "settings.proximity-scanner.portal-search-timeout": {
+      "label": "Tiempo de búsqueda del portal de salida (segundos)",
+      "help": "Pasado este tiempo se usa el punto de llegada aproximado."
+    },
+    "casual.start-pre-scan.enabled": {
+      "label": "Buscar en segundo plano al iniciar la partida",
+      "help": "Encuentra estructuras alrededor del punto de aparición y de los jugadores antes de que alguien llegue."
+    },
+    "casual.start-pre-scan.mode": {
+      "label": "Modo de búsqueda en segundo plano",
+      "help": "Cuánto trabajo puede realizar la búsqueda en segundo plano."
+    },
+    "casual.start-pre-scan.radius": {
+      "label": "Distancia de búsqueda (bloques)",
+      "help": "Distancia máxima desde el punto de aparición y los jugadores para la búsqueda en segundo plano."
+    },
+    "casual.start-pre-scan.loaded-chunk-radius": {
+      "label": "Radio del área cargada (chunks)",
+      "help": "Chunks alrededor de cada jugador que se comprueban cuando ya están cargados."
+    },
+    "casual.start-pre-scan.allow-sync-chunk-loading": {
+      "label": "Cargar chunks sin Paper",
+      "help": "Permite que Balanced y Aggressive carguen los chunks que faltan en Spigot y CraftBukkit. Limitado a un chunk por tick, pero aun así puede bajar los TPS."
+    },
+    "casual.start-pre-scan.include-lava-pool": {
+      "label": "Buscar también lagos de lava",
+      "help": "Busca lagos de lava durante la búsqueda en segundo plano."
+    },
+    "casual.start-pre-scan.lava-pool-vertical-scan.below-player": {
+      "label": "Búsqueda de lava hacia abajo (bloques)",
+      "help": "Hasta qué profundidad bajo el origen del escaneo se buscan lagos de lava."
+    },
+    "casual.start-pre-scan.lava-pool-vertical-scan.above-player": {
+      "label": "Búsqueda de lava hacia arriba (bloques)",
+      "help": "Hasta qué altura sobre el origen del escaneo se buscan lagos de lava."
+    },
+    "casual.start-pre-scan.safety.max-chunks-per-run": {
+      "label": "Máximo de chunks por paso",
+      "help": "Límite superior estricto para todos los perfiles."
+    },
+    "casual.start-pre-scan.safety.max-queued-chunks": {
+      "label": "Máximo de chunks en total",
+      "help": "Límite superior estricto para toda la búsqueda en segundo plano."
+    },
+    "casual.start-pre-scan.locate.radius-chunks": {
+      "label": "Radio de locate (chunks)",
+      "help": "Radio de búsqueda de cada llamada a locate."
+    },
+    "casual.start-pre-scan.locate.period-ticks": {
+      "label": "Pausa entre llamadas (ticks)",
+      "help": "20 ticks = 1 segundo."
+    },
+    "casual.start-pre-scan.locate.calls-per-run": {
+      "label": "Llamadas por paso",
+      "help": "Cada llamada se ejecuta en el hilo del servidor. Mantenlo en 1 o 2."
+    },
+    "casual.start-pre-scan.locate.find-unexplored": {
+      "label": "Solo estructuras inexploradas",
+      "help": "Omite las estructuras que ya se visitaron."
+    },
+    "casual.start-pre-scan.locate.targets.village": {
+      "label": "Localizar aldeas",
+      "help": "Incluir aldeas."
+    },
+    "casual.start-pre-scan.locate.targets.stronghold": {
+      "label": "Localizar la fortaleza",
+      "help": "Incluir la fortaleza (portal del End)."
+    },
+    "casual.start-pre-scan.locate.targets.nether-structures": {
+      "label": "Localizar estructuras del Nether",
+      "help": "Incluir fortalezas del Nether y bastiones."
+    },
+    "tracking.player-blocks.enabled": {
+      "label": "Registrar cada paso de los jugadores",
+      "help": "Registra cada bloque por el que se mueve un jugador, para repeticiones y mapas. Genera registros muy grandes."
+    },
+    "diagnostics.trace.enabled": {
+      "label": "Diagnóstico de trazas",
+      "help": "Escribe eventos técnicos detallados en plugins/Speedrun/traces. Actívalo mientras reproduces un problema."
+    },
+    "diagnostics.trace.mirror-to-console": {
+      "label": "Mostrar también en la consola",
+      "help": "Muestra también los eventos de traza en la consola del servidor. Muy ruidoso."
+    },
+    "diagnostics.trace.categories": {
+      "label": "Categorías de trazas",
+      "help": "ALL, o cualquiera de: diagnostics, lifecycle, compass, lodestone, scanner, structure, portal."
+    },
+    "rewards.enabled": {
+      "label": "Recompensas",
+      "help": "Reproduce las recompensas configuradas al completar tareas y etapas."
+    }
+  },
+  "profileFields": {
+    "chunks-per-run": {
+      "label": "Chunks por paso",
+      "help": "Chunks procesados en cada paso del perfil {profile}."
+    },
+    "period-ticks": {
+      "label": "Intervalo entre pasos (ticks)",
+      "help": "Tiempo entre los pasos del perfil {profile}. 20 ticks = 1 segundo."
+    },
+    "max-queued-chunks": {
+      "label": "Chunks en total",
+      "help": "Número total de chunks que el perfil {profile} puede poner en cola."
+    },
+    "load-missing-chunks": {
+      "label": "Cargar chunks que faltan",
+      "help": "Carga los chunks que aún no están cargados (de forma asíncrona en Paper)."
+    },
+    "scan-spawn": {
+      "label": "Buscar alrededor del punto de aparición",
+      "help": "Pone en cola el área alrededor del punto de aparición del mundo."
+    },
+    "scan-players": {
+      "label": "Buscar alrededor de los jugadores",
+      "help": "Pone en cola el área alrededor de cada jugador."
+    },
+    "include-nether": {
+      "label": "Incluir el Nether",
+      "help": "Buscar también en el Nether."
+    }
+  },
+  "options": {
+    "settings.gamemode": {
+      "NORMAL": "Normal",
+      "CASUAL": "Casual (con ayuda)",
+      "HARDCORE": "Hardcore (solo temporizador)"
+    },
+    "settings.task-tracking-mode": {
+      "INVENTORY": "Objetos en los inventarios",
+      "CUMULATIVE": "Todo lo recogido"
+    },
+    "settings.coordinate-display.mode": {
+      "UNIFIED": "Siempre el mundo de la propia ubicación",
+      "SEPARATE": "Solo ubicaciones del mundo del jugador",
+      "CONDITIONAL": "Convertidas al mundo del jugador"
+    },
+    "progression.settings.task-display-mode": {
+      "ACTIVE_STAGE": "Solo la etapa actual",
+      "ALL_STAGES": "Todas las tareas del mundo del jugador",
+      "ALL_GAME_STAGES": "Todas las tareas, agrupadas por mundo"
+    },
+    "casual.structure_waypoints.type": {
+      "END_GATEWAY": "Rayo de pasarela del End",
+      "BEACON": "Rayo de faro"
+    },
+    "casual.start-pre-scan.mode": {
+      "SAFE": "Safe – solo chunks cargados",
+      "BALANCED": "Balanced – recomendado",
+      "AGGRESSIVE": "Aggressive – el más rápido, mayor carga",
+      "LOCATE": "Locate – función locate del servidor"
+    },
+    "settings.language": {
+      "en": "English",
+      "uk": "Українська",
+      "de": "Deutsch",
+      "es": "Español",
+      "fr": "Français",
+      "pt_BR": "Português (Brasil)",
+      "pl": "Polski",
+      "zh_CN": "简体中文"
+    }
+  },
+  "guide": [
+    {
+      "id": "start",
+      "title": "Primeros pasos",
+      "blocks": [
+        {
+          "p": "Speedrun añade a un servidor normal de Minecraft un temporizador de partida, tareas por etapas, seguimiento de ubicaciones y ayuda de navegación opcional. Funciona en Paper, Spigot y CraftBukkit."
+        },
+        {
+          "h": "Primeros pasos"
+        },
+        {
+          "ol": [
+            "Coloca el jar en la carpeta plugins e inicia el servidor una vez.",
+            "Entra como operador y ejecuta /run webconfig. Haz clic en el enlace para abrir este editor.",
+            "Elige un modo de juego, ajusta las tareas y pulsa Guardar y aplicar.",
+            "/run start inicia una partida (o entra primero si «Iniciar cuando entra el primer jugador» está activado)."
+          ]
+        },
+        {
+          "p": "La partida termina automáticamente cuando muere el Dragón del End. El tiempo final se anuncia y se compara con tu mejor marca personal."
+        }
+      ]
+    },
+    {
+      "id": "modes",
+      "title": "Modos de juego",
+      "blocks": [
+        {
+          "h": "Normal"
+        },
+        {
+          "p": "Temporizador, marcador con las ubicaciones encontradas, etapas y tareas. Las ubicaciones se detectan cuando los jugadores las encuentran."
+        },
+        {
+          "h": "Casual"
+        },
+        {
+          "p": "Todo lo de Normal más una brújula de navegación con menú de destinos, rayos de luz sobre las ubicaciones encontradas, bloques de oro brillantes en el Nether, coordenadas en la lista de jugadores y una búsqueda opcional de estructuras en segundo plano."
+        },
+        {
+          "h": "Hardcore"
+        },
+        {
+          "p": "Solo el temporizador. Toda la ayuda y la detección están desactivadas."
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "title": "Tareas y etapas",
+      "blocks": [
+        {
+          "p": "Las etapas se completan en el orden de sus claves, así que llámalas 1_..., 2_..., 3_.... Cuando se hacen todas las tareas de una etapa, empieza la siguiente y se reproducen las recompensas."
+        },
+        {
+          "ul": [
+            "Las tareas de objetos usan nombres de objetos de Minecraft como IRON_INGOT o ENDER_PEARL.",
+            "OAK_LOG cuenta todo tipo de troncos y madera. BREAD cuenta toda la comida cocinada.",
+            "Tareas de estructuras: STRUCTURE_VILLAGE, STRUCTURE_LAVA_POOL, STRUCTURE_NETHER_PORTAL, STRUCTURE_FORTRESS, STRUCTURE_BASTION, STRUCTURE_END_PORTAL.",
+            "«Escalar según jugadores» aumenta la cantidad cuando hay más jugadores en línea."
+          ]
+        },
+        {
+          "p": "«Se muestra en» decide en qué dimensión aparecen en el marcador las tareas de una etapa."
+        }
+      ]
+    },
+    {
+      "id": "commands",
+      "title": "Comandos y permisos",
+      "blocks": [
+        {
+          "p": "Todos los comandos empiezan por /run (alias /sr). Los jugadores necesitan speedrun.player (todos, por defecto); la administración requiere speedrun.admin (operadores, por defecto)."
+        },
+        {
+          "ul": [
+            "/run status, /run tasks, /run records, /run givecompass – para todos",
+            "/run start, pause, stop, reset – controlan la partida (también desde la consola)",
+            "/run new <location> [x y z] – define una ubicación manualmente; /run remove <location> – la oculta",
+            "/run locate pos1 / pos2 – estima la fortaleza con dos lanzamientos de Ojo de Ender",
+            "/run skipstage – completa la etapa actual (la partida no contará para las marcas)",
+            "/run reload – recarga config.yml y los mensajes; /run webconfig – abre este editor"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "saving",
+      "title": "Guardar y aplicar",
+      "blocks": [
+        {
+          "p": "Tus cambios permanecen en esta pestaña del navegador hasta que los guardes. Guardar y aplicar escribe config.yml y actualiza el servidor en ejecución en un solo paso."
+        },
+        {
+          "ul": [
+            "Se aplica de inmediato: surte efecto al instante.",
+            "Reinicia la función relacionada: la función (por ejemplo, los puntos de ruta) se reinicia con los nuevos valores.",
+            "Se aplica cuando no hay ninguna partida activa: las reglas de la partida actual no cambian a mitad de partida. El ajuste se guarda; pulsa Aplicar cambios guardados después de /run reset o /run stop.",
+            "Requiere /run reload o un reinicio: ajustes de arranque como el puerto del editor."
+          ]
+        },
+        {
+          "p": "Si mientras tanto la configuración se modificó en otro lugar, el editor te pide que recargues para que nada se sobrescriba por accidente."
+        }
+      ]
+    },
+    {
+      "id": "updates",
+      "title": "Actualizaciones y copias de seguridad",
+      "blocks": [
+        {
+          "p": "Cuando se inicia una nueva versión del plugin, config.yml se actualiza automáticamente. Tus valores se conservan, los ajustes nuevos reciben sus valores predeterminados y los valores que ya no son compatibles se restablecen. El archivo anterior se guarda en plugins/Speedrun/config-backups/ y cada cambio se enumera allí en migration-report.txt."
+        },
+        {
+          "p": "Los archivos de mensajes personalizados en plugins/Speedrun/lang nunca se sobrescriben; solo se añaden los mensajes nuevos."
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "title": "Rendimiento",
+      "blocks": [
+        {
+          "p": "El trabajo pesado se ejecuta fuera del hilo del servidor: el contenido de los chunks se copia como instantáneas y lo analizan hilos en segundo plano. En Paper, los chunks que faltan se cargan de forma asíncrona; en Spigot y CraftBukkit se carga como máximo un chunk por tick, y solo si lo permites."
+        },
+        {
+          "ul": [
+            "La búsqueda en segundo plano Safe o Balanced basta para la mayoría de los servidores.",
+            "Mantén moderado el radio de resaltado de oro (24 es un buen valor).",
+            "Registrar cada paso de los jugadores y el diagnóstico de trazas generan archivos grandes; actívalos solo cuando haga falta."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Seguridad",
+      "blocks": [
+        {
+          "p": "El editor escucha en 127.0.0.1 por defecto y cada solicitud necesita la clave privada de /run webconfig. La clave cambia en cada reinicio y con /run webconfig restart."
+        },
+        {
+          "ul": [
+            "No compartas el enlace: quien lo tenga puede cambiar los ajustes.",
+            "Para acceder al editor desde otro ordenador, es preferible un túnel SSH a cambiar la dirección de red.",
+            "Las recompensas que ejecutan comandos de consola solo se pueden añadir en config.yml, nunca desde el editor (salvo que se permita explícitamente allí)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Solución de problemas",
+      "blocks": [
+        {
+          "ul": [
+            "El enlace no se abre: comprueba que web-config.enabled esté activado y que el puerto esté libre; después usa /run webconfig restart.",
+            "Una ubicación es incorrecta: colócate en el lugar correcto y usa /run new <location>, o indica coordenadas.",
+            "Falta el HUD de la brújula en CraftBukkit: usa Spigot o Paper para disponer de todas las funciones.",
+            "Algo se comporta de forma extraña: activa el diagnóstico de trazas, reproduce el problema y adjunta a tu informe el archivo más reciente de plugins/Speedrun/traces."
+          ]
+        }
+      ]
+    }
+  ]
+}

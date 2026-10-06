@@ -1,0 +1,731 @@
+{
+  "meta": {
+    "language": "简体中文",
+    "code": "zh_CN"
+  },
+  "ui": {
+    "skip": "跳到设置",
+    "brandSubtitle": "服务器设置",
+    "search": "搜索所有设置",
+    "searchPlaceholder": "计时器、指南针、任务…",
+    "interfaceLanguage": "界面语言",
+    "theme": "主题",
+    "themeAuto": "跟随系统",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "connecting": "正在连接…",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "localOnly": "在你的服务器上运行，无需云端账号。",
+    "refresh": "重新加载",
+    "configuration": "配置",
+    "connectTitle": "连接到你的服务器",
+    "connectHelp": "在游戏内或服务器控制台中运行 /run webconfig，然后打开显示的链接。访问密钥只保存在此浏览器标签页中。",
+    "accessToken": "访问链接或密钥",
+    "connect": "连接",
+    "invalidToken": "访问密钥被拒绝。请使用 /run webconfig 打开新的链接。",
+    "throttled": "失败尝试次数过多。请等待一分钟，然后使用 /run webconfig 打开新的链接。",
+    "hideInactive": "隐藏未生效的设置",
+    "showingAll": "正在显示所有设置。",
+    "showingFiltered": "已显示 {visible} / {total} 项设置。",
+    "noMatches": "没有与搜索匹配的设置。",
+    "searchResults": "搜索结果",
+    "searchResultsFor": "与“{query}”匹配的设置",
+    "review": "查看更改",
+    "noChanges": "没有未保存的更改。",
+    "changesCount": "{count} 项未保存的更改",
+    "statusSaved": "全部已保存",
+    "statusDirty": "未保存",
+    "rawPatch": "显示技术详情",
+    "saveApply": "保存并应用",
+    "save": "仅保存",
+    "apply": "不保存直接应用",
+    "validate": "检查",
+    "discard": "全部撤销",
+    "actionHelp": "保存会写入 config.yml。应用会修改正在运行的服务器。部分设置需等待本局结束或重启后生效。",
+    "shortcutHint": "Ctrl+S 保存并应用。",
+    "revert": "撤销",
+    "resetDefault": "使用默认值",
+    "defaultValue": "默认值：{value}",
+    "changed": "已更改",
+    "inactive": "未生效",
+    "pendingSaved": "已保存，尚未生效",
+    "caution": "请谨慎",
+    "danger": "影响较大",
+    "unsavedLeave": "有未保存的更改。仍要离开吗？",
+    "validationPassed": "一切正常。",
+    "saved": "已保存到 config.yml。",
+    "appliedNow": "已应用到正在运行的服务器。",
+    "savedAndApplied": "已保存并应用。",
+    "nothingToSend": "没有可发送的更改。",
+    "conflict": "配置已在其他地方被修改（其他标签页、手动编辑或 /run reload）。请重新加载以查看当前值；你未保存的修改会被保留。",
+    "reloadKeepEdits": "重新加载并保留我的修改",
+    "requestFailed": "请求失败：{message}",
+    "networkError": "无法连接到服务器。它正在运行吗？",
+    "yes": "开",
+    "no": "关",
+    "listHint": "每行一项。",
+    "addItem": "添加",
+    "remove": "移除",
+    "close": "关闭",
+    "copy": "复制",
+    "copied": "已复制",
+    "notSet": "未设置",
+    "beforeAfter": "{before} → {after}",
+    "impact": {
+      "INSTANT": "立即生效",
+      "RESTART_TASK": "重启相关功能",
+      "RUN_SENSITIVE": "在没有进行中的速通时生效",
+      "STARTUP_ONLY": "需要 /run reload 或重启"
+    },
+    "fieldState": {
+      "saved": "已保存",
+      "applied": "已应用",
+      "applied-unsaved": "已应用，未保存",
+      "pending-restart": "已保存，执行 /run reload 或重启后生效",
+      "pending-run-end": "已保存，本局结束后请再次应用",
+      "not-applied": "未应用",
+      "unknown": "未知，请检查服务器"
+    },
+    "pendingTitle": "已保存但尚未生效的更改",
+    "pendingHelp": "这些设置已保存到 config.yml，但正在运行的服务器仍在使用旧值。",
+    "applySaved": "应用已保存的更改",
+    "reloadRequired": "上一次更改未完成。请停止当前速通并使用 /run reload。",
+    "overview": {
+      "title": "概览",
+      "summary": "服务器状态、最近的变化以及从哪里开始。",
+      "server": "服务器",
+      "software": "服务端软件",
+      "minecraft": "Minecraft",
+      "plugin": "插件版本",
+      "gamemode": "游戏模式",
+      "language": "消息语言",
+      "capabilities": "平台功能",
+      "asyncChunks": "异步区块加载",
+      "nativeText": "原生文本组件",
+      "actionBar": "动作栏 HUD",
+      "hiddenNumbers": "隐藏的计分板数字",
+      "workers": "后台扫描线程",
+      "available": "可用",
+      "unavailable": "此服务器不可用",
+      "run": "当前速通",
+      "running": "进行中",
+      "paused": "已暂停",
+      "finished": "已完成",
+      "idle": "未运行",
+      "time": "时间",
+      "stage": "阶段",
+      "players": "在线玩家",
+      "migrationTitle": "配置更新",
+      "migrationCreated": "已使用默认设置创建新的 config.yml。",
+      "migrationMigrated": "config.yml 已从 {from} 升级到 {to}。保留了 {transferred} 项设置。",
+      "migrationCurrent": "config.yml 与此插件版本一致。",
+      "migrationFailed": "无法加载 config.yml。在文件修复之前将使用默认设置。",
+      "migrationBackup": "旧文件的备份：plugins/Speedrun/{file}",
+      "migrationDetails": "显示受影响的设置",
+      "quickStart": "快速开始",
+      "quickStartSteps": [
+        "在“常规”中选择游戏模式：Normal 用于追踪，Casual 提供完整辅助，Hardcore 仅保留计时器。",
+        "在“任务与阶段”中调整任务和阶段。",
+        "点击“保存并应用”。大多数更改会立即生效。",
+        "游戏内：/run start 开始速通，/run reset 重新开始，/run help 列出所有命令。"
+      ],
+      "openGuide": "打开指南"
+    },
+    "action": {
+      "DEFAULTED": "新增",
+      "RESET": "已重置",
+      "RENAMED": "已重命名",
+      "REMOVED": "已移除",
+      "UNKNOWN_KEPT": "未知，已保留",
+      "INVALID": "无效",
+      "FAILED": "失败"
+    },
+    "progression": {
+      "intro": "阶段按键名顺序进行（例如 1_...、2_...）。当一个阶段的所有任务完成后，该阶段即告完成。阶段的更改会在没有进行中的速通时生效。",
+      "stageKey": "阶段键名",
+      "displayName": "显示名称",
+      "world": "显示于",
+      "tasks": "任务",
+      "taskKey": "物品或结构",
+      "amount": "数量",
+      "scale": "按玩家人数缩放",
+      "addTask": "添加任务",
+      "addStage": "添加阶段",
+      "removeStage": "移除阶段",
+      "newStagePrompt": "新阶段的键名（字母、数字、下划线）。阶段按字母顺序进行，例如 6_END：",
+      "invalidKey": "只能使用字母、数字和下划线。",
+      "duplicateKey": "此键名已存在。",
+      "emptyTasks": "没有任务。该阶段会立即完成。",
+      "taskKeyHelp": "Minecraft 物品名称（IRON_INGOT）或 STRUCTURE_<LOCATION>。OAK_LOG 计入所有木头，BREAD 计入所有熟食。",
+      "worlds": {
+        "NORMAL": "主世界",
+        "NETHER": "下界",
+        "THE_END": "末地"
+      }
+    },
+    "rewards": {
+      "intro": "完成任务或阶段时会播放奖励。请使用音效和粒子条目；控制台命令只能在 config.yml 中添加。",
+      "inactive": "奖励已关闭。列表会被保留，并在启用奖励后使用。",
+      "taskList": "完成任务时",
+      "stageList": "完成阶段时",
+      "syntax": "api:sound <sound> [volume] [pitch] · api:particle <particle> [count] [dx] [dy] [dz] [speed]",
+      "consoleWarning": "会执行控制台命令"
+    }
+  },
+  "sections": {
+    "Overview": {
+      "label": "概览",
+      "summary": "服务器状态与入门。"
+    },
+    "General": {
+      "label": "常规",
+      "summary": "游戏模式、语言、计时器行为、显示以及网页编辑器。"
+    },
+    "Casual": {
+      "label": "休闲模式",
+      "summary": "CASUAL 的辅助功能：指南针、路径点、金块高亮、玩家列表坐标。"
+    },
+    "Scanner": {
+      "label": "检测",
+      "summary": "如何在玩家周围及后台检测地点，以及性能限制。"
+    },
+    "Progression": {
+      "label": "任务与阶段",
+      "summary": "阶段、其任务以及任务的显示方式。"
+    },
+    "Rewards": {
+      "label": "奖励",
+      "summary": "完成任务和阶段时的音效与粒子。"
+    },
+    "Diagnostics": {
+      "label": "诊断",
+      "summary": "用于分析和错误报告的详细日志。"
+    },
+    "Guide": {
+      "label": "指南",
+      "summary": "插件的工作方式及设置方法。"
+    }
+  },
+  "groups": {
+    "general.web-config": "网页编辑器",
+    "general.runtime": "计时器与速通",
+    "general.resource-scaling": "按玩家人数缩放",
+    "general.display": "显示",
+    "general.records": "个人最佳",
+    "general.logging": "速通日志",
+    "progression.display": "任务显示",
+    "casual.mode": "休闲模式",
+    "casual.compass": "导航指南针",
+    "casual.waypoints": "地点路径点",
+    "casual.nether-gold": "下界金块高亮",
+    "scanner.proximity": "玩家周围检测",
+    "scanner.proximity.lava": "熔岩池",
+    "scanner.proximity.village": "村庄",
+    "scanner.proximity.portal": "下界传送门",
+    "scanner.pre-scan": "速通开始时的后台搜索",
+    "scanner.pre-scan.lava": "后台熔岩池搜索",
+    "scanner.pre-scan.safety": "安全限制",
+    "scanner.pre-scan.locate": "LOCATE 模式",
+    "scanner.pre-scan.profile.SAFE": "SAFE 配置",
+    "scanner.pre-scan.profile.BALANCED": "BALANCED 配置",
+    "scanner.pre-scan.profile.AGGRESSIVE": "AGGRESSIVE 配置",
+    "scanner.pre-scan.profile.LOCATE": "LOCATE 配置",
+    "diagnostics.tracking": "移动追踪",
+    "diagnostics.trace": "跟踪诊断",
+    "rewards.general": "奖励"
+  },
+  "dependency": {
+    "casual.structure_waypoints.enabled": "在启用地点路径点时生效。",
+    "casual.nether_gold_highlight.enabled": "在启用下界金块高亮时生效。",
+    "casual.start-pre-scan.mode": "仅在 LOCATE 模式下使用。",
+    "casual.start-pre-scan.enabled": "在启用后台搜索时生效。",
+    "settings.gamemode": "仅在 CASUAL 游戏模式下生效。",
+    "rewards.enabled": "在启用奖励时生效。",
+    "records.enabled": "在启用个人最佳时生效。",
+    "settings.scale-resources-by-playercount.enabled": "在启用按玩家人数缩放时生效。"
+  },
+  "fields": {
+    "web-config.enabled": {
+      "label": "浏览器编辑器",
+      "help": "运行此编辑器。关闭后将在 /run reload 或重启后生效。"
+    },
+    "web-config.bind": {
+      "label": "网络地址",
+      "help": "127.0.0.1 使编辑器仅限服务器所在机器访问。除非你清楚自己在做什么，否则请勿更改。"
+    },
+    "web-config.port": {
+      "label": "端口",
+      "help": "编辑器的 TCP 端口。如果其他程序占用了 8765，请更改它。"
+    },
+    "settings.gamemode": {
+      "label": "游戏模式",
+      "help": "Normal 追踪进度，Casual 增加导航辅助，Hardcore 仅显示计时器。"
+    },
+    "settings.language": {
+      "label": "消息语言",
+      "help": "游戏内聊天、计分板和物品文本的语言。消息可在 plugins/Speedrun/lang 中自定义。"
+    },
+    "settings.pause-when-empty": {
+      "label": "服务器无人时暂停",
+      "help": "无人在线时停止计时器，有玩家回来时继续。"
+    },
+    "settings.start-on-first-join": {
+      "label": "首位玩家加入时开始",
+      "help": "关闭后，服务器一运行计时器就会开始。"
+    },
+    "settings.reset_time_on_join": {
+      "label": "开始时设为早晨",
+      "help": "当首次加入开始一局速通时，将主世界时间设为早晨。"
+    },
+    "settings.allow-reassigning-locations": {
+      "label": "允许移动已发现的地点",
+      "help": "允许 /run new 移动已经发现的地点。"
+    },
+    "settings.village-search-timeout": {
+      "label": "寻找村庄的时限（秒）",
+      "help": "如果在此时间内未找到村庄，则放弃村庄目标。600 = 10 分钟。"
+    },
+    "settings.task-tracking-mode": {
+      "label": "物品的计数方式",
+      "help": "Inventory 统计玩家当前携带的物品；Cumulative 统计本局中收集或合成的全部物品。"
+    },
+    "settings.scale-resources-by-playercount.enabled": {
+      "label": "按玩家人数缩放",
+      "help": "在线玩家更多时，提高标记为“按玩家人数缩放”的任务所需数量。"
+    },
+    "settings.scale-resources-by-playercount.multiplier": {
+      "label": "每多一名玩家的额外量",
+      "help": "0.5 表示第一名玩家之后每多一名玩家增加 50% 的基础数量。"
+    },
+    "settings.log-attempts": {
+      "label": "速通日志",
+      "help": "将每次尝试的文本日志和 JSON 日志写入 plugins/Speedrun/logs。"
+    },
+    "settings.notify-admins-on-join": {
+      "label": "管理员通知",
+      "help": "管理员加入时，告知其配置更新情况以及如何打开此编辑器。"
+    },
+    "settings.scoreboard.hide-score-numbers": {
+      "label": "隐藏计分板数字",
+      "help": "移除侧边栏右侧的红色数字。仅限 Paper。"
+    },
+    "records.enabled": {
+      "label": "个人最佳",
+      "help": "记录最佳完成时间以及每个阶段的最佳时间。"
+    },
+    "records.announce-splits": {
+      "label": "播报阶段用时",
+      "help": "完成阶段时，显示其用时以及与最佳时间的差距。"
+    },
+    "settings.coordinate-display.mode": {
+      "label": "坐标显示",
+      "help": "主世界和下界坐标在计分板上的显示方式。"
+    },
+    "settings.chunk-biome-logging.enabled": {
+      "label": "生物群系日志",
+      "help": "将每个访问过的主世界区块及其生物群系添加到 JSON 速通日志中。"
+    },
+    "progression.settings.task-display-mode": {
+      "label": "显示哪些任务",
+      "help": "仅当前阶段、玩家所在世界的所有任务，或按世界分组的所有任务。"
+    },
+    "progression.settings.completed-task-hide.enabled": {
+      "label": "隐藏已完成的任务",
+      "help": "已完成的任务会在短时间后从计分板消失。"
+    },
+    "progression.settings.completed-task-hide.timeout-seconds": {
+      "label": "隐藏延迟（秒）",
+      "help": "已完成的任务保持可见的时长。"
+    },
+    "casual.enabled": {
+      "label": "休闲功能",
+      "help": "当游戏模式为 Casual 时，所有休闲功能的总开关。"
+    },
+    "casual.player-tab-coordinates": {
+      "label": "玩家列表中的坐标",
+      "help": "在玩家列表顶部显示每位玩家自己的坐标。"
+    },
+    "casual.compass.show-nether-reference": {
+      "label": "旧版下界参照点",
+      "help": "向指南针添加一个旧的固定测试目的地。与速通无关；通常保持关闭。"
+    },
+    "casual.compass.death-location.enabled": {
+      "label": "指南针指向上次死亡点",
+      "help": "每位玩家都可以让指南针指向自己上一次的死亡地点。"
+    },
+    "casual.structure_waypoints.enabled": {
+      "label": "地点上方的光柱",
+      "help": "在每个已发现的主世界地点附近放置一道光柱。"
+    },
+    "casual.structure_waypoints.type": {
+      "label": "光柱类型",
+      "help": "末地折跃门是小巧的光柱；信标是经典的信标光柱。"
+    },
+    "casual.structure_waypoints.offset-blocks": {
+      "label": "与地点的距离",
+      "help": "光柱会放置在相距这么多格的位置，以免替换重要方块。"
+    },
+    "casual.structure_waypoints.update-interval-seconds": {
+      "label": "刷新间隔（秒）",
+      "help": "检查并恢复光柱的频率。"
+    },
+    "casual.nether_gold_highlight.enabled": {
+      "label": "高亮金块",
+      "help": "在下界玩家周围以及已发现的堡垒遗迹内，金块会发光。"
+    },
+    "casual.nether_gold_highlight.radius": {
+      "label": "高亮半径",
+      "help": "下界中每位玩家周围的距离（格）。数值越大，性能开销越高。"
+    },
+    "settings.proximity-scanner.lava-pool.radius": {
+      "label": "熔岩池搜索半径",
+      "help": "在每位玩家周围多少格范围内检查熔岩池。"
+    },
+    "settings.proximity-scanner.lava-pool.required-source-blocks": {
+      "label": "构成熔岩池所需的熔岩数",
+      "help": "多少个熔岩源方块算作一个熔岩池。"
+    },
+    "settings.proximity-scanner.village.radius": {
+      "label": "村庄钟搜索半径",
+      "help": "在每位玩家周围多少格范围内检查村庄钟。"
+    },
+    "settings.proximity-scanner.nether-portal.check-radius": {
+      "label": "传送门框架检查半径",
+      "help": "在点燃的方块或传送门入口周围多少格范围内寻找传送门。"
+    },
+    "settings.proximity-scanner.nether-portal.search-radius": {
+      "label": "出口传送门搜索半径",
+      "help": "在抵达点周围多少格范围内寻找确切的出口传送门。"
+    },
+    "settings.proximity-scanner.portal-search-timeout": {
+      "label": "出口传送门搜索时限（秒）",
+      "help": "超过此时间后将使用大致的抵达点。"
+    },
+    "casual.start-pre-scan.enabled": {
+      "label": "速通开始时在后台搜索",
+      "help": "在任何人到达之前，找出出生点和玩家周围的结构。"
+    },
+    "casual.start-pre-scan.mode": {
+      "label": "后台搜索模式",
+      "help": "后台搜索可以做多少工作。"
+    },
+    "casual.start-pre-scan.radius": {
+      "label": "搜索距离（格）",
+      "help": "后台搜索距出生点和玩家的最大距离。"
+    },
+    "casual.start-pre-scan.loaded-chunk-radius": {
+      "label": "已加载区域半径（区块）",
+      "help": "在每位玩家周围，对已加载的区块进行检查的范围。"
+    },
+    "casual.start-pre-scan.allow-sync-chunk-loading": {
+      "label": "无 Paper 时加载区块",
+      "help": "允许 Balanced 和 Aggressive 在 Spigot 和 CraftBukkit 上加载缺失的区块。每游戏刻最多一个区块，但仍可能降低 TPS。"
+    },
+    "casual.start-pre-scan.include-lava-pool": {
+      "label": "同时查找熔岩池",
+      "help": "在后台搜索期间查找熔岩池。"
+    },
+    "casual.start-pre-scan.lava-pool-vertical-scan.below-player": {
+      "label": "向下搜索熔岩（格）",
+      "help": "在扫描原点下方多远处查找熔岩池。"
+    },
+    "casual.start-pre-scan.lava-pool-vertical-scan.above-player": {
+      "label": "向上搜索熔岩（格）",
+      "help": "在扫描原点上方多远处查找熔岩池。"
+    },
+    "casual.start-pre-scan.safety.max-chunks-per-run": {
+      "label": "每步最大区块数",
+      "help": "适用于所有配置的硬性上限。"
+    },
+    "casual.start-pre-scan.safety.max-queued-chunks": {
+      "label": "区块总数上限",
+      "help": "整个后台搜索的硬性上限。"
+    },
+    "casual.start-pre-scan.locate.radius-chunks": {
+      "label": "Locate 半径（区块）",
+      "help": "每次 locate 调用的搜索半径。"
+    },
+    "casual.start-pre-scan.locate.period-ticks": {
+      "label": "调用间隔（游戏刻）",
+      "help": "20 游戏刻 = 1 秒。"
+    },
+    "casual.start-pre-scan.locate.calls-per-run": {
+      "label": "每步调用次数",
+      "help": "每次调用都在服务器线程上运行。请保持为 1 或 2。"
+    },
+    "casual.start-pre-scan.locate.find-unexplored": {
+      "label": "仅限未探索的结构",
+      "help": "跳过已经访问过的结构。"
+    },
+    "casual.start-pre-scan.locate.targets.village": {
+      "label": "定位村庄",
+      "help": "包含村庄。"
+    },
+    "casual.start-pre-scan.locate.targets.stronghold": {
+      "label": "定位要塞",
+      "help": "包含要塞（末地传送门）。"
+    },
+    "casual.start-pre-scan.locate.targets.nether-structures": {
+      "label": "定位下界结构",
+      "help": "包含下界要塞和堡垒遗迹。"
+    },
+    "tracking.player-blocks.enabled": {
+      "label": "追踪玩家的每一步",
+      "help": "记录玩家经过的每个方块，用于回放和地图。会产生非常大的日志。"
+    },
+    "diagnostics.trace.enabled": {
+      "label": "跟踪诊断",
+      "help": "将详细的技术事件写入 plugins/Speedrun/traces。重现问题时再启用。"
+    },
+    "diagnostics.trace.mirror-to-console": {
+      "label": "同时输出到控制台",
+      "help": "同时在服务器控制台显示跟踪事件。输出量非常大。"
+    },
+    "diagnostics.trace.categories": {
+      "label": "跟踪类别",
+      "help": "ALL，或以下任意项：diagnostics、lifecycle、compass、lodestone、scanner、structure、portal。"
+    },
+    "rewards.enabled": {
+      "label": "奖励",
+      "help": "完成任务和阶段时播放已配置的奖励。"
+    }
+  },
+  "profileFields": {
+    "chunks-per-run": {
+      "label": "每步区块数",
+      "help": "{profile} 配置每一步处理的区块数。"
+    },
+    "period-ticks": {
+      "label": "步进间隔（游戏刻）",
+      "help": "{profile} 配置各步之间的时间。20 游戏刻 = 1 秒。"
+    },
+    "max-queued-chunks": {
+      "label": "区块总数",
+      "help": "{profile} 配置最多可排队的区块总数。"
+    },
+    "load-missing-chunks": {
+      "label": "加载缺失的区块",
+      "help": "加载尚未加载的区块（在 Paper 上为异步）。"
+    },
+    "scan-spawn": {
+      "label": "搜索出生点周围",
+      "help": "将世界出生点周围的区域加入队列。"
+    },
+    "scan-players": {
+      "label": "搜索玩家周围",
+      "help": "将每位玩家周围的区域加入队列。"
+    },
+    "include-nether": {
+      "label": "包含下界",
+      "help": "同时搜索下界。"
+    }
+  },
+  "options": {
+    "settings.gamemode": {
+      "NORMAL": "Normal（普通）",
+      "CASUAL": "Casual（带辅助）",
+      "HARDCORE": "Hardcore（仅计时器）"
+    },
+    "settings.task-tracking-mode": {
+      "INVENTORY": "物品栏中的物品",
+      "CUMULATIVE": "收集到的全部物品"
+    },
+    "settings.coordinate-display.mode": {
+      "UNIFIED": "始终为地点自身所在的世界",
+      "SEPARATE": "仅限玩家所在世界的地点",
+      "CONDITIONAL": "换算为玩家所在的世界"
+    },
+    "progression.settings.task-display-mode": {
+      "ACTIVE_STAGE": "仅当前阶段",
+      "ALL_STAGES": "玩家所在世界的所有任务",
+      "ALL_GAME_STAGES": "所有任务，按世界分组"
+    },
+    "casual.structure_waypoints.type": {
+      "END_GATEWAY": "末地折跃门光柱",
+      "BEACON": "信标光柱"
+    },
+    "casual.start-pre-scan.mode": {
+      "SAFE": "Safe – 仅已加载区块",
+      "BALANCED": "Balanced – 推荐",
+      "AGGRESSIVE": "Aggressive – 最快，负载最高",
+      "LOCATE": "Locate – 服务器的 locate 功能"
+    },
+    "settings.language": {
+      "en": "English",
+      "uk": "Українська",
+      "de": "Deutsch",
+      "es": "Español",
+      "fr": "Français",
+      "pt_BR": "Português (Brasil)",
+      "pl": "Polski",
+      "zh_CN": "简体中文"
+    }
+  },
+  "guide": [
+    {
+      "id": "start",
+      "title": "快速入门",
+      "blocks": [
+        {
+          "p": "Speedrun 为普通的 Minecraft 服务器添加了速通计时器、分阶段任务、地点追踪以及可选的导航辅助。它可在 Paper、Spigot 和 CraftBukkit 上运行。"
+        },
+        {
+          "h": "第一步"
+        },
+        {
+          "ol": [
+            "将 jar 文件放入 plugins 文件夹，并启动一次服务器。",
+            "以管理员身份加入并运行 /run webconfig。点击链接即可打开此编辑器。",
+            "选择游戏模式，调整任务，然后点击“保存并应用”。",
+            "/run start 开始一局速通（如果启用了“首位玩家加入时开始”，则先加入游戏）。"
+          ]
+        },
+        {
+          "p": "末影龙死亡时，速通会自动结束。最终用时会被播报，并与你的个人最佳进行比较。"
+        }
+      ]
+    },
+    {
+      "id": "modes",
+      "title": "游戏模式",
+      "blocks": [
+        {
+          "h": "Normal"
+        },
+        {
+          "p": "计时器，以及显示已发现地点、阶段和任务的计分板。玩家发现地点时才会检测到地点。"
+        },
+        {
+          "h": "Casual"
+        },
+        {
+          "p": "包含 Normal 的全部功能，另有带目的地菜单的导航指南针、已发现地点上方的光柱、下界中发光的金块、玩家列表中的坐标，以及可选的后台结构搜索。"
+        },
+        {
+          "h": "Hardcore"
+        },
+        {
+          "p": "仅有计时器。所有辅助和检测均已关闭。"
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "title": "任务与阶段",
+      "blocks": [
+        {
+          "p": "阶段按键名顺序完成，因此请命名为 1_...、2_...、3_...。当一个阶段的所有任务完成后，下一阶段开始并播放奖励。"
+        },
+        {
+          "ul": [
+            "物品任务使用 Minecraft 物品名称，例如 IRON_INGOT 或 ENDER_PEARL。",
+            "OAK_LOG 计入所有种类的原木和木头。BREAD 计入所有熟食。",
+            "结构任务：STRUCTURE_VILLAGE、STRUCTURE_LAVA_POOL、STRUCTURE_NETHER_PORTAL、STRUCTURE_FORTRESS、STRUCTURE_BASTION、STRUCTURE_END_PORTAL。",
+            "“按玩家人数缩放”会在在线玩家更多时提高数量。"
+          ]
+        },
+        {
+          "p": "“显示于”决定阶段任务在计分板上显示在哪个维度。"
+        }
+      ]
+    },
+    {
+      "id": "commands",
+      "title": "命令与权限",
+      "blocks": [
+        {
+          "p": "所有命令都以 /run 开头（别名 /sr）。玩家需要 speedrun.player（默认所有人拥有）；管理需要 speedrun.admin（默认管理员拥有）。"
+        },
+        {
+          "ul": [
+            "/run status、/run tasks、/run records、/run givecompass – 所有人可用",
+            "/run start、pause、stop、reset – 控制速通（也可在控制台使用）",
+            "/run new <location> [x y z] – 手动设置地点；/run remove <location> – 隐藏地点",
+            "/run locate pos1 / pos2 – 根据两次投掷末影之眼估算要塞位置",
+            "/run skipstage – 完成当前阶段（该局速通将不计入个人最佳）",
+            "/run reload – 重新加载 config.yml 和消息；/run webconfig – 打开此编辑器"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "saving",
+      "title": "保存与应用",
+      "blocks": [
+        {
+          "p": "在保存之前，你的修改只保留在此浏览器标签页中。“保存并应用”会写入 config.yml，并一步更新正在运行的服务器。"
+        },
+        {
+          "ul": [
+            "立即生效：马上起作用。",
+            "重启相关功能：该功能（例如路径点）会以新值重新启动。",
+            "在没有进行中的速通时生效：当前速通的规则不会在途中更改。设置会被保存；请在 /run reset 或 /run stop 之后点击“应用已保存的更改”。",
+            "需要 /run reload 或重启：启动类设置，例如编辑器端口。"
+          ]
+        },
+        {
+          "p": "如果配置在此期间已在其他地方被修改，编辑器会要求你重新加载，以免意外覆盖。"
+        }
+      ]
+    },
+    {
+      "id": "updates",
+      "title": "更新与备份",
+      "blocks": [
+        {
+          "p": "新版本的插件启动时，config.yml 会自动升级。你的值会被保留，新设置使用默认值，不再支持的值会被重置。旧文件会保存到 plugins/Speedrun/config-backups/，每项更改都会列在其中的 migration-report.txt 里。"
+        },
+        {
+          "p": "plugins/Speedrun/lang 中自定义的消息文件绝不会被覆盖；只会添加新的消息。"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "title": "性能",
+      "blocks": [
+        {
+          "p": "繁重的工作在服务器线程之外运行：区块内容以快照形式复制，并由后台线程搜索。在 Paper 上，缺失的区块以异步方式加载；在 Spigot 和 CraftBukkit 上，每游戏刻最多加载一个区块，且仅在你允许时才会加载。"
+        },
+        {
+          "ul": [
+            "对大多数服务器来说，Safe 或 Balanced 后台搜索就足够了。",
+            "金块高亮半径请保持适中（24 是不错的值）。",
+            "追踪玩家的每一步和跟踪诊断会产生很大的文件；请仅在需要时启用。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "安全",
+      "blocks": [
+        {
+          "p": "编辑器默认监听 127.0.0.1，每个请求都需要来自 /run webconfig 的私有密钥。密钥会在每次重启以及执行 /run webconfig restart 时更改。"
+        },
+        {
+          "ul": [
+            "请勿分享该链接：任何拥有它的人都可以更改设置。",
+            "如需从另一台电脑访问编辑器，建议使用 SSH 隧道，而不是更改网络地址。",
+            "会执行控制台命令的奖励只能在 config.yml 中添加，不能通过编辑器添加（除非在其中明确允许）。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "故障排除",
+      "blocks": [
+        {
+          "ul": [
+            "链接无法打开：检查 web-config.enabled 是否已开启、端口是否空闲，然后使用 /run webconfig restart。",
+            "某个地点不正确：站到正确的位置并使用 /run new <location>，或提供坐标。",
+            "CraftBukkit 上缺少指南针 HUD：请使用 Spigot 或 Paper 以获得完整功能。",
+            "某些行为异常：启用跟踪诊断，重现问题，并将 plugins/Speedrun/traces 中最新的文件附到你的报告中。"
+          ]
+        }
+      ]
+    }
+  ]
+}

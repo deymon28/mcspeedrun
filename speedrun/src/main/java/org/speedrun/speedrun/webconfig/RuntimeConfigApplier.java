@@ -19,6 +19,7 @@ public class RuntimeConfigApplier {
         WebConfigApplyResult result = new WebConfigApplyResult();
 
         plugin.getConfigManager().reloadLanguageFromCurrentConfig();
+        plugin.getTaskManager().refreshDisplayNames();
         plugin.getTraceLogger().reload();
         result.applied("Configuration values and language files refreshed.");
         result.applied("Trace diagnostics settings refreshed.");
@@ -110,6 +111,7 @@ public class RuntimeConfigApplier {
     }
 
     private void refreshScoreboards(WebConfigApplyResult result) {
+        plugin.getScoreboardManager().applyDisplayOptions();
         Bukkit.getOnlinePlayers().forEach(player -> plugin.getScoreboardManager().updateScoreboard(player));
         result.applied("Online scoreboards refreshed.");
     }

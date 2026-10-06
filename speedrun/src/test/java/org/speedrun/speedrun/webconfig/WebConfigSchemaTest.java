@@ -78,7 +78,7 @@ class WebConfigSchemaTest {
         WebConfigValidationResult accepted = WebConfigSchema.validatePatch(new JSONObject()
                 .put("settings.language", "English"));
         WebConfigValidationResult rejected = WebConfigSchema.validatePatch(new JSONObject()
-                .put("settings.language", "de"));
+                .put("settings.language", "xx"));
 
         assertTrue(accepted.valid(), accepted.errors().toString());
         assertFalse(rejected.valid());

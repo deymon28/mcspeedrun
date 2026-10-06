@@ -1,285 +1,226 @@
-# Minecraft Speedrun Plugin
+# Speedrun
 
-Paper speedrun-assist plugin for Minecraft/Paper `26.1.2`.
+A speedrun companion plugin for Minecraft servers. It adds a run timer, staged tasks,
+automatic tracking of key locations, personal bests with stage splits, and an optional
+assisted mode with a navigation compass. Everything can be configured in a browser.
 
-Current plugin version: `26.1.2-3.5.4-BETA`.
+It runs on **Paper, Spigot, and CraftBukkit** and uses each platform's strengths:
+asynchronous chunk loading and native text components on Paper, the Spigot chat API on
+Spigot, and plain Bukkit everywhere else.
 
-This maintenance beta preserves the 26.1.2 feature set before the next Minecraft
-upgrade. It corrects command authorization, nested configuration updates, and
-portal-scan thread safety. The original alpha remains available as tag `v3.5.3`.
+Current version: **4.0.0 beta** for Minecraft **26.3** (`speedrun-26.3-4.0.0-BETA.jar`).
 
-## Features
+## Highlights
 
-- Speedrun timer with start, pause, stop, reset, and final-time handling.
-- Location tracking for lava pools, villages, Nether portals, fortresses, bastions, and strongholds.
-- Native lodestone compass support for stable navigation, including Nether tracking.
-- Casual mode with navigation compass, structure waypoints, Nether gold highlighting, and tab-list coordinates.
-- Hardcore mode that disables assistance and keeps the UI focused on the timer.
-- Staged task progression with configurable item and structure tasks.
-- Optional start pre-scan for required structure coordinates.
-- Chunk biome logging for Overworld activity-map analysis.
-- Configurable rewards through console commands, sounds, and particles.
-- Legacy color code and Adventure/MiniMessage message support.
-- English and Ukrainian language files.
-- Local browser-based config editor with schema validation and safe hot-apply.
+- **Run timer** that starts with the first player or immediately, pauses and resumes, optionally
+  pauses itself while the server is empty, and stops when the Ender Dragon dies.
+- **Stages and tasks** – collect items (wood, iron, cooked food, pearls, blaze rods, …) or find
+  structures; the next stage starts when the current one is complete.
+- **Location tracking** for lava pools, villages, Nether portals (both sides), fortresses,
+  bastions, and the stronghold, shown on the scoreboard in the coordinates of the player's world.
+- **Personal bests and splits** – each stage completion is announced with the difference to your
+  best split; a finished run is compared with the best time and stored per game mode.
+- **Three game modes**
+  - *Normal*: timer, tasks, and location tracking.
+  - *Casual*: adds a Navigation Compass with a destination menu (including your last death),
+    light beams over found locations, glowing gold blocks in the Nether, coordinates in the tab
+    list, and an optional background structure search.
+  - *Hardcore*: timer only, all assistance off.
+- **Browser settings editor** with search, explanations for every setting, a guide, change
+  review, undo, and safe apply rules – in 8 languages.
+- **In-game messages in 8 languages**: English, Ukrainian, German, Spanish, French, Portuguese
+  (Brazil), Polish, and Simplified Chinese. All texts can be customized.
+- **Automatic configuration upgrades** that keep your settings, add new ones, and back up the old file.
+- **Run logs** (text and JSON) for analysis, plus optional detailed diagnostics.
 
-## Project Structure
+## Compatibility
 
-The plugin project lives in the `speedrun/` folder:
+| Server software | Minecraft | Status |
+| --- | --- | --- |
+| Paper | 26.3 | Tested. Full feature set, asynchronous chunk loading. |
+| Spigot | 26.3 | Tested. Full feature set; missing chunks are loaded synchronously (rate-limited). |
+| CraftBukkit | 26.3 | Tested. Same as Spigot; clickable chat links are not available. |
+| Paper | 26.1.2 | Loads and runs (startup smoke test). |
+| Folia | – | Not supported (the plugin relies on a single main thread). |
 
-```text
-speedrun/
-  src/main/
-  build.gradle
-  gradle.properties
-  settings.gradle
-```
+Requires **Java 25** or newer. Paper builds for 26.3 are marked beta by the Paper team.
 
-## Requirements
+## Installation
 
-- Java `25`
-- Paper server `26.1.2`
-- Gradle `9.5.1`
+1. Download `speedrun-26.3-4.0.0-BETA.jar` from the [releases page](https://github.com/deymon28/mcspeedrun/releases)
+   and check it against the published `.sha256` file.
+2. Put the jar into your server's `plugins/` folder and start the server.
+3. Join as an operator and run `/run webconfig`. Click the link to open the settings editor.
+4. Pick a game mode, review the tasks, and press **Save & apply**.
+5. Start a run with `/run start`, or simply join if *Start when the first player joins* is on.
 
-The build uses Paper API `26.1.2.build.69-stable`.
+Upgrading from 3.x: replace the jar and restart. Your `config.yml` is upgraded automatically,
+the old file is saved to `plugins/Speedrun/config-backups/`, and a summary is written to the
+console and shown to administrators when they join.
 
-## Build
+## Commands and permissions
 
-From the repository root:
+The command is `/run` (alias `/sr`). `speedrun.player` is granted to everyone, `speedrun.admin`
+to operators. Administrative commands also work from the server console.
 
-```powershell
-cd speedrun
-.\gradlew.bat build
-```
+| Command | Permission | Description |
+| --- | --- | --- |
+| `/run help` | player | List the commands you can use. |
+| `/run status` | player | Timer, current stage, and players. |
+| `/run tasks` | player | Open tasks in your world. |
+| `/run records` | player | Personal best and best splits of the current game mode. |
+| `/run givecompass [player]` | player / admin for others | Get a Navigation Compass. |
+| `/run start` · `pause` · `stop` · `reset` | admin | Control the run. `reset` starts a fresh run. |
+| `/run skipstage` | admin | Complete the current stage (the run will not count for records). |
+| `/run new <location> [x y z]` | admin | Set a location at your position or at coordinates. |
+| `/run remove <location>` | admin | Hide a location from the scoreboard. |
+| `/run locate pos1` / `pos2` | admin | Estimate the stronghold from two Eye of Ender throws. |
+| `/run records reset` | admin | Clear the records of the current game mode. |
+| `/run reload` | admin | Reload `config.yml` and message files. |
+| `/run webconfig [restart\|stop]` | admin | Get a private link to the settings editor. |
 
-The plugin jar is generated at:
-
-```text
-speedrun/build/libs/speedrun-26.1.2-3.5.4-BETA.jar
-```
-
-## Install
-
-1. Build the plugin jar.
-2. Copy `speedrun-26.1.2-3.5.4-BETA.jar` into the server `plugins/` folder.
-3. Start or restart a Paper `26.1.2` server.
-
-This beta has been verified to load and stop on Paper `26.1.2-69` in all six runtime profiles.
-See the [maintenance release notes](docs/releases/v3.5.4-beta.md) for fixes and verification limits.
-
-## Commands
-
-- `/run start` - start the speedrun.
-- `/run pause` - pause or resume the timer.
-- `/run stop` - stop the current run.
-- `/run reset` - reset timer, tasks, scanners, waypoints, and runtime caches.
-- `/run reload` - reload configuration and tasks.
-- `/run webconfig [restart|stop]` - show, restart, or stop the local web configuration editor.
-- `/run skipstage` - complete the current task stage.
-- `/run status` - show current run status.
-- `/run tasks` - show active tasks for the current world.
-- `/run new <location> [x y z]` - set a tracked location, optionally at custom coordinates.
-- `/run remove <location>` - hide a tracked location and stop its related search state.
-- `/run locate ...` - stronghold/end portal triangulation helper.
-- `/run givecompass [player]` - give the navigation compass.
-
-## Permissions
-
-- `speedrun.player` - basic `/run` access. Default: `true`.
-- `speedrun.admin` - administrative run control. Default: `op`.
+Locations: `lava pool`, `village`, `nether portal`, `fortress`, `bastion`, `end portal`.
 
 ## Configuration
 
-Main settings are in `speedrun/src/main/resources/config.yml` and are copied to the plugin data folder on first run.
+### Browser editor
 
-Important options include:
+`/run webconfig` prints a private link (clickable in game). The editor runs inside the plugin on
+`127.0.0.1:8765`, needs no account, and offers:
 
-- `web-config.enabled`: start a localhost browser editor. Use the administrative `/run webconfig` command to request its access link; treat that link as a password.
-- `web-config.bind` and `web-config.port`: local HTTP bind settings. Keep the bind address on `127.0.0.1` unless intentionally exposing it.
-- `settings.gamemode`: `NORMAL`, `CASUAL`, or `HARDCORE`.
-- `settings.reset_time_on_join`: set loaded worlds to day when the first join starts the run.
-- `progression.settings.task-display-mode`: `ACTIVE_STAGE`, `ALL_STAGES`, or `ALL_GAME_STAGES` task display. Default is `ALL_GAME_STAGES`.
-- `progression.settings.completed-task-hide`: hide completed tasks after a timeout. Default is enabled with a 10 second timeout.
-- `casual.start-pre-scan.enabled`: enable controlled Casual live/background discovery.
-- `casual.start-pre-scan.mode`: `SAFE`, `BALANCED`, `AGGRESSIVE`, or `LOCATE` scanner profile.
-- `casual.start-pre-scan.lava-pool-vertical-scan`: vertical scan range around players for pre-scan lava pool detection.
-- `casual.start-pre-scan.safety`: hard caps for background chunk queue load.
-- `casual.compass.death-location.enabled`: add each player's own last death point to their compass menu.
-- `diagnostics.trace.enabled`: write detailed JSONL runtime traces for bug reproduction.
-- `settings.chunk-biome-logging.enabled`: log visited Overworld chunk biomes.
-- `casual.structure_waypoints`: enable structure waypoints. End Gateway is the default marker type; Beacon remains available.
-- `casual.nether_gold_highlight`: highlight gold blocks around Nether players.
-- `progression`: staged item and structure tasks.
-- `rewards`: global reward commands, sounds, and particles.
+- every setting with a plain-language explanation, its default value, and a reset button;
+- search across all settings, a filter for inactive settings, and an 8-language interface;
+- an editor for stages and tasks and for reward lists;
+- a review panel with every pending change, undo, and *Save & apply*, *Save only*, or *Apply
+  without saving*;
+- an overview of the server software and its capabilities, the current run, and the last
+  configuration upgrade;
+- a built-in guide.
 
-## Testing
+Changes are applied safely: settings that change the rules of a running run are saved but wait
+until the run ends, and startup settings such as the editor port wait for `/run reload` or a
+restart. If the file was changed elsewhere in the meantime, the editor asks you to reload
+instead of overwriting it.
 
-Fast JUnit tests cover pure utility logic, task scaling/progress behavior, command structure alias parsing, config defaults, language keys, plugin metadata, and Overworld/Nether coordinate scaling:
+### config.yml
 
-```powershell
-cd speedrun
-.\gradlew.bat test
+`plugins/Speedrun/config.yml` is fully commented. After editing it by hand, run `/run reload`.
+The most important settings:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `settings.gamemode` | `NORMAL` | `NORMAL`, `CASUAL`, or `HARDCORE`. |
+| `settings.language` | `en` | `en`, `uk`, `de`, `es`, `fr`, `pt_BR`, `pl`, `zh_CN`. |
+| `settings.start-on-first-join` | `true` | Start the timer with the first join. |
+| `settings.pause-when-empty` | `false` | Pause while nobody is online. |
+| `settings.task-tracking-mode` | `INVENTORY` | Count carried items or everything collected (`CUMULATIVE`). |
+| `records.enabled` | `true` | Store personal bests and splits. |
+| `casual.start-pre-scan.mode` | `BALANCED` | Background structure search: `SAFE`, `BALANCED`, `AGGRESSIVE`, `LOCATE`. |
+| `web-config.enabled` / `bind` / `port` | `true` / `127.0.0.1` / `8765` | Browser editor. |
+
+See [docs/configuration.md](docs/configuration.md) for the complete reference.
+
+### Tasks and stages
+
+Stages under `progression` are completed in the order of their keys (`1_…`, `2_…`, …). Each task
+is a Minecraft item name with an amount, or a structure:
+
+```yaml
+progression:
+  2_IRON_AGE:
+    display-name: "Iron Age"
+    world: "NORMAL"            # where the tasks are shown: NORMAL, NETHER, THE_END
+    tasks:
+      IRON_INGOT: { amount: 7, display-name: "Iron Ingots", srbp: false }
+      BREAD: { amount: 16, display-name: "Cooked Food", srbp: true }   # srbp: scale by player count
+      STRUCTURE_VILLAGE: { display-name: "Find a Village" }
 ```
 
-Full build runs the same test suite before producing the plugin jar:
+`OAK_LOG` counts every log and wood type, `BREAD` every cooked food. Structure tasks:
+`STRUCTURE_LAVA_POOL`, `STRUCTURE_VILLAGE`, `STRUCTURE_NETHER_PORTAL`, `STRUCTURE_FORTRESS`,
+`STRUCTURE_BASTION`, `STRUCTURE_END_PORTAL`.
 
-```powershell
+### Messages and languages
+
+Message files are extracted to `plugins/Speedrun/lang/`. Edit them freely: customized texts are
+never overwritten, and when an update adds new messages they are appended to your file (the
+previous version is kept in `lang-backups/`). Both `&` color codes and MiniMessage tags such as
+`<green>` or `<#ff8800>` work.
+
+### Rewards
+
+`rewards.on-task-complete` and `rewards.on-stage-complete` contain lines such as
+`api:sound minecraft:entity.player.levelup 1.0 1.5` or `api:particle minecraft:heart 10`.
+Any other line runs as a console command with `%player%` replaced. For safety, console
+command rewards can only be added in `config.yml`, not from the browser editor (unless
+`web-config.allow-console-reward-commands` is enabled in the file).
+
+## Performance
+
+- Scans of world data run on background threads using immutable chunk snapshots; the server
+  thread only captures snapshots and applies results.
+- On Paper, missing chunks are loaded asynchronously (several at once). On Spigot and
+  CraftBukkit at most one chunk per tick is loaded, and the background search only loads
+  missing chunks if `casual.start-pre-scan.allow-sync-chunk-loading` is enabled.
+- Village detection uses block-entity lists instead of scanning every block; all queues and
+  worker pools are bounded; run logs are written by a background writer.
+- Gold highlighting uses glowing block displays (no hitbox, never saved with the world) and is
+  capped at 256 blocks.
+
+## Security
+
+- The editor listens on `127.0.0.1` only and every API request needs a random key that changes
+  on every start (`/run webconfig restart` creates a new one). The key travels in the link's
+  `#fragment`, so it never appears in HTTP requests, web request logs, or referrers.
+- Host-header checks block DNS-rebinding attacks; repeated wrong keys are throttled; responses
+  carry a strict Content Security Policy.
+- The editor validates every value, never runs commands, and writes `config.yml` atomically.
+- Share the link with nobody. A link requested from the server console is also written to the
+  server log; run `/run webconfig restart` before sharing logs. For remote access prefer an SSH
+  tunnel to changing `web-config.bind`.
+
+## Files created by the plugin
+
+| Path in `plugins/Speedrun/` | Content |
+| --- | --- |
+| `config.yml` | Configuration. |
+| `config-backups/` | Previous configuration files and `migration-report.txt`. |
+| `lang/`, `lang-backups/` | Message files and their backups. |
+| `records.yml` | Personal bests and splits. |
+| `logs/` | Text and JSON log of every run (`settings.log-attempts`). |
+| `traces/` | Optional diagnostics (`diagnostics.trace.enabled`). |
+
+## Building from source
+
+```bash
 cd speedrun
-.\gradlew.bat build
+./gradlew build
 ```
 
-Paper smoke testing starts isolated servers under the ignored `speedrun/build/` directory and verifies enable/disable, web authentication and static UI delivery across key configuration profiles: `NORMAL`, `CASUAL` with `SAFE`, `BALANCED`, `AGGRESSIVE`, and `LOCATE` pre-scan, and `HARDCORE`. Test servers listen only on localhost. The operator must have accepted the Minecraft EULA.
+The jar is written to `speedrun/build/libs/speedrun-26.3-4.0.0-BETA.jar`. The build compiles the
+common code against the Spigot API, the Paper adapter (`src/paper/java`) against the Paper API,
+shades and relocates Adventure and JSON-java, and runs the unit tests. Browser editor tests:
 
-```powershell
-cd speedrun
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\paper-smoke-test.ps1 -PaperJar "path/to/paper.jar"
+```bash
+node --test speedrun/scripts/web-editor-test.cjs
 ```
 
-## Structure Discovery
+`speedrun/scripts/server-smoke-test.ps1` starts real servers in isolated folders under
+`speedrun/build/`, checks startup, the protected web API, console commands, and a clean shutdown
+for every game mode. It needs server jars you provide and an accepted Minecraft EULA.
 
-The background scanner scans loaded chunks and, in `BALANCED`/`AGGRESSIVE`, a bounded async Paper chunk queue. Safety caps limit chunk queue pressure even when a config profile is set too high.
+## Troubleshooting
 
-- Overworld generated structures can map to `VILLAGE` and `END_PORTAL` from Stronghold metadata.
-- Nether generated structures can map to `FORTRESS` and `BASTION`.
-- Fortress and Bastion are ignored in the Overworld because the mapper only accepts them when the scanned world environment is `NETHER`.
-- End Portal/Stronghold scanning is ignored in the Nether; Nether scoreboards may still show converted approximate Overworld coordinates.
-- Lava Pool and Bell confirmation scans run only in the Overworld block/snapshot scanner.
-- `LOCATE` mode performs a small, staggered set of Bukkit/Paper locate API calls for villages, strongholds, fortresses, and bastions, then falls back to loaded-chunk live scanning. Locate calls are synchronous, so keep `calls-per-run` low.
-
-## Diagnostics Trace
-
-Set `diagnostics.trace.enabled: true` in `config.yml` and reload/restart to write JSONL traces under `plugins/Speedrun/traces`. Use this when reproducing compass, lodestone, portal, or scanner bugs. Categories can be `ALL` or selected values: `diagnostics`, `lifecycle`, `compass`, `lodestone`, `scanner`, `structure`, `portal`.
-
-## Notes For 3.0.0 Alpha
-
-- Migrated to Minecraft/Paper `26.1.2`.
-- Added native lodestone compass support.
-- Added Casual and Hardcore mode behavior.
-- Reworked task progression into stages.
-- Added Paper async gold scanning with Bukkit/Spigot fallback.
-- Fixed Nether portal fire-spread false positives.
-- Fixed village timeout/reset behavior.
-- Added exact Nether portal search timeout fallback to approximate coordinates.
-
-## Notes For 3.1.0 Alpha
-
-- Start pre-scan now belongs to `casual.start-pre-scan` and is ignored outside Casual mode.
-- Structure pre-scan is staggered and treats the configured radius as blocks, with a chunk cap for Paper locate calls.
-- Portal entry now records missing source-side coordinates before searching the destination side.
-- Scoreboards are reattached on player rejoin.
-- Coordinate display can be `UNIFIED`, `SEPARATE`, or `CONDITIONAL`.
-- Attempt JSON logs include run metadata, Y coordinates, and optional block-level player tracking.
-
-## Notes For 3.1.1 Alpha
-
-- Coordinate display modes no longer add world labels or linked coordinates in brackets.
-- Nether compass actionbar now shows distance without a text direction arrow.
-- End portal entry is detected from the portal block, and End Gateway waypoint side effects are guarded.
-
-## Notes For 3.1.2 Alpha
-
-- Predicted End Portal coordinates from `/run locate` stay yellow until confirmed.
-- The compass Spawn destination now uses the world's actual spawn location.
-- Navigation compasses only use lodestone tracking when a hidden lodestone exists, and `/run givecompass` replaces the old top-level command.
-
-## Notes For 3.1.3 Alpha
-
-- Spawn compass targeting now refreshes from the live Overworld spawn instead of relying on a cached menu entry.
-- Normal coordinate targets no longer receive invalid lodestone compass metadata.
-
-## Notes For 3.1.4 Alpha
-
-- Spawn compass targeting now uses a protected hidden lodestone, matching discovered structure compass behavior.
-
-## Notes For 3.1.5 Alpha
-
-- Beacon waypoints now try nearby safe footprints before falling back to legacy placement.
-
-## Notes For 3.1.6 Alpha
-
-- Server startup logs now include the plugin version, gamemode, and key runtime settings.
-
-## Notes For 3.1.7 Alpha
-
-- Approximate End Portal coordinates now convert correctly for Nether scoreboards.
-- Task display can now show either the active stage or all configured stages for the player's world.
-
-## Notes For 3.1.8 Alpha
-
-- Task display can now group all configured tasks by world with `ALL_GAME_STAGES`.
-- Completed tasks can optionally disappear from task displays after a configured timeout.
-
-## Notes For 3.1.9 Alpha
-
-- Default progression no longer auto-generates Fortress, Bastion, or Stronghold structure tasks.
-
-## Notes For 3.1.10 Alpha
-
-- Casual start pre-scan no longer calls blocking structure locate APIs; it uses loaded-chunk live discovery instead.
-- Added `settings.reset_time_on_join` for first-join run starts.
-- Removed the default duplicate `Stage Complete` tellraw reward and filters the legacy default command at runtime.
-- Casual compass can show each player's own last death location as a private destination.
-
-## Notes For 3.1.11 Alpha
-
-- `reset_time_on_join` now skips worlds without a normal world clock instead of failing player join.
-- Casual death destinations create a private hidden lodestone so Nether death tracking can point the compass reliably.
-- Start pre-scan now supports `SAFE`, `BALANCED`, and `AGGRESSIVE` profiles with a budgeted background chunk queue.
-- Background-discovered structure coordinates are treated as approximate and shown with approximate styling.
-
-## Notes For 3.2.0 Alpha
-
-- Added a JUnit 5 test suite for utility logic, task scaling, config/profile parsing, command aliases, resource defaults, and plugin metadata.
-- Added a Paper smoke-test script that boots real temporary Paper servers across the main runtime configuration profiles.
-- Extracted linked Overworld/Nether coordinate scaling into a testable utility used by the scoreboard.
-
-## Notes For 3.2.1 Alpha
-
-- Approximate Village coordinates can now be confirmed by finding or interacting with a Bell.
-- Nether Portal compass tracking now keeps separate hidden lodestones for each portal side/world.
-
-## Notes For 3.3.0 Alpha
-
-- Spawn and other compass destinations now create hidden lodestones more reliably, including async chunk loading when the target chunk is not loaded.
-- Hidden lodestones are placed deeper at the same X/Z instead of near the surface, and old lodestones are not removed until a replacement can be placed.
-- Added optional JSONL trace diagnostics for compass selection, lodestone placement, scanner decisions, structure matches, portals, and run lifecycle events.
-
-## Notes For 3.4.0 Alpha
-
-- Added `LOCATE` start pre-scan mode for bounded one-shot structure locate API calls with loaded-chunk fallback.
-- Added hard safety caps for background pre-scan chunk load rate and queue size, so oversized configs cannot generate tens of thousands of chunks unchecked.
-- Documented that oversized `AGGRESSIVE` settings can cause long shutdown saves and Nether chunk loading stalls.
-
-## Notes For 3.4.1 Alpha
-
-- Updated generated config defaults for reset-time-on-join, End Gateway waypoints, all-game-stage task display, and completed-task hiding.
-
-## Notes For 3.4.2 Alpha
-
-- Start pre-scan lava pool detection now scans 12 blocks below and 32 blocks above the player origin by default, with configurable vertical scan bounds.
-- Tasks shown by all-stage display modes now track progress and completion even before their progression stage becomes active.
-
-## Notes For 3.5.0 Alpha
-
-- Added a local token-protected web config editor served from the plugin through Java's built-in HTTP server.
-- The editor exposes schema-driven fields plus structured progression and rewards editors, validation, preview, save, apply, and save-and-apply actions.
-- Runtime apply now refreshes trace settings, Casual mode components, scanner tasks, tab coordinates, waypoints, highlights, and scoreboards where safe; active progression changes are held for reset to avoid losing task progress.
-
-## Notes For 3.5.1 Alpha
-
-- Reworked the web config editor into a dark-only interface with collapsible setting groups.
-- Added schema metadata for visual group labels and parent setting dependencies, so inactive Casual, scanner, waypoint, reward, and scaling settings show why they currently do not apply.
-- The change preview now groups pending edits by apply impact before save/apply.
-
-## Notes For 3.5.2 Alpha
-
-- Adjusted the web config editor to a neutral near-OLED dark palette instead of the previous blue-tinted dark theme.
-- Added sidebar search and a Hide inactive toggle so casual users can reduce clutter while advanced users can still inspect full config paths, dependency reasons, and apply-impact badges.
-
-## Notes For 3.5.3 Alpha
-
-- Fixed web config language apply so language values are canonicalized to bundled file codes, both bundled language files are generated on startup, and failed apply attempts do not leave a broken runtime language value.
+- **The editor link does not open** – check `web-config.enabled`, make sure the port is free, and
+  use `/run webconfig restart`.
+- **A location is wrong** – stand at the right place and use `/run new <location>` or give coordinates.
+- **No compass distance on CraftBukkit** – use Spigot or Paper for the full feature set.
+- **Something behaves strangely** – enable `diagnostics.trace.enabled`, reproduce the problem, and
+  attach the newest file from `plugins/Speedrun/traces/` to your report.
 
 ## License
 
-MIT License. See `LICENSE.txt`.
+MIT, see [LICENSE.txt](LICENSE.txt). The plugin bundles
+[Adventure](https://github.com/KyoriPowered/adventure) (MIT) and
+[JSON-java](https://github.com/stleary/JSON-java) (public domain); see
+`META-INF/THIRD-PARTY-NOTICES.txt` in the jar.

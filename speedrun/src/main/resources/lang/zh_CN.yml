@@ -1,0 +1,206 @@
+# Speedrun - 简体中文消息
+#
+# 颜色代码：&0-&9、&a-&f、&l（粗体）、&o（斜体）、&n（下划线）、&m（删除线）、&r（重置）。
+# 同样支持 MiniMessage 标签，例如 <green>、<bold> 或 <#ff8800>。
+# 像 %player% 这样的占位符由插件填充，必须保留。
+# 此文件中缺失的消息会使用内置文本。
+
+# 添加在聊天消息前面的文本，例如 "&e[Speedrun] &r"。
+prefix: ""
+
+commands:
+  no-permission: "&c你没有使用此命令的权限。"
+  player-only: "&c此命令只能由游戏中的玩家使用。"
+  reloaded: "&a配置和消息文件已重新加载。"
+  run-started: "&a速通已开始。"
+  run-already-started: "&c速通已经在进行中。"
+  run-stopped: "&a速通已停止。"
+  run-not-running: "&c当前没有正在进行的速通。"
+  timer-paused: "&e计时器已暂停。"
+  timer-resumed: "&a计时器已继续。"
+  run-reset: "&e速通已重置。新的一局现在开始。"
+  stage-skipped: "&e已跳到下一阶段。本局不会计入个人最佳记录。"
+  unknown-subcommand: "&c未知的子命令。输入 &e/%label% help &c查看命令列表。"
+  usage-new: "&c用法：/run new <%structures%> [x y z]"
+  usage-remove: "&c用法：/run remove <location>"
+  invalid-structure: "&c未知的地点。有效地点：%structures%"
+  location-update-failed: "&c无法更新地点：%location%"
+  location-updated: "&a地点已更新：%location%"
+  structure-hidden: "&a地点已隐藏：%structure%"
+  locate-pos1: "&a已保存第一次投掷（位置和视线方向）。"
+  locate-pos2: "&a已保存第二次投掷（位置和视线方向）。"
+  locate-invalid-coordinates: "&c坐标无效。请只使用数字。"
+  locate-usage: "&e用法：/run locate <pos1|pos2> 或 /run locate <x1> <y1> <z1> <x2> <y2> <z2>"
+  locate-header: "&a--- 要塞位置估算 ---"
+  locate-predicted: "&a预估末地传送门：&e%coords% &7(下界：&c%nether_x%, %nether_z%&7)"
+  locate-failed: "&c无法计算位置。两次投掷很可能是平行的；请换个地点再投掷一次。"
+  help:
+    header: "&6--------- &eSpeedrun 命令 &6---------"
+    help: "&e/%label% help &7- 显示此列表"
+    status: "&e/%label% status &7- 计时器、阶段和玩家"
+    tasks: "&e/%label% tasks &7- 你所在世界的未完成任务"
+    records: "&e/%label% records &7- 个人最佳和最佳分段"
+    givecompass: "&e/%label% givecompass [player] &7- 获得导航指南针"
+    start: "&e/%label% start &7- 开始速通"
+    pause: "&e/%label% pause &7- 暂停或继续计时器"
+    stop: "&e/%label% stop &7- 停止速通"
+    reset: "&e/%label% reset &7- 重置并开始新的一局"
+    skipstage: "&e/%label% skipstage &7- 完成当前阶段"
+    new: "&e/%label% new <location> [x y z] &7- 设置地点"
+    remove: "&e/%label% remove <location> &7- 隐藏地点"
+    locate: "&e/%label% locate <pos1|pos2> &7- 根据两次投掷末影之眼估算要塞位置"
+    reload: "&e/%label% reload &7- 重新加载配置和消息"
+    webconfig: "&e/%label% webconfig [restart|stop] &7- 在浏览器中打开设置编辑器"
+    admin-footer: "&7提示：使用 &e/run webconfig &7在浏览器中配置所有内容。"
+  givecompass:
+    no-permission-others: "&c你没有给其他玩家发放指南针的权限。"
+    player-not-found: "&c未找到玩家：%player%"
+    usage: "&c用法：/run givecompass [player]"
+    received: "&a你获得了一个导航指南针。"
+    gave: "&a已将导航指南针发给 %player%。"
+  webconfig:
+    usage: "&c用法：/run webconfig [restart|stop]"
+    unavailable: "&c网页编辑器未运行。请在 config.yml 中启用 web-config.enabled，或使用 /run webconfig restart。"
+    url: "<green>设置编辑器：<click:open_url:'%url%'><hover:show_text:'在浏览器中打开'><yellow><u>点击打开</u></yellow></hover></click>"
+    url-console: "&a设置编辑器：&e%url%"
+    restarted: "<green>编辑器已使用新链接重新启动：<click:open_url:'%url%'><yellow><u>点击打开</u></yellow></click>"
+    restarted-console: "&a编辑器已使用新链接重新启动：&e%url%"
+    private: "&7此链接是私密的：任何拥有它的人都可以更改设置。/run webconfig restart 会生成新链接。"
+    stopped: "&a网页编辑器已停止，直到下次重启或使用 /run webconfig restart。"
+  status:
+    header: "&6--------- &eSpeedrun 状态 &6---------"
+    time: "&f时间：&e%time%"
+    running: "&f状态：&a进行中"
+    paused: "&f状态：&c已暂停"
+    idle: "&f状态：&7未运行 &8(/run start)"
+    finished: "&f状态：&a已完成"
+    stage: "&f当前阶段：&d%stage%"
+    players: "&f玩家：&b%players%"
+    footer: "&6-----------------------------------"
+  tasks:
+    header: "&6--------- &e当前任务 &6---------"
+    no-tasks: "&7这个世界里没有未完成的任务。"
+    footer: "&6-----------------------------------"
+
+scoreboard:
+  # 侧边栏每行请保持简短：过长的地点或任务名称会被客户端截断。
+  title: "&e&lSPEEDRUN"
+  time: "&f时间："
+  paused: "&c&l已暂停"
+  s-end: "&a&l速通完成"
+  locations-header: "&b地点："
+  location-found: "&7%name%：&a%coords%"
+  location-approximate: "&7%name%：&e~%coords%"
+  location-pending: "&7%name%：&c???"
+  village-timer: "&e[%time%]"
+  normal-tasks-header: "&a主世界："
+  nether-tasks-header: "&c下界："
+  end-tasks-header: "&5末地："
+  task-line: "&7- %name%：&f%progress%&7/&f%required%"
+  task-complete: "&a✔ &m%name%"
+
+messages:
+  run-started: "&a速通开始了！祝你好运。"
+  village-timeout: "&c寻找村庄的时间已用完。村庄目标已被放弃。"
+  structure-found: "&b%player% &f在 &b%coords% &f找到了 &6%structure%&f！"
+  portal-lit: "&b%player% &f打开了通往&5下界&f的传送门！"
+  dragon-slain: "&a&l末影龙已被击败！速通完成！"
+  final-time: "&a&l最终用时：%time%"
+  stage-complete: "&d&l阶段完成！&f前往下一阶段。"
+  unknown-structure-name: "&c未知的地点：%name%"
+  reassigning-disabled: "&c配置中已禁用移动已找到的地点。"
+  portal-reassigned: "&a传送门位置已设置为你当前所在的位置。"
+  use-run-new-nether-portal: "&c请使用 /run new nether portal 来移动传送门。"
+
+records:
+  header: "&6--------- &e个人最佳（%mode%）&6---------"
+  none: "&7还没有完成的记录。击败末影龙来创造第一个记录。"
+  best: "&f最佳用时：&e%time% &7(%date%，已完成 %runs% 局)"
+  split-line: "&7- %stage%：&f%time%"
+  split: "&d%stage% &f完成于 &e%time% %delta%"
+  new-best: "&6&l新的个人最佳！&e%time% %delta%"
+  compare: "&f个人最佳：&e%best% %delta%"
+  delta-ahead: "&a(-%delta%)"
+  delta-behind: "&c(+%delta%)"
+  delta-first: "&7(首个记录)"
+  reset: "&a当前游戏模式的个人最佳记录已重置。"
+
+admin:
+  installed: "<green>Speedrun 已安装。使用 <click:run_command:'/run webconfig'><yellow><u>/run webconfig</u></yellow></click> 在浏览器中进行设置，或查看 <yellow>/run help</yellow>。"
+  upgraded: "&aSpeedrun 已更新（%from% -> %to%）。你的设置已保留：&f%transferred% &a项已迁移，&f%new% &a项为使用默认值的新设置，&f%reset% &a项已重置为默认值。"
+  reset-settings: "&e已重置为默认值，因为旧值不再受支持：&f%settings%"
+  backup: "&7你之前的 config.yml 已保存到 plugins/Speedrun/%file%。"
+  config-failed: "&c无法加载 config.yml，因此正在使用默认设置。请检查服务器控制台，修复文件后执行 /run reload。"
+  invalid-settings: "&econfig.yml 中的某些设置无效，已使用默认值：&f%settings%"
+
+items:
+  navigation-compass:
+    name: "&6导航指南针"
+    lore:
+      - "&7右键点击以选择目的地。"
+
+compass:
+  welcome-received: "&a欢迎！你获得了一个&6导航指南针&a。"
+  welcome-hint: "&a右键点击它来选择要前往的地方。"
+  no-destinations: "&c这个维度中暂时没有目的地。"
+  destination-not-found: "&c此目的地在你所在的维度中不可用。"
+  target-set: "&a你的指南针现在指向 %world% 中的 %destination%。"
+  target-invalid: "&c无法设置指南针目标。"
+  null-world: "&c无法添加此目的地，因为其所在世界未加载。"
+  discovered: "&a发现了 &b%destination%&a！已添加到你的导航指南针。"
+  no-target-actionbar: "&7没有目的地。右键点击指南针来选择一个。"
+  other-world-actionbar: "&c%destination% 位于 %world%"
+  target-actionbar: "&b%destination% &7- &f%distance%"
+  gui:
+    title: "&1目的地 - %world%"
+    overworld: "&a主世界"
+    nether: "&c下界"
+    death-location-name: "&c%player% 的上次死亡地点"
+    destination-name: "&a%destination%"
+    approximate-destination-name: "&e~%destination%"
+    lore-x: "&7X：%x%"
+    lore-y: "&7Y：%y%"
+    lore-z: "&7Z：%z%"
+    lore-world: "&7世界：%world%"
+    approximate-lore: "&e来自后台扫描的大致位置"
+    click-hint: "&e点击让指南针指向这里"
+    death-click-hint: "&e点击追踪你的上次死亡地点"
+    custom-location: "自定义地点"
+    generic-location: "地点"
+
+tab:
+  coordinates: "&eX: &f%x%  &eY: &f%y%  &eZ: &f%z%"
+
+protection:
+  structure-marker: "&c此方块属于地点标记，无法破坏。"
+  hidden-lodestone: "&c此方块用于固定指南针，无法破坏。"
+
+# 默认显示名称。当这里缺少某个键时，会使用 config.yml 中的名称。
+tasks:
+  OAK_LOG: "木头"
+  COBBLESTONE: "圆石"
+  IRON_INGOT: "铁锭"
+  BREAD: "熟食"
+  ENDER_PEARL: "末影珍珠"
+  BLAZE_ROD: "烈焰棒"
+  STRUCTURE_FORTRESS: "找到下界要塞"
+  STRUCTURE_BASTION: "找到堡垒遗迹"
+  STRUCTURE_END_PORTAL: "找到要塞"
+
+stages:
+  1_GETTING_STARTED: "起步"
+  2_IRON_AGE: "铁器时代"
+  3_NETHER_EXPLORATION: "下界准备"
+  4_NETHER_STRUCTURES: "下界结构"
+  5_STRONGHOLD: "要塞"
+
+structures:
+  SPAWN: "出生点"
+  NETHER_REFERENCE: "下界参照点"
+  LAVA_POOL: "熔岩池"
+  VILLAGE: "村庄"
+  NETHER_PORTAL: "下界传送门"
+  FORTRESS: "下界要塞"
+  BASTION: "堡垒遗迹"
+  END_PORTAL: "末地传送门"
+  PLAYER_DEATH: "上次死亡"

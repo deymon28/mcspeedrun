@@ -1,0 +1,179 @@
+# Default config.yml shipped with 3.5.4 (comments removed), used as a migration fixture.
+web-config:
+  enabled: true
+  bind: "127.0.0.1"
+  port: 8765
+
+settings:
+  gamemode: "NORMAL"
+
+  language: "en"
+
+  start-on-first-join: true
+
+  reset_time_on_join: true
+
+  allow-reassigning-locations: true
+
+  village-search-timeout: 600
+
+  task-tracking-mode: "INVENTORY"
+
+  scale-resources-by-playercount:
+    enabled: true
+    multiplier: 0.5
+
+  log-attempts: true
+
+  chunk-biome-logging:
+    enabled: true
+
+  coordinate-display:
+    mode: "CONDITIONAL"
+
+  proximity-scanner:
+    lava-pool:
+      radius: 16
+      required-source-blocks: 12
+    village:
+      radius: 32
+    nether-portal:
+      check-radius: 4
+      search-radius: 90
+
+    portal-search-timeout: 15
+
+tracking:
+  player-blocks:
+    enabled: false
+
+diagnostics:
+  trace:
+    enabled: false
+    mirror-to-console: false
+    categories: ["ALL"]
+
+casual:
+  enabled: true
+  start-pre-scan:
+    enabled: false
+    mode: "BALANCED"
+    radius: 1000
+    loaded-chunk-radius: 10
+    include-lava-pool: true
+    lava-pool-vertical-scan:
+      below-player: 12
+      above-player: 32
+    safety:
+      max-chunks-per-run: 8
+      max-queued-chunks: 5000
+    locate:
+      radius-chunks: 96
+      period-ticks: 20
+      calls-per-run: 1
+      find-unexplored: false
+      targets:
+        village: true
+        stronghold: true
+        nether-structures: true
+    profiles:
+      SAFE:
+        chunks-per-run: 0
+        period-ticks: 40
+        max-queued-chunks: 0
+        load-missing-chunks: false
+        scan-spawn: false
+        scan-players: false
+        include-nether: false
+      BALANCED:
+        chunks-per-run: 2
+        period-ticks: 20
+        max-queued-chunks: 1500
+        load-missing-chunks: true
+        scan-spawn: true
+        scan-players: true
+        include-nether: false
+      AGGRESSIVE:
+        chunks-per-run: 8
+        period-ticks: 10
+        max-queued-chunks: 5000
+        load-missing-chunks: true
+        scan-spawn: true
+        scan-players: true
+        include-nether: true
+      LOCATE:
+        chunks-per-run: 0
+        period-ticks: 40
+        max-queued-chunks: 0
+        load-missing-chunks: false
+        scan-spawn: false
+        scan-players: false
+        include-nether: false
+  compass:
+    show-nether-reference: false
+    death-location:
+      enabled: true
+  structure_waypoints:
+    enabled: true
+    type: "END_GATEWAY"
+    offset-blocks: 10
+    update-interval-seconds: 10
+
+  player-tab-coordinates: true
+
+  nether_gold_highlight:
+    enabled: true
+    radius: 24
+
+progression:
+  settings:
+    task-display-mode: "ALL_GAME_STAGES"
+    completed-task-hide:
+      enabled: true
+      timeout-seconds: 10
+
+  1_GETTING_STARTED:
+    display-name: "Getting Started"
+    world: "NORMAL"
+    tasks:
+      OAK_LOG: { amount: 16, display-name: "Wood", srbp: true}
+      COBBLESTONE: { amount: 16, display-name: "Cobblestone", srbp: true}
+
+  2_IRON_AGE:
+    display-name: "Iron Age"
+    world: "NORMAL"
+    tasks:
+      IRON_INGOT: { amount: 7, display-name: "Iron Ingots", srbp: false}
+      BREAD: { amount: 16, display-name: "Cooked Food", srbp: true}
+
+  3_NETHER_EXPLORATION:
+    display-name: "Nether Preparation"
+    world: "NETHER"
+    tasks:
+      ENDER_PEARL: { amount: 16, display-name: "Ender Pearls", srbp: false}
+      BLAZE_ROD: { amount: 8, display-name: "Blaze Rods", srbp: false}
+
+  4_NETHER_STRUCTURES:
+    display-name: "Nether Structures"
+    world: "NETHER"
+    tasks: {}
+
+  5_STRONGHOLD:
+    display-name: "Stronghold"
+    world: "NORMAL"
+    tasks: {}
+
+rewards:
+  enabled: true
+
+  on-task-complete:
+    - "api:sound minecraft:entity.player.levelup 1.0 1.5"
+    - "api:sound minecraft:item.totem.use 1.0 1.0"
+    - "api:particle minecraft:totem_of_undying 30 0.5 0.5 0.5 0"
+    - "api:particle minecraft:heart 10 0.2 0.2 0.2 0.1"
+
+  on-stage-complete:
+    - "api:sound minecraft:block.end_portal.spawn 1.0 1.0"
+    - "api:particle minecraft:spark 50 0.5 0.5 0.5 0.1"
+    - "api:particle minecraft:flash 1 0 0 0 0"
+    - "api:particle minecraft:explosion_emitter 1 0 0 0 0"

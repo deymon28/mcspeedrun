@@ -1,0 +1,206 @@
+# Speedrun - Deutsche Nachrichten
+#
+# Farbcodes: &0-&9, &a-&f, &l (fett), &o (kursiv), &n (unterstrichen), &m (durchgestrichen), &r (zurücksetzen).
+# MiniMessage-Tags wie <green>, <bold> oder <#ff8800> werden ebenfalls unterstützt.
+# Platzhalter wie %player% werden vom Plugin ausgefüllt und müssen erhalten bleiben.
+# Nachrichten, die in dieser Datei fehlen, greifen auf den eingebauten Text zurück.
+
+# Text vor Chatnachrichten, zum Beispiel "&e[Speedrun] &r".
+prefix: ""
+
+commands:
+  no-permission: "&cDu hast keine Berechtigung für diesen Befehl."
+  player-only: "&cDieser Befehl kann nur von einem Spieler im Spiel verwendet werden."
+  reloaded: "&aKonfiguration und Nachrichtendateien wurden neu geladen."
+  run-started: "&aDer Speedrun wurde gestartet."
+  run-already-started: "&cEin Speedrun läuft bereits."
+  run-stopped: "&aDer Speedrun wurde gestoppt."
+  run-not-running: "&cEs läuft kein Speedrun."
+  timer-paused: "&eDer Timer ist pausiert."
+  timer-resumed: "&aDer Timer läuft wieder."
+  run-reset: "&eDer Speedrun wurde zurückgesetzt. Ein neuer Run startet jetzt."
+  stage-skipped: "&eZur nächsten Etappe gesprungen. Dieser Run zählt nicht für persönliche Bestzeiten."
+  unknown-subcommand: "&cUnbekannter Unterbefehl. Gib &e/%label% help &cein, um alle Befehle zu sehen."
+  usage-new: "&cVerwendung: /run new <%structures%> [x y z]"
+  usage-remove: "&cVerwendung: /run remove <location>"
+  invalid-structure: "&cUnbekannter Ort. Gültige Orte: %structures%"
+  location-update-failed: "&cDer Ort konnte nicht aktualisiert werden: %location%"
+  location-updated: "&aOrt aktualisiert: %location%"
+  structure-hidden: "&aOrt ausgeblendet: %structure%"
+  locate-pos1: "&aErster Wurf gespeichert (Position und Blickrichtung)."
+  locate-pos2: "&aZweiter Wurf gespeichert (Position und Blickrichtung)."
+  locate-invalid-coordinates: "&cUngültige Koordinaten. Verwende nur Zahlen."
+  locate-usage: "&eVerwendung: /run locate <pos1|pos2> oder /run locate <x1> <y1> <z1> <x2> <y2> <z2>"
+  locate-header: "&a--- Schätzung der Festung ---"
+  locate-predicted: "&aGeschätztes Endportal: &e%coords% &7(Nether: &c%nether_x%, %nether_z%&7)"
+  locate-failed: "&cEs konnte kein Ort berechnet werden. Die beiden Würfe sind wahrscheinlich parallel; wirf noch einmal von einer anderen Stelle."
+  help:
+    header: "&6--------- &eSpeedrun-Befehle &6---------"
+    help: "&e/%label% help &7- diese Liste anzeigen"
+    status: "&e/%label% status &7- Timer, Etappe und Spieler"
+    tasks: "&e/%label% tasks &7- offene Aufgaben in deiner Welt"
+    records: "&e/%label% records &7- persönliche Bestzeit und beste Splits"
+    givecompass: "&e/%label% givecompass [player] &7- einen Navigationskompass erhalten"
+    start: "&e/%label% start &7- den Speedrun starten"
+    pause: "&e/%label% pause &7- den Timer pausieren oder fortsetzen"
+    stop: "&e/%label% stop &7- den Speedrun stoppen"
+    reset: "&e/%label% reset &7- zurücksetzen und einen neuen Run starten"
+    skipstage: "&e/%label% skipstage &7- die aktuelle Etappe abschließen"
+    new: "&e/%label% new <location> [x y z] &7- einen Ort festlegen"
+    remove: "&e/%label% remove <location> &7- einen Ort ausblenden"
+    locate: "&e/%label% locate <pos1|pos2> &7- die Festung anhand von zwei Enderaugen-Würfen schätzen"
+    reload: "&e/%label% reload &7- Konfiguration und Nachrichten neu laden"
+    webconfig: "&e/%label% webconfig [restart|stop] &7- den Einstellungs-Editor im Browser öffnen"
+    admin-footer: "&7Tipp: Konfiguriere alles im Browser mit &e/run webconfig&7."
+  givecompass:
+    no-permission-others: "&cDu hast keine Berechtigung, Kompasse an andere Spieler zu geben."
+    player-not-found: "&cSpieler nicht gefunden: %player%"
+    usage: "&cVerwendung: /run givecompass [player]"
+    received: "&aDu hast einen Navigationskompass erhalten."
+    gave: "&aNavigationskompass an %player% gegeben."
+  webconfig:
+    usage: "&cVerwendung: /run webconfig [restart|stop]"
+    unavailable: "&cDer Web-Editor läuft nicht. Aktiviere web-config.enabled in der config.yml oder nutze /run webconfig restart."
+    url: "<green>Einstellungs-Editor: <click:open_url:'%url%'><hover:show_text:'Im Browser öffnen'><yellow><u>zum Öffnen klicken</u></yellow></hover></click>"
+    url-console: "&aEinstellungs-Editor: &e%url%"
+    restarted: "<green>Der Editor wurde mit einem neuen Link neu gestartet: <click:open_url:'%url%'><yellow><u>zum Öffnen klicken</u></yellow></click>"
+    restarted-console: "&aDer Editor wurde mit einem neuen Link neu gestartet: &e%url%"
+    private: "&7Dieser Link ist privat: Jeder, der ihn hat, kann die Einstellungen ändern. /run webconfig restart erstellt einen neuen."
+    stopped: "&aDer Web-Editor wurde bis zum nächsten Neustart oder /run webconfig restart gestoppt."
+  status:
+    header: "&6--------- &eSpeedrun-Status &6---------"
+    time: "&fZeit: &e%time%"
+    running: "&fStatus: &aLäuft"
+    paused: "&fStatus: &cPausiert"
+    idle: "&fStatus: &7Läuft nicht &8(/run start)"
+    finished: "&fStatus: &aAbgeschlossen"
+    stage: "&fAktuelle Etappe: &d%stage%"
+    players: "&fSpieler: &b%players%"
+    footer: "&6-----------------------------------"
+  tasks:
+    header: "&6--------- &eAktuelle Aufgaben &6---------"
+    no-tasks: "&7In dieser Welt gibt es keine offenen Aufgaben."
+    footer: "&6-----------------------------------"
+
+scoreboard:
+  # Halte die Seitenleisten-Zeilen kurz: Lange Orts- oder Aufgabennamen werden vom Client abgeschnitten.
+  title: "&e&lSPEEDRUN"
+  time: "&fZeit:"
+  paused: "&c&lPAUSIERT"
+  s-end: "&a&lRUN ABGESCHLOSSEN"
+  locations-header: "&bOrte:"
+  location-found: "&7%name%: &a%coords%"
+  location-approximate: "&7%name%: &e~%coords%"
+  location-pending: "&7%name%: &c???"
+  village-timer: "&e[%time%]"
+  normal-tasks-header: "&aOberwelt:"
+  nether-tasks-header: "&cNether:"
+  end-tasks-header: "&5Das Ende:"
+  task-line: "&7- %name%: &f%progress%&7/&f%required%"
+  task-complete: "&a✔ &m%name%"
+
+messages:
+  run-started: "&aDer Speedrun hat begonnen! Viel Glück."
+  village-timeout: "&cDie Zeit für die Dorfsuche ist abgelaufen. Das Dorfziel wurde verworfen."
+  structure-found: "&b%player% &fhat &6%structure% &fbei &b%coords% &fgefunden!"
+  portal-lit: "&b%player% &fhat ein Portal zum &5Nether &fgeöffnet!"
+  dragon-slain: "&a&lDer Enderdrache wurde besiegt! Speedrun abgeschlossen!"
+  final-time: "&a&lEndzeit: %time%"
+  stage-complete: "&d&lEtappe abgeschlossen! &fWeiter zur nächsten Etappe."
+  unknown-structure-name: "&cUnbekannter Ort: %name%"
+  reassigning-disabled: "&cDas Verschieben bereits gefundener Orte ist in der Konfiguration deaktiviert."
+  portal-reassigned: "&aDer Portalort wurde auf deine Position gesetzt."
+  use-run-new-nether-portal: "&cNutze /run new nether portal, um das Portal zu verschieben."
+
+records:
+  header: "&6--------- &ePersönliche Bestzeiten (%mode%) &6---------"
+  none: "&7Noch kein abgeschlossener Run. Besiege den Enderdrachen, um den ersten Rekord aufzustellen."
+  best: "&fBestzeit: &e%time% &7(%date%, %runs% abgeschlossene Runs)"
+  split-line: "&7- %stage%: &f%time%"
+  split: "&d%stage% &fabgeschlossen bei &e%time% %delta%"
+  new-best: "&6&lNeue persönliche Bestzeit! &e%time% %delta%"
+  compare: "&fPersönliche Bestzeit: &e%best% %delta%"
+  delta-ahead: "&a(-%delta%)"
+  delta-behind: "&c(+%delta%)"
+  delta-first: "&7(erster Rekord)"
+  reset: "&aDie persönlichen Bestzeiten des aktuellen Spielmodus wurden zurückgesetzt."
+
+admin:
+  installed: "<green>Speedrun ist installiert. Richte es im Browser mit <click:run_command:'/run webconfig'><yellow><u>/run webconfig</u></yellow></click> ein oder sieh dir <yellow>/run help</yellow> an."
+  upgraded: "&aSpeedrun wurde aktualisiert (%from% -> %to%). Deine Einstellungen wurden beibehalten: &f%transferred% &aübernommen, &f%new% &aneu mit Standardwerten, &f%reset% &aauf Standardwerte zurückgesetzt."
+  reset-settings: "&eAuf Standardwerte zurückgesetzt, weil der alte Wert nicht mehr unterstützt wird: &f%settings%"
+  backup: "&7Deine vorherige config.yml wurde unter plugins/Speedrun/%file% gespeichert."
+  config-failed: "&cDie config.yml konnte nicht geladen werden, daher sind die Standardeinstellungen aktiv. Prüfe die Serverkonsole, korrigiere die Datei und führe /run reload aus."
+  invalid-settings: "&eEinige Einstellungen in der config.yml sind ungültig und verwenden Standardwerte: &f%settings%"
+
+items:
+  navigation-compass:
+    name: "&6Navigationskompass"
+    lore:
+      - "&7Rechtsklick, um ein Ziel auszuwählen."
+
+compass:
+  welcome-received: "&aWillkommen! Du hast einen &6Navigationskompass &aerhalten."
+  welcome-hint: "&aMit einem Rechtsklick wählst du aus, wohin es gehen soll."
+  no-destinations: "&cNoch keine Ziele in dieser Dimension."
+  destination-not-found: "&cDieses Ziel ist in deiner Dimension nicht verfügbar."
+  target-set: "&aDein Kompass zeigt jetzt auf %destination% in %world%."
+  target-invalid: "&cDas Kompassziel konnte nicht gesetzt werden."
+  null-world: "&cDieses Ziel kann nicht hinzugefügt werden, weil seine Welt nicht geladen ist."
+  discovered: "&b%destination% &aentdeckt! Es wurde zu deinem Navigationskompass hinzugefügt."
+  no-target-actionbar: "&7Kein Ziel. Rechtsklicke den Kompass, um eines auszuwählen."
+  other-world-actionbar: "&c%destination% befindet sich in %world%"
+  target-actionbar: "&b%destination% &7- &f%distance%"
+  gui:
+    title: "&1Ziele - %world%"
+    overworld: "&aOberwelt"
+    nether: "&cNether"
+    death-location-name: "&cLetzter Tod von %player%"
+    destination-name: "&a%destination%"
+    approximate-destination-name: "&e~%destination%"
+    lore-x: "&7X: %x%"
+    lore-y: "&7Y: %y%"
+    lore-z: "&7Z: %z%"
+    lore-world: "&7Welt: %world%"
+    approximate-lore: "&eUngefährer Ort aus dem Hintergrundscan"
+    click-hint: "&eKlicke, um deinen Kompass hierhin auszurichten"
+    death-click-hint: "&eKlicke, um deinen letzten Tod zu verfolgen"
+    custom-location: "ein benutzerdefinierter Ort"
+    generic-location: "Ort"
+
+tab:
+  coordinates: "&eX: &f%x%  &eY: &f%y%  &eZ: &f%z%"
+
+protection:
+  structure-marker: "&cDieser Block gehört zu einer Ortsmarkierung und kann nicht abgebaut werden."
+  hidden-lodestone: "&cDieser Block verankert einen Kompass und kann nicht abgebaut werden."
+
+# Standard-Anzeigenamen. Namen aus der config.yml werden verwendet, wenn hier ein Schlüssel fehlt.
+tasks:
+  OAK_LOG: "Holz"
+  COBBLESTONE: "Bruchstein"
+  IRON_INGOT: "Eisenbarren"
+  BREAD: "Gekochtes Essen"
+  ENDER_PEARL: "Enderperlen"
+  BLAZE_ROD: "Lohenruten"
+  STRUCTURE_FORTRESS: "Eine Netherfestung finden"
+  STRUCTURE_BASTION: "Eine Bastionsruine finden"
+  STRUCTURE_END_PORTAL: "Die Festung finden"
+
+stages:
+  1_GETTING_STARTED: "Der Anfang"
+  2_IRON_AGE: "Eisenzeit"
+  3_NETHER_EXPLORATION: "Nether-Vorbereitung"
+  4_NETHER_STRUCTURES: "Nether-Strukturen"
+  5_STRONGHOLD: "Festung"
+
+structures:
+  SPAWN: "Spawn"
+  NETHER_REFERENCE: "Nether-Referenzpunkt"
+  LAVA_POOL: "Lavasee"
+  VILLAGE: "Dorf"
+  NETHER_PORTAL: "Netherportal"
+  FORTRESS: "Netherfestung"
+  BASTION: "Bastionsruine"
+  END_PORTAL: "Endportal"
+  PLAYER_DEATH: "Letzter Tod"

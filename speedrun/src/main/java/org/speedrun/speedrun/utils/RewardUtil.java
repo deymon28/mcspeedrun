@@ -65,7 +65,11 @@ public final class RewardUtil {
                 && normalized.contains("\"text\":\"stagecomplete!\"");
     }
 
-    private static void executeRewardCommand(Speedrun plugin, Player target, String rawCommand) {
+    private static void executeRewardCommand(Speedrun plugin, Player target, String rawLine) {
+        String rawCommand = rawLine.trim();
+        if (rawCommand.isEmpty()) {
+            return;
+        }
         if (rawCommand.startsWith("api:")) {
             executeApiReward(plugin, target, rawCommand);
             return;

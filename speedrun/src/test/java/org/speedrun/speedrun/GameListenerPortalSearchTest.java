@@ -1,9 +1,7 @@
 package org.speedrun.speedrun;
 
-import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -23,29 +21,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GameListenerPortalSearchTest {
     @Test
     void defaultRadiusLoadsEachChunkOnceAndWaitsForItsSnapshot() {
-        Map<String, CompletableFuture<Chunk>> loads = new LinkedHashMap<>();
-        World world = loadingWorld(loads);
+        Map<String, CompletableFuture<ChunkSnapshot>> loads = new LinkedHashMap<>();
 
         List<CompletableFuture<ChunkSnapshot>> snapshots =
-                GameListener.loadPortalChunkSnapshots(world, 0, 0, 90);
+                GameListener.loadPortalChunkSnapshots(recordingLoader(loads), 0, 0, 90);
 
         assertEquals(144, loads.size());
         assertEquals(144, snapshots.size());
         assertTrue(snapshots.stream().noneMatch(CompletableFuture::isDone));
 
-        Thread serverThread = Thread.currentThread();
         ChunkSnapshot first = snapshot(-6, -6, Set.of(), -64, 320);
-        loads.get("-6,-6").complete(chunk(first, serverThread));
+        loads.get("-6,-6").complete(first);
 
         assertSame(first, snapshots.getFirst().join());
         assertFalse(snapshots.get(1).isDone());
     }
 
     @Test
-    void chunkRequestsCoverBothSidesOfNegativeBoundaries() {
-        Map<String, CompletableFuture<Chunk>> loads = new LinkedHashMap<>();
+    void failedChunkLoadsResolveToNullInsteadOfAbortingTheSearch() {
+        Map<String, CompletableFuture<ChunkSnapshot>> loads = new LinkedHashMap<>();
+        List<CompletableFuture<ChunkSnapshot>> snapshots =
+                GameListener.loadPortalChunkSnapshots(recordingLoader(loads), 8, 8, 1);
 
-        GameListener.loadPortalChunkSnapshots(loadingWorld(loads), -16, -1, 1);
+        loads.values().iterator().next().completeExceptionally(new IllegalStateException("queue full"));
+
+        assertNull(snapshots.getFirst().join());
+    }
+
+    @Test
+    void chunkRequestsCoverBothSidesOfNegativeBoundaries() {
+        Map<String, CompletableFuture<ChunkSnapshot>> loads = new LinkedHashMap<>();
+
+        GameListener.loadPortalChunkSnapshots(recordingLoader(loads), -16, -1, 1);
 
         assertEquals(Set.of("-2,-1", "-2,0", "-1,-1", "-1,0"), loads.keySet());
     }
@@ -85,29 +92,12 @@ class GameListenerPortalSearchTest {
         assertNull(GameListener.findPortalBlockInSnapshots(snapshots, 8, 64, 8, 3, -64, 320));
     }
 
-    private static World loadingWorld(Map<String, CompletableFuture<Chunk>> loads) {
-        return (World) Proxy.newProxyInstance(World.class.getClassLoader(), new Class<?>[]{World.class},
-                (proxy, method, args) -> {
-                    if (method.getName().equals("getChunkAtAsync") && args.length == 2) {
-                        String key = args[0] + "," + args[1];
-                        CompletableFuture<Chunk> future = new CompletableFuture<>();
-                        assertNull(loads.putIfAbsent(key, future), "Each chunk must be requested only once");
-                        return future;
-                    }
-                    throw new AssertionError("Unexpected live world access: " + method.getName());
-                });
-    }
-
-    private static Chunk chunk(ChunkSnapshot snapshot, Thread serverThread) {
-        return (Chunk) Proxy.newProxyInstance(Chunk.class.getClassLoader(), new Class<?>[]{Chunk.class},
-                (proxy, method, args) -> {
-                    if (method.getName().equals("getChunkSnapshot")) {
-                        assertSame(serverThread, Thread.currentThread(),
-                                "Capture snapshots inline on Paper's main-thread completion callback");
-                        return snapshot;
-                    }
-                    throw new AssertionError("Unexpected live chunk access: " + method.getName());
-                });
+    private static GameListener.ChunkSnapshotLoader recordingLoader(Map<String, CompletableFuture<ChunkSnapshot>> loads) {
+        return (chunkX, chunkZ) -> {
+            CompletableFuture<ChunkSnapshot> future = new CompletableFuture<>();
+            assertNull(loads.putIfAbsent(chunkX + "," + chunkZ, future), "Each chunk must be requested only once");
+            return future;
+        };
     }
 
     private static ChunkSnapshot snapshot(int chunkX, int chunkZ,

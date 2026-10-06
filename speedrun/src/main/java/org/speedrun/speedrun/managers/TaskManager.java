@@ -97,6 +97,23 @@ public class TaskManager {
         advanceCompletedStages(false);
     }
 
+    /** Re-reads task and stage names after a language change without touching progress. */
+    public void refreshDisplayNames() {
+        ConfigurationSection progression = plugin.getConfigManager().getRawConfig().getConfigurationSection("progression");
+        for (int index = 0; index < stages.size(); index++) {
+            StageDefinition stage = stages.get(index);
+            String configured = progression == null ? stage.key()
+                    : progression.getString(stage.key() + ".display-name", stage.key());
+            stages.set(index, new StageDefinition(stage.key(),
+                    plugin.getConfigManager().getLangString("stages." + stage.key(), configured), stage.world(), stage.tasks()));
+            for (Task task : stage.tasks()) {
+                String taskConfigured = progression == null ? task.getKey()
+                        : progression.getString(stage.key() + ".tasks." + task.getKey() + ".display-name", task.getKey());
+                task.displayName = plugin.getConfigManager().getLangString("tasks." + task.getKey(), taskConfigured);
+            }
+        }
+    }
+
     public void rescaleTasksForOnlinePlayers() {
         if (!plugin.getConfigManager().isPlayerScalingEnabled()) {
             allTasks.forEach(task -> task.scale(1, 0));
@@ -109,6 +126,9 @@ public class TaskManager {
     }
 
     public void skipStage() {
+        if (plugin.getRecordsManager() != null) {
+            plugin.getRecordsManager().markIneligible();
+        }
         getTasksForCurrentProgressionStage().forEach(task -> task.forceComplete(plugin));
         advanceCompletedStages(true);
     }
@@ -282,8 +302,15 @@ public class TaskManager {
         boolean advanced = false;
 
         while (!isProgressionComplete() && getTasksForCurrentProgressionStage().stream().allMatch(Task::isCompleted)) {
+            StageDefinition completedStage = stages.get(currentStageIndex);
             currentStageIndex++;
             advanced = true;
+
+            if (announce && plugin.getRecordsManager() != null && plugin.getGameManager() != null
+                    && plugin.getGameManager().isRunning()) {
+                plugin.getRecordsManager().onStageCompleted(completedStage.key(), completedStage.displayName(),
+                        plugin.getGameManager().getTotalSeconds());
+            }
 
             if (!isProgressionComplete()) {
                 applyDiscoveredStructuresToCurrentStage(null);

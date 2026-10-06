@@ -1,0 +1,731 @@
+{
+  "meta": {
+    "language": "English",
+    "code": "en"
+  },
+  "ui": {
+    "skip": "Skip to settings",
+    "brandSubtitle": "Server settings",
+    "search": "Search all settings",
+    "searchPlaceholder": "Timer, compass, tasks…",
+    "interfaceLanguage": "Interface language",
+    "theme": "Theme",
+    "themeAuto": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "connecting": "Connecting…",
+    "connected": "Connected",
+    "disconnected": "Not connected",
+    "localOnly": "Runs on your server. No cloud account.",
+    "refresh": "Reload",
+    "configuration": "Configuration",
+    "connectTitle": "Connect to your server",
+    "connectHelp": "Run /run webconfig in game or in the server console and open the link it shows. The access key stays in this browser tab only.",
+    "accessToken": "Access link or key",
+    "connect": "Connect",
+    "invalidToken": "The access key was rejected. Open a fresh link with /run webconfig.",
+    "throttled": "Too many failed attempts. Wait a minute, then open a fresh link with /run webconfig.",
+    "hideInactive": "Hide settings that are inactive",
+    "showingAll": "Showing all settings.",
+    "showingFiltered": "{visible} of {total} settings shown.",
+    "noMatches": "No settings match your search.",
+    "searchResults": "Search results",
+    "searchResultsFor": "Settings matching “{query}”",
+    "review": "Review changes",
+    "noChanges": "No unsaved changes.",
+    "changesCount": "{count} unsaved change(s)",
+    "statusSaved": "All saved",
+    "statusDirty": "Unsaved",
+    "rawPatch": "Show technical details",
+    "saveApply": "Save & apply",
+    "save": "Save only",
+    "apply": "Apply without saving",
+    "validate": "Check",
+    "discard": "Undo all",
+    "actionHelp": "Save writes config.yml. Apply changes the running server. Some settings wait for the run to end or for a restart.",
+    "shortcutHint": "Ctrl+S saves and applies.",
+    "revert": "Undo",
+    "resetDefault": "Use default",
+    "defaultValue": "Default: {value}",
+    "changed": "Changed",
+    "inactive": "Inactive",
+    "pendingSaved": "Saved, not active yet",
+    "caution": "Use care",
+    "danger": "High impact",
+    "unsavedLeave": "You have unsaved changes. Leave anyway?",
+    "validationPassed": "Everything looks good.",
+    "saved": "Saved to config.yml.",
+    "appliedNow": "Applied to the running server.",
+    "savedAndApplied": "Saved and applied.",
+    "nothingToSend": "There are no changes to send.",
+    "conflict": "The configuration was changed elsewhere (another tab, a manual edit, or /run reload). Reload to see the current values; your unsaved edits are kept.",
+    "reloadKeepEdits": "Reload and keep my edits",
+    "requestFailed": "The request failed: {message}",
+    "networkError": "The server could not be reached. Is it running?",
+    "yes": "On",
+    "no": "Off",
+    "listHint": "One entry per line.",
+    "addItem": "Add",
+    "remove": "Remove",
+    "close": "Close",
+    "copy": "Copy",
+    "copied": "Copied",
+    "notSet": "not set",
+    "beforeAfter": "{before} → {after}",
+    "impact": {
+      "INSTANT": "Applies immediately",
+      "RESTART_TASK": "Restarts the related feature",
+      "RUN_SENSITIVE": "Applies when no run is active",
+      "STARTUP_ONLY": "Needs /run reload or a restart"
+    },
+    "fieldState": {
+      "saved": "Saved",
+      "applied": "Applied",
+      "applied-unsaved": "Applied, not saved",
+      "pending-restart": "Saved, active after /run reload or restart",
+      "pending-run-end": "Saved, apply again after the run ends",
+      "not-applied": "Not applied",
+      "unknown": "Unknown, check the server"
+    },
+    "pendingTitle": "Saved changes that are not active yet",
+    "pendingHelp": "These settings are saved in config.yml but the running server still uses the old values.",
+    "applySaved": "Apply saved changes",
+    "reloadRequired": "A previous change did not finish. Stop the run and use /run reload.",
+    "overview": {
+      "title": "Overview",
+      "summary": "Server status, what changed, and where to start.",
+      "server": "Server",
+      "software": "Server software",
+      "minecraft": "Minecraft",
+      "plugin": "Plugin version",
+      "gamemode": "Game mode",
+      "language": "Message language",
+      "capabilities": "Platform features",
+      "asyncChunks": "Asynchronous chunk loading",
+      "nativeText": "Native text components",
+      "actionBar": "Action bar HUD",
+      "hiddenNumbers": "Hidden scoreboard numbers",
+      "workers": "Background scan threads",
+      "available": "Available",
+      "unavailable": "Not available on this server",
+      "run": "Current run",
+      "running": "Running",
+      "paused": "Paused",
+      "finished": "Completed",
+      "idle": "Not running",
+      "time": "Time",
+      "stage": "Stage",
+      "players": "Players online",
+      "migrationTitle": "Configuration update",
+      "migrationCreated": "A fresh config.yml was created with default settings.",
+      "migrationMigrated": "config.yml was upgraded from {from} to {to}. {transferred} settings were kept.",
+      "migrationCurrent": "config.yml matches this plugin version.",
+      "migrationFailed": "config.yml could not be loaded. Default settings are active until the file is fixed.",
+      "migrationBackup": "Backup of the previous file: plugins/Speedrun/{file}",
+      "migrationDetails": "Show affected settings",
+      "quickStart": "Quick start",
+      "quickStartSteps": [
+        "Pick a game mode under General: Normal for tracking, Casual for full assistance, Hardcore for timer only.",
+        "Adjust tasks and stages under Progression.",
+        "Press Save & apply. Most changes take effect immediately.",
+        "In game: /run start begins a run, /run reset starts over, /run help lists all commands."
+      ],
+      "openGuide": "Open the guide"
+    },
+    "action": {
+      "DEFAULTED": "New",
+      "RESET": "Reset",
+      "RENAMED": "Renamed",
+      "REMOVED": "Removed",
+      "UNKNOWN_KEPT": "Unknown, kept",
+      "INVALID": "Invalid",
+      "FAILED": "Failed"
+    },
+    "progression": {
+      "intro": "Stages run in order of their keys (for example 1_..., 2_...). A stage is complete when all of its tasks are done. Changes to stages apply when no run is active.",
+      "stageKey": "Stage key",
+      "displayName": "Display name",
+      "world": "Shown in",
+      "tasks": "Tasks",
+      "taskKey": "Item or structure",
+      "amount": "Amount",
+      "scale": "Scale by players",
+      "addTask": "Add task",
+      "addStage": "Add stage",
+      "removeStage": "Remove stage",
+      "newStagePrompt": "Key of the new stage (letters, digits, underscore). Stages run in alphabetical order, e.g. 6_END:",
+      "invalidKey": "Use letters, digits, and underscores only.",
+      "duplicateKey": "This key already exists.",
+      "emptyTasks": "No tasks. The stage completes immediately.",
+      "taskKeyHelp": "Minecraft item name (IRON_INGOT) or STRUCTURE_<LOCATION>. OAK_LOG counts all wood, BREAD all cooked food.",
+      "worlds": {
+        "NORMAL": "Overworld",
+        "NETHER": "Nether",
+        "THE_END": "The End"
+      }
+    },
+    "rewards": {
+      "intro": "Rewards play when a task or a stage is completed. Use sound and particle entries; console commands can only be added in config.yml.",
+      "inactive": "Rewards are turned off. The lists are kept and used when rewards are enabled.",
+      "taskList": "When a task is completed",
+      "stageList": "When a stage is completed",
+      "syntax": "api:sound <sound> [volume] [pitch] · api:particle <particle> [count] [dx] [dy] [dz] [speed]",
+      "consoleWarning": "Runs a console command"
+    }
+  },
+  "sections": {
+    "Overview": {
+      "label": "Overview",
+      "summary": "Server status and getting started."
+    },
+    "General": {
+      "label": "General",
+      "summary": "Game mode, language, timer behavior, display, and the web editor."
+    },
+    "Casual": {
+      "label": "Casual mode",
+      "summary": "Assistance features for CASUAL: compass, waypoints, gold highlighting, tab coordinates."
+    },
+    "Scanner": {
+      "label": "Detection",
+      "summary": "How locations are detected around players and in the background, with performance limits."
+    },
+    "Progression": {
+      "label": "Tasks & stages",
+      "summary": "Stages, their tasks, and how tasks are shown."
+    },
+    "Rewards": {
+      "label": "Rewards",
+      "summary": "Sounds and particles for completed tasks and stages."
+    },
+    "Diagnostics": {
+      "label": "Diagnostics",
+      "summary": "Detailed logs for analysis and bug reports."
+    },
+    "Guide": {
+      "label": "Guide",
+      "summary": "How the plugin works and how to set it up."
+    }
+  },
+  "groups": {
+    "general.web-config": "Web editor",
+    "general.runtime": "Timer and run",
+    "general.resource-scaling": "Scaling with player count",
+    "general.display": "Display",
+    "general.records": "Personal bests",
+    "general.logging": "Run logs",
+    "progression.display": "Task display",
+    "casual.mode": "Casual mode",
+    "casual.compass": "Navigation compass",
+    "casual.waypoints": "Location waypoints",
+    "casual.nether-gold": "Nether gold highlighting",
+    "scanner.proximity": "Detection around players",
+    "scanner.proximity.lava": "Lava pools",
+    "scanner.proximity.village": "Villages",
+    "scanner.proximity.portal": "Nether portals",
+    "scanner.pre-scan": "Background search at run start",
+    "scanner.pre-scan.lava": "Background lava pool search",
+    "scanner.pre-scan.safety": "Safety limits",
+    "scanner.pre-scan.locate": "LOCATE mode",
+    "scanner.pre-scan.profile.SAFE": "SAFE profile",
+    "scanner.pre-scan.profile.BALANCED": "BALANCED profile",
+    "scanner.pre-scan.profile.AGGRESSIVE": "AGGRESSIVE profile",
+    "scanner.pre-scan.profile.LOCATE": "LOCATE profile",
+    "diagnostics.tracking": "Movement tracking",
+    "diagnostics.trace": "Trace diagnostics",
+    "rewards.general": "Rewards"
+  },
+  "dependency": {
+    "casual.structure_waypoints.enabled": "Active when location waypoints are on.",
+    "casual.nether_gold_highlight.enabled": "Active when Nether gold highlighting is on.",
+    "casual.start-pre-scan.mode": "Used only in LOCATE mode.",
+    "casual.start-pre-scan.enabled": "Active when the background search is on.",
+    "settings.gamemode": "Active only in CASUAL game mode.",
+    "rewards.enabled": "Active when rewards are on.",
+    "records.enabled": "Active when personal bests are on.",
+    "settings.scale-resources-by-playercount.enabled": "Active when scaling with player count is on."
+  },
+  "fields": {
+    "web-config.enabled": {
+      "label": "Browser editor",
+      "help": "Run this editor. Turning it off takes effect after /run reload or a restart."
+    },
+    "web-config.bind": {
+      "label": "Network address",
+      "help": "127.0.0.1 keeps the editor private to the server machine. Only change this if you know what you are doing."
+    },
+    "web-config.port": {
+      "label": "Port",
+      "help": "TCP port of the editor. Change it if another program uses 8765."
+    },
+    "settings.gamemode": {
+      "label": "Game mode",
+      "help": "Normal tracks progress, Casual adds navigation help, Hardcore shows only the timer."
+    },
+    "settings.language": {
+      "label": "Message language",
+      "help": "Language of chat, scoreboard, and item texts in game. Messages can be customized in plugins/Speedrun/lang."
+    },
+    "settings.pause-when-empty": {
+      "label": "Pause when the server is empty",
+      "help": "Stop the timer while nobody is online and continue when a player returns."
+    },
+    "settings.start-on-first-join": {
+      "label": "Start when the first player joins",
+      "help": "If off, the timer starts as soon as the server is running."
+    },
+    "settings.reset_time_on_join": {
+      "label": "Set morning at the start",
+      "help": "When the first join starts a run, set the Overworld time to morning."
+    },
+    "settings.allow-reassigning-locations": {
+      "label": "Allow moving found locations",
+      "help": "Lets /run new move a location that was already found."
+    },
+    "settings.village-search-timeout": {
+      "label": "Village search time (seconds)",
+      "help": "If no village is found within this time, the village target is dropped. 600 = 10 minutes."
+    },
+    "settings.task-tracking-mode": {
+      "label": "How items count",
+      "help": "Inventory counts what players carry now; Cumulative counts everything collected or crafted during the run."
+    },
+    "settings.scale-resources-by-playercount.enabled": {
+      "label": "Scale with player count",
+      "help": "Increase required amounts for tasks marked “Scale by players” when more players are online."
+    },
+    "settings.scale-resources-by-playercount.multiplier": {
+      "label": "Extra per additional player",
+      "help": "0.5 adds 50% of the base amount for each player after the first."
+    },
+    "settings.log-attempts": {
+      "label": "Run logs",
+      "help": "Write a text and a JSON log of every attempt to plugins/Speedrun/logs."
+    },
+    "settings.notify-admins-on-join": {
+      "label": "Notices for administrators",
+      "help": "Tell administrators on join about configuration updates and how to open this editor."
+    },
+    "settings.scoreboard.hide-score-numbers": {
+      "label": "Hide scoreboard numbers",
+      "help": "Remove the red numbers on the right side of the sidebar. Paper only."
+    },
+    "records.enabled": {
+      "label": "Personal bests",
+      "help": "Remember the best completion time and the best time for each stage."
+    },
+    "records.announce-splits": {
+      "label": "Announce stage times",
+      "help": "When a stage is completed, show its time and the difference to the best time."
+    },
+    "settings.coordinate-display.mode": {
+      "label": "Coordinate display",
+      "help": "How Overworld and Nether coordinates appear on the scoreboard."
+    },
+    "settings.chunk-biome-logging.enabled": {
+      "label": "Biome log",
+      "help": "Add each visited Overworld chunk and its biome to the JSON run log."
+    },
+    "progression.settings.task-display-mode": {
+      "label": "Which tasks are shown",
+      "help": "Only the current stage, all tasks of the player's world, or all tasks grouped by world."
+    },
+    "progression.settings.completed-task-hide.enabled": {
+      "label": "Hide completed tasks",
+      "help": "Completed tasks disappear from the scoreboard after a short time."
+    },
+    "progression.settings.completed-task-hide.timeout-seconds": {
+      "label": "Hide after (seconds)",
+      "help": "How long a completed task stays visible."
+    },
+    "casual.enabled": {
+      "label": "Casual features",
+      "help": "Master switch for all Casual features when the game mode is Casual."
+    },
+    "casual.player-tab-coordinates": {
+      "label": "Coordinates in the tab list",
+      "help": "Show each player's own coordinates at the top of the player list."
+    },
+    "casual.compass.show-nether-reference": {
+      "label": "Legacy Nether reference point",
+      "help": "Adds an old fixed test destination to the compass. Not linked to the run; usually leave off."
+    },
+    "casual.compass.death-location.enabled": {
+      "label": "Last death in the compass",
+      "help": "Each player can point their compass at their own last death."
+    },
+    "casual.structure_waypoints.enabled": {
+      "label": "Light beams over locations",
+      "help": "Place a light beam near every found Overworld location."
+    },
+    "casual.structure_waypoints.type": {
+      "label": "Beam type",
+      "help": "End Gateway is a compact beam; Beacon is the classic beacon beam."
+    },
+    "casual.structure_waypoints.offset-blocks": {
+      "label": "Distance from the location",
+      "help": "The beam is placed this many blocks away so it never replaces important blocks."
+    },
+    "casual.structure_waypoints.update-interval-seconds": {
+      "label": "Refresh interval (seconds)",
+      "help": "How often the beams are checked and restored."
+    },
+    "casual.nether_gold_highlight.enabled": {
+      "label": "Highlight gold blocks",
+      "help": "Gold blocks glow around players in the Nether and inside found bastions."
+    },
+    "casual.nether_gold_highlight.radius": {
+      "label": "Highlight radius",
+      "help": "Distance in blocks around each player in the Nether. Larger values cost more performance."
+    },
+    "settings.proximity-scanner.lava-pool.radius": {
+      "label": "Lava pool search radius",
+      "help": "Distance in blocks around each player that is checked for lava pools."
+    },
+    "settings.proximity-scanner.lava-pool.required-source-blocks": {
+      "label": "Lava blocks for a pool",
+      "help": "How many lava source blocks count as a lava pool."
+    },
+    "settings.proximity-scanner.village.radius": {
+      "label": "Village bell search radius",
+      "help": "Distance in blocks around each player that is checked for village bells."
+    },
+    "settings.proximity-scanner.nether-portal.check-radius": {
+      "label": "Portal frame check radius",
+      "help": "Distance around a lit block or a portal entry in which the portal is looked for."
+    },
+    "settings.proximity-scanner.nether-portal.search-radius": {
+      "label": "Exit portal search radius",
+      "help": "Distance around the arrival point in which the exact exit portal is looked for."
+    },
+    "settings.proximity-scanner.portal-search-timeout": {
+      "label": "Exit portal search time (seconds)",
+      "help": "After this time the approximate arrival point is used."
+    },
+    "casual.start-pre-scan.enabled": {
+      "label": "Search in the background at run start",
+      "help": "Find structures around spawn and players before anyone gets there."
+    },
+    "casual.start-pre-scan.mode": {
+      "label": "Background search mode",
+      "help": "How much work the background search may do."
+    },
+    "casual.start-pre-scan.radius": {
+      "label": "Search distance (blocks)",
+      "help": "Maximum distance from spawn and players for the background search."
+    },
+    "casual.start-pre-scan.loaded-chunk-radius": {
+      "label": "Loaded area radius (chunks)",
+      "help": "Chunks around each player that are checked when they are already loaded."
+    },
+    "casual.start-pre-scan.allow-sync-chunk-loading": {
+      "label": "Load chunks without Paper",
+      "help": "Allow Balanced and Aggressive to load missing chunks on Spigot and CraftBukkit. Limited to one chunk per tick, but can still lower TPS."
+    },
+    "casual.start-pre-scan.include-lava-pool": {
+      "label": "Also find lava pools",
+      "help": "Look for lava pools during the background search."
+    },
+    "casual.start-pre-scan.lava-pool-vertical-scan.below-player": {
+      "label": "Lava search below (blocks)",
+      "help": "How far below the scan origin lava pools are looked for."
+    },
+    "casual.start-pre-scan.lava-pool-vertical-scan.above-player": {
+      "label": "Lava search above (blocks)",
+      "help": "How far above the scan origin lava pools are looked for."
+    },
+    "casual.start-pre-scan.safety.max-chunks-per-run": {
+      "label": "Maximum chunks per step",
+      "help": "Hard upper limit for every profile."
+    },
+    "casual.start-pre-scan.safety.max-queued-chunks": {
+      "label": "Maximum chunks in total",
+      "help": "Hard upper limit for the whole background search."
+    },
+    "casual.start-pre-scan.locate.radius-chunks": {
+      "label": "Locate radius (chunks)",
+      "help": "Search radius of each locate call."
+    },
+    "casual.start-pre-scan.locate.period-ticks": {
+      "label": "Pause between calls (ticks)",
+      "help": "20 ticks = 1 second."
+    },
+    "casual.start-pre-scan.locate.calls-per-run": {
+      "label": "Calls per step",
+      "help": "Each call runs on the server thread. Keep this at 1 or 2."
+    },
+    "casual.start-pre-scan.locate.find-unexplored": {
+      "label": "Only unexplored structures",
+      "help": "Skip structures that were already visited."
+    },
+    "casual.start-pre-scan.locate.targets.village": {
+      "label": "Locate villages",
+      "help": "Include villages."
+    },
+    "casual.start-pre-scan.locate.targets.stronghold": {
+      "label": "Locate the stronghold",
+      "help": "Include the stronghold (End Portal)."
+    },
+    "casual.start-pre-scan.locate.targets.nether-structures": {
+      "label": "Locate Nether structures",
+      "help": "Include fortresses and bastions."
+    },
+    "tracking.player-blocks.enabled": {
+      "label": "Track every player step",
+      "help": "Log every block a player moves through, for replays and maps. Produces very large logs."
+    },
+    "diagnostics.trace.enabled": {
+      "label": "Trace diagnostics",
+      "help": "Write detailed technical events to plugins/Speedrun/traces. Enable while reproducing a problem."
+    },
+    "diagnostics.trace.mirror-to-console": {
+      "label": "Also print to the console",
+      "help": "Show trace events in the server console as well. Very noisy."
+    },
+    "diagnostics.trace.categories": {
+      "label": "Trace categories",
+      "help": "ALL, or any of: diagnostics, lifecycle, compass, lodestone, scanner, structure, portal."
+    },
+    "rewards.enabled": {
+      "label": "Rewards",
+      "help": "Play the configured rewards when tasks and stages are completed."
+    }
+  },
+  "profileFields": {
+    "chunks-per-run": {
+      "label": "Chunks per step",
+      "help": "Chunks processed in each step of the {profile} profile."
+    },
+    "period-ticks": {
+      "label": "Step interval (ticks)",
+      "help": "Time between steps of the {profile} profile. 20 ticks = 1 second."
+    },
+    "max-queued-chunks": {
+      "label": "Chunks in total",
+      "help": "Total number of chunks the {profile} profile may queue."
+    },
+    "load-missing-chunks": {
+      "label": "Load missing chunks",
+      "help": "Load chunks that are not loaded yet (asynchronous on Paper)."
+    },
+    "scan-spawn": {
+      "label": "Search around spawn",
+      "help": "Queue the area around the world spawn."
+    },
+    "scan-players": {
+      "label": "Search around players",
+      "help": "Queue the area around every player."
+    },
+    "include-nether": {
+      "label": "Include the Nether",
+      "help": "Also search the Nether."
+    }
+  },
+  "options": {
+    "settings.gamemode": {
+      "NORMAL": "Normal",
+      "CASUAL": "Casual (assisted)",
+      "HARDCORE": "Hardcore (timer only)"
+    },
+    "settings.task-tracking-mode": {
+      "INVENTORY": "Items in inventories",
+      "CUMULATIVE": "Everything collected"
+    },
+    "settings.coordinate-display.mode": {
+      "UNIFIED": "Always the location's own world",
+      "SEPARATE": "Only locations in the player's world",
+      "CONDITIONAL": "Converted to the player's world"
+    },
+    "progression.settings.task-display-mode": {
+      "ACTIVE_STAGE": "Current stage only",
+      "ALL_STAGES": "All tasks of the player's world",
+      "ALL_GAME_STAGES": "All tasks, grouped by world"
+    },
+    "casual.structure_waypoints.type": {
+      "END_GATEWAY": "End Gateway beam",
+      "BEACON": "Beacon beam"
+    },
+    "casual.start-pre-scan.mode": {
+      "SAFE": "Safe – loaded chunks only",
+      "BALANCED": "Balanced – recommended",
+      "AGGRESSIVE": "Aggressive – fastest, most load",
+      "LOCATE": "Locate – server locate function"
+    },
+    "settings.language": {
+      "en": "English",
+      "uk": "Українська",
+      "de": "Deutsch",
+      "es": "Español",
+      "fr": "Français",
+      "pt_BR": "Português (Brasil)",
+      "pl": "Polski",
+      "zh_CN": "简体中文"
+    }
+  },
+  "guide": [
+    {
+      "id": "start",
+      "title": "Getting started",
+      "blocks": [
+        {
+          "p": "Speedrun adds a run timer, staged tasks, location tracking, and optional navigation help to a normal Minecraft server. It works on Paper, Spigot, and CraftBukkit."
+        },
+        {
+          "h": "First steps"
+        },
+        {
+          "ol": [
+            "Put the jar into the plugins folder and start the server once.",
+            "Join as an operator and run /run webconfig. Click the link to open this editor.",
+            "Choose a game mode, adjust the tasks, and press Save & apply.",
+            "/run start begins a run (or join first if “Start when the first player joins” is on)."
+          ]
+        },
+        {
+          "p": "The run ends automatically when the Ender Dragon dies. The final time is announced and compared with your personal best."
+        }
+      ]
+    },
+    {
+      "id": "modes",
+      "title": "Game modes",
+      "blocks": [
+        {
+          "h": "Normal"
+        },
+        {
+          "p": "Timer, scoreboard with found locations, stages, and tasks. Locations are detected when players find them."
+        },
+        {
+          "h": "Casual"
+        },
+        {
+          "p": "Everything in Normal plus a Navigation Compass with a destination menu, light beams over found locations, glowing gold blocks in the Nether, coordinates in the tab list, and an optional background search for structures."
+        },
+        {
+          "h": "Hardcore"
+        },
+        {
+          "p": "Only the timer. All assistance and detection is turned off."
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "title": "Tasks and stages",
+      "blocks": [
+        {
+          "p": "Stages are completed in the order of their keys, so name them 1_..., 2_..., 3_.... When every task of a stage is done, the next stage begins and rewards play."
+        },
+        {
+          "ul": [
+            "Item tasks use Minecraft item names such as IRON_INGOT or ENDER_PEARL.",
+            "OAK_LOG counts every kind of log and wood. BREAD counts every cooked food.",
+            "Structure tasks: STRUCTURE_VILLAGE, STRUCTURE_LAVA_POOL, STRUCTURE_NETHER_PORTAL, STRUCTURE_FORTRESS, STRUCTURE_BASTION, STRUCTURE_END_PORTAL.",
+            "“Scale by players” raises the amount when more players are online."
+          ]
+        },
+        {
+          "p": "“Shown in” decides in which dimension a stage's tasks appear on the scoreboard."
+        }
+      ]
+    },
+    {
+      "id": "commands",
+      "title": "Commands and permissions",
+      "blocks": [
+        {
+          "p": "All commands start with /run (alias /sr). Players need speedrun.player (everyone by default); administration needs speedrun.admin (operators by default)."
+        },
+        {
+          "ul": [
+            "/run status, /run tasks, /run records, /run givecompass – for everyone",
+            "/run start, pause, stop, reset – control the run (also from the console)",
+            "/run new <location> [x y z] – set a location manually; /run remove <location> – hide it",
+            "/run locate pos1 / pos2 – estimate the stronghold from two Eye of Ender throws",
+            "/run skipstage – complete the current stage (the run will not count for records)",
+            "/run reload – reload config.yml and messages; /run webconfig – open this editor"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "saving",
+      "title": "Saving and applying",
+      "blocks": [
+        {
+          "p": "Your edits stay in this browser tab until you save them. Save & apply writes config.yml and updates the running server in one step."
+        },
+        {
+          "ul": [
+            "Applies immediately: takes effect right away.",
+            "Restarts the related feature: the feature (for example waypoints) restarts with the new values.",
+            "Applies when no run is active: rules of the current run are not changed mid-run. The setting is saved; press Apply saved changes after /run reset or /run stop.",
+            "Needs /run reload or a restart: startup settings such as the editor port."
+          ]
+        },
+        {
+          "p": "If the configuration was changed elsewhere in the meantime, the editor asks you to reload so nothing is overwritten by accident."
+        }
+      ]
+    },
+    {
+      "id": "updates",
+      "title": "Updates and backups",
+      "blocks": [
+        {
+          "p": "When a new plugin version starts, config.yml is upgraded automatically. Your values are kept, new settings get their defaults, and values that are no longer supported are reset. The previous file is saved to plugins/Speedrun/config-backups/ and every change is listed in migration-report.txt there."
+        },
+        {
+          "p": "Customized message files in plugins/Speedrun/lang are never overwritten; only new messages are added."
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "title": "Performance",
+      "blocks": [
+        {
+          "p": "Heavy work runs outside the server thread: chunk contents are copied as snapshots and searched by background threads. On Paper, missing chunks are loaded asynchronously; on Spigot and CraftBukkit at most one chunk per tick is loaded, and only if you allow it."
+        },
+        {
+          "ul": [
+            "Background search Safe or Balanced is enough for most servers.",
+            "Keep the gold highlight radius moderate (24 is a good value).",
+            "Track every player step and trace diagnostics produce large files; enable them only when needed."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Security",
+      "blocks": [
+        {
+          "p": "The editor listens on 127.0.0.1 by default and every request needs the private key from /run webconfig. The key changes on every restart and with /run webconfig restart."
+        },
+        {
+          "ul": [
+            "Do not share the link: whoever has it can change the settings.",
+            "To reach the editor from another computer, prefer an SSH tunnel over changing the network address.",
+            "Rewards that run console commands can only be added in config.yml, never from the editor (unless explicitly allowed there)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "blocks": [
+        {
+          "ul": [
+            "The link does not open: check that web-config.enabled is on and the port is free, then use /run webconfig restart.",
+            "A location is wrong: stand at the right spot and use /run new <location>, or give coordinates.",
+            "The compass HUD is missing on CraftBukkit: use Spigot or Paper for the full feature set.",
+            "Something behaves oddly: enable Trace diagnostics, reproduce it, and attach the newest file from plugins/Speedrun/traces to your report."
+          ]
+        }
+      ]
+    }
+  ]
+}

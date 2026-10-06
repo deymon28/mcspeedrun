@@ -1,7 +1,7 @@
 name: Speedrun
 version: '${version}'
 main: org.speedrun.speedrun.Speedrun
-api-version: '1.21'
+api-version: '${apiVersion}'
 author: 'deymon28, Niko'
 description: A speedrun plugin with a timer, location tracking, and tasks.
 

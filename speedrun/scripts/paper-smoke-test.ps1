@@ -1,5 +1,5 @@
 param(
-    [string]$PaperJar = "../mcserver/paper-26.1.2-69.jar",
+    [Parameter(Mandatory = $true)][string]$PaperJar,
     [string]$PluginJar = "",
     [string]$WorkRoot = "",
     [int]$PortBase = 0,

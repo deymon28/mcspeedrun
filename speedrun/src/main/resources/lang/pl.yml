@@ -1,0 +1,206 @@
+# Speedrun - komunikaty po polsku
+#
+# Kody kolorów: &0-&9, &a-&f, &l (pogrubienie), &o (kursywa), &n (podkreślenie), &m (przekreślenie), &r (reset).
+# Znaczniki MiniMessage, takie jak <green>, <bold> lub <#ff8800>, również są obsługiwane.
+# Symbole zastępcze, np. %player%, są uzupełniane przez plugin i muszą zostać zachowane.
+# Komunikaty brakujące w tym pliku korzystają z wbudowanego tekstu.
+
+# Tekst dodawany przed wiadomościami na czacie, na przykład "&e[Speedrun] &r".
+prefix: ""
+
+commands:
+  no-permission: "&cNie masz uprawnień do użycia tej komendy."
+  player-only: "&cTej komendy może użyć tylko gracz w grze."
+  reloaded: "&aPrzeładowano konfigurację i pliki komunikatów."
+  run-started: "&aSpeedrun się rozpoczął."
+  run-already-started: "&cSpeedrun już trwa."
+  run-stopped: "&aSpeedrun został zatrzymany."
+  run-not-running: "&cŻaden speedrun nie jest uruchomiony."
+  timer-paused: "&eStoper jest wstrzymany."
+  timer-resumed: "&aStoper znów chodzi."
+  run-reset: "&eSpeedrun został zresetowany. Nowy bieg zaczyna się teraz."
+  stage-skipped: "&ePrzejście do następnego etapu. Ten bieg nie zostanie zaliczony do rekordów osobistych."
+  unknown-subcommand: "&cNieznana podkomenda. Wpisz &e/%label% help&c, aby zobaczyć listę komend."
+  usage-new: "&cUżycie: /run new <%structures%> [x y z]"
+  usage-remove: "&cUżycie: /run remove <location>"
+  invalid-structure: "&cNieznana lokalizacja. Dostępne lokalizacje: %structures%"
+  location-update-failed: "&cNie udało się zaktualizować lokalizacji: %location%"
+  location-updated: "&aLokalizacja zaktualizowana: %location%"
+  structure-hidden: "&aLokalizacja ukryta: %structure%"
+  locate-pos1: "&aPierwszy rzut zapisany (pozycja i kierunek patrzenia)."
+  locate-pos2: "&aDrugi rzut zapisany (pozycja i kierunek patrzenia)."
+  locate-invalid-coordinates: "&cNieprawidłowe współrzędne. Używaj tylko liczb."
+  locate-usage: "&eUżycie: /run locate <pos1|pos2> lub /run locate <x1> <y1> <z1> <x2> <y2> <z2>"
+  locate-header: "&a--- Szacowanie położenia fortecy ---"
+  locate-predicted: "&aSzacowany portal do Endu: &e%coords% &7(Nether: &c%nether_x%, %nether_z%&7)"
+  locate-failed: "&cNie udało się obliczyć położenia. Oba rzuty są prawdopodobnie równoległe; rzuć jeszcze raz z innego miejsca."
+  help:
+    header: "&6--------- &eKomendy Speedrun &6---------"
+    help: "&e/%label% help &7- pokaż tę listę"
+    status: "&e/%label% status &7- stoper, etap i gracze"
+    tasks: "&e/%label% tasks &7- otwarte zadania w twoim świecie"
+    records: "&e/%label% records &7- rekord osobisty i najlepsze czasy etapów"
+    givecompass: "&e/%label% givecompass [player] &7- zdobądź kompas nawigacyjny"
+    start: "&e/%label% start &7- rozpocznij speedrun"
+    pause: "&e/%label% pause &7- wstrzymaj lub wznów stoper"
+    stop: "&e/%label% stop &7- zatrzymaj speedrun"
+    reset: "&e/%label% reset &7- zresetuj i zacznij nowy bieg"
+    skipstage: "&e/%label% skipstage &7- ukończ bieżący etap"
+    new: "&e/%label% new <location> [x y z] &7- ustaw lokalizację"
+    remove: "&e/%label% remove <location> &7- ukryj lokalizację"
+    locate: "&e/%label% locate <pos1|pos2> &7- oszacuj położenie fortecy na podstawie dwóch rzutów Okiem Endu"
+    reload: "&e/%label% reload &7- przeładuj konfigurację i komunikaty"
+    webconfig: "&e/%label% webconfig [restart|stop] &7- otwórz edytor ustawień w przeglądarce"
+    admin-footer: "&7Wskazówka: skonfiguruj wszystko w przeglądarce za pomocą &e/run webconfig&7."
+  givecompass:
+    no-permission-others: "&cNie masz uprawnień do dawania kompasów innym graczom."
+    player-not-found: "&cNie znaleziono gracza: %player%"
+    usage: "&cUżycie: /run givecompass [player]"
+    received: "&aOtrzymałeś Kompas nawigacyjny."
+    gave: "&aDano Kompas nawigacyjny graczowi %player%."
+  webconfig:
+    usage: "&cUżycie: /run webconfig [restart|stop]"
+    unavailable: "&cEdytor webowy nie działa. Włącz web-config.enabled w config.yml lub użyj /run webconfig restart."
+    url: "<green>Edytor ustawień: <click:open_url:'%url%'><hover:show_text:'Otwórz w przeglądarce'><yellow><u>kliknij, aby otworzyć</u></yellow></hover></click>"
+    url-console: "&aEdytor ustawień: &e%url%"
+    restarted: "<green>Edytor został uruchomiony ponownie z nowym linkiem: <click:open_url:'%url%'><yellow><u>kliknij, aby otworzyć</u></yellow></click>"
+    restarted-console: "&aEdytor został uruchomiony ponownie z nowym linkiem: &e%url%"
+    private: "&7Ten link jest prywatny: każdy, kto go ma, może zmieniać ustawienia. /run webconfig restart tworzy nowy."
+    stopped: "&aEdytor webowy został zatrzymany do następnego restartu lub /run webconfig restart."
+  status:
+    header: "&6--------- &eStatus Speedrun &6---------"
+    time: "&fCzas: &e%time%"
+    running: "&fStatus: &aTrwa"
+    paused: "&fStatus: &cWstrzymany"
+    idle: "&fStatus: &7Nie uruchomiono &8(/run start)"
+    finished: "&fStatus: &aUkończono"
+    stage: "&fBieżący etap: &d%stage%"
+    players: "&fGracze: &b%players%"
+    footer: "&6-----------------------------------"
+  tasks:
+    header: "&6--------- &eBieżące zadania &6---------"
+    no-tasks: "&7W tym świecie nie ma otwartych zadań."
+    footer: "&6-----------------------------------"
+
+scoreboard:
+  # Utrzymuj krótkie linie panelu bocznego: klient ucina długie nazwy lokalizacji i zadań.
+  title: "&e&lSPEEDRUN"
+  time: "&fCzas:"
+  paused: "&c&lPAUZA"
+  s-end: "&a&lBIEG UKOŃCZONY"
+  locations-header: "&bLokalizacje:"
+  location-found: "&7%name%: &a%coords%"
+  location-approximate: "&7%name%: &e~%coords%"
+  location-pending: "&7%name%: &c???"
+  village-timer: "&e[%time%]"
+  normal-tasks-header: "&aŚwiat:"
+  nether-tasks-header: "&cNether:"
+  end-tasks-header: "&5End:"
+  task-line: "&7- %name%: &f%progress%&7/&f%required%"
+  task-complete: "&a✔ &m%name%"
+
+messages:
+  run-started: "&aSpeedrun się rozpoczął! Powodzenia."
+  village-timeout: "&cCzas na znalezienie wioski minął. Cel z wioską został porzucony."
+  structure-found: "&b%player% &fznalazł(a) &6%structure% &fna &b%coords%&f!"
+  portal-lit: "&b%player% &fotworzył(a) portal do &5Netheru&f!"
+  dragon-slain: "&a&lSmok Endu został pokonany! Speedrun ukończony!"
+  final-time: "&a&lCzas końcowy: %time%"
+  stage-complete: "&d&lEtap ukończony! &fPrzechodzimy do następnego."
+  unknown-structure-name: "&cNieznana lokalizacja: %name%"
+  reassigning-disabled: "&cPrzenoszenie już znalezionych lokalizacji jest wyłączone w konfiguracji."
+  portal-reassigned: "&aLokalizacja portalu została ustawiona na twoją pozycję."
+  use-run-new-nether-portal: "&cUżyj /run new nether portal, aby przenieść portal."
+
+records:
+  header: "&6--------- &eRekordy osobiste (%mode%) &6---------"
+  none: "&7Brak ukończonych biegów. Pokonaj Smoka Endu, aby ustanowić pierwszy rekord."
+  best: "&fNajlepszy czas: &e%time% &7(%date%, ukończonych biegów: %runs%)"
+  split-line: "&7- %stage%: &f%time%"
+  split: "&d%stage% &fukończony w &e%time% %delta%"
+  new-best: "&6&lNowy rekord osobisty! &e%time% %delta%"
+  compare: "&fRekord osobisty: &e%best% %delta%"
+  delta-ahead: "&a(-%delta%)"
+  delta-behind: "&c(+%delta%)"
+  delta-first: "&7(pierwszy rekord)"
+  reset: "&aRekordy osobiste bieżącego trybu gry zostały zresetowane."
+
+admin:
+  installed: "<green>Speedrun jest zainstalowany. Skonfiguruj go w przeglądarce za pomocą <click:run_command:'/run webconfig'><yellow><u>/run webconfig</u></yellow></click> lub zobacz <yellow>/run help</yellow>."
+  upgraded: "&aSpeedrun został zaktualizowany (%from% -> %to%). Twoje ustawienia zostały zachowane: &f%transferred% &aprzeniesionych, &f%new% &anowych z wartościami domyślnymi, &f%reset% &azresetowanych do wartości domyślnych."
+  reset-settings: "&eZresetowano do wartości domyślnych, ponieważ stara wartość nie jest już obsługiwana: &f%settings%"
+  backup: "&7Twój poprzedni config.yml został zapisany w plugins/Speedrun/%file%."
+  config-failed: "&cNie udało się wczytać config.yml, więc aktywne są ustawienia domyślne. Sprawdź konsolę serwera, popraw plik i wpisz /run reload."
+  invalid-settings: "&eNiektóre ustawienia w config.yml są nieprawidłowe i używają wartości domyślnych: &f%settings%"
+
+items:
+  navigation-compass:
+    name: "&6Kompas nawigacyjny"
+    lore:
+      - "&7Kliknij prawym przyciskiem, aby wybrać cel."
+
+compass:
+  welcome-received: "&aWitaj! Otrzymałeś &6Kompas nawigacyjny&a."
+  welcome-hint: "&aKliknij nim prawym przyciskiem, aby wybrać, dokąd iść."
+  no-destinations: "&cW tym wymiarze nie ma jeszcze celów."
+  destination-not-found: "&cTen cel jest niedostępny w twoim wymiarze."
+  target-set: "&aTwój kompas wskazuje teraz: %destination% (%world%)."
+  target-invalid: "&cNie udało się ustawić celu kompasu."
+  null-world: "&cNie można dodać tego celu, ponieważ jego świat nie jest załadowany."
+  discovered: "&aOdkryto: &b%destination%&a! Dodano do twojego Kompasu nawigacyjnego."
+  no-target-actionbar: "&7Brak celu. Kliknij kompas prawym przyciskiem, aby go wybrać."
+  other-world-actionbar: "&c%destination% jest w: %world%"
+  target-actionbar: "&b%destination% &7- &f%distance%"
+  gui:
+    title: "&1Cele - %world%"
+    overworld: "&aŚwiat"
+    nether: "&cNether"
+    death-location-name: "&cOstatnia śmierć gracza %player%"
+    destination-name: "&a%destination%"
+    approximate-destination-name: "&e~%destination%"
+    lore-x: "&7X: %x%"
+    lore-y: "&7Y: %y%"
+    lore-z: "&7Z: %z%"
+    lore-world: "&7Świat: %world%"
+    approximate-lore: "&ePrzybliżone położenie ze skanowania w tle"
+    click-hint: "&eKliknij, aby skierować kompas tutaj"
+    death-click-hint: "&eKliknij, aby śledzić ostatnią śmierć"
+    custom-location: "własna lokalizacja"
+    generic-location: "Lokalizacja"
+
+tab:
+  coordinates: "&eX: &f%x%  &eY: &f%y%  &eZ: &f%z%"
+
+protection:
+  structure-marker: "&cTen blok należy do znacznika lokalizacji i nie można go zniszczyć."
+  hidden-lodestone: "&cTen blok kotwiczy kompas i nie można go zniszczyć."
+
+# Domyślne nazwy wyświetlane. Nazwy z config.yml są używane, gdy tutaj brakuje klucza.
+tasks:
+  OAK_LOG: "Drewno"
+  COBBLESTONE: "Bruk"
+  IRON_INGOT: "Sztabki żelaza"
+  BREAD: "Gotowane jedzenie"
+  ENDER_PEARL: "Perły Endu"
+  BLAZE_ROD: "Płomienne różdżki"
+  STRUCTURE_FORTRESS: "Znajdź Fortecę Netheru"
+  STRUCTURE_BASTION: "Znajdź Pozostałości bastionu"
+  STRUCTURE_END_PORTAL: "Znajdź Fortecę"
+
+stages:
+  1_GETTING_STARTED: "Początek"
+  2_IRON_AGE: "Epoka żelaza"
+  3_NETHER_EXPLORATION: "Przygotowanie do Netheru"
+  4_NETHER_STRUCTURES: "Struktury Netheru"
+  5_STRONGHOLD: "Forteca"
+
+structures:
+  SPAWN: "Spawn"
+  NETHER_REFERENCE: "Punkt odniesienia w Netherze"
+  LAVA_POOL: "Jezioro lawy"
+  VILLAGE: "Wioska"
+  NETHER_PORTAL: "Portal do Netheru"
+  FORTRESS: "Forteca Netheru"
+  BASTION: "Pozostałości bastionu"
+  END_PORTAL: "Portal do Endu"
+  PLAYER_DEATH: "Ostatnia śmierć"

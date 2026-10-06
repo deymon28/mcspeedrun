@@ -4,9 +4,10 @@ param(
     [string]$WorkRoot = "",
     [string]$RuntimeSeed = "",
     [int]$PortBase = 0,
-    [string[]]$Profiles = @("normal", "casual-safe", "casual-balanced", "casual-aggressive", "casual-locate", "hardcore"),
+    [string[]]$Profiles = @("normal", "casual-safe", "casual-balanced", "casual-aggressive", "casual-locate", "hardcore", "upgrade"),
     [int]$TimeoutSeconds = 180,
-    [string]$Java = "java"
+    [string]$Java = "java",
+    [string]$ExpectedPlatform = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,7 +16,7 @@ $buildRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot "build"))
 $serverPath = (Resolve-Path -LiteralPath $ServerJar).Path
 if (-not $PluginJar) {
     $PluginJar = (Get-ChildItem -LiteralPath (Join-Path $buildRoot "libs") -Filter "speedrun-*.jar" |
-        Where-Object Name -NotLike "*-plain.jar" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+        Where-Object { $_.Name -notlike "*-plain.jar" -and $_.Name -notlike "*-shaded.jar" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
 }
 $pluginPath = (Resolve-Path -LiteralPath $PluginJar).Path
 if (-not $WorkRoot) { $WorkRoot = Join-Path $buildRoot ("smoke-" + [guid]::NewGuid().ToString("N")) }
@@ -70,10 +71,10 @@ function Set-YamlValue([string]$Text, [string]$Path, [string]$Value) {
     throw "Configuration path not found: $Path"
 }
 
-$sourceConfig = Get-Content -LiteralPath (Join-Path $projectRoot "src/main/resources/config.yml") -Raw
+$sourceConfig = [IO.File]::ReadAllText((Join-Path $projectRoot "src/main/resources/config.yml"), [Text.Encoding]::UTF8)
 $results = @()
 foreach ($profile in $Profiles) {
-    if ($profile -notmatch '^(normal|hardcore|casual-(safe|balanced|aggressive|locate))$') {
+    if ($profile -notmatch '^(normal|hardcore|upgrade|casual-(safe|balanced|aggressive|locate))$') {
         throw "Unknown smoke profile: $profile"
     }
     $scenario = Join-Path $workPath $profile
@@ -98,12 +99,20 @@ foreach ($profile in $Profiles) {
         "enable-query=false", "enable-command-block=false", "view-distance=2", "simulation-distance=2",
         "level-type=minecraft:normal", "generate-structures=false", "max-players=2", "spawn-protection=0"
     )
-    $mode = if ($profile.StartsWith("casual-")) { "CASUAL" } else { $profile.ToUpperInvariant() }
+    if ($profile -eq "upgrade") {
+        # Upgrade path: start from the configuration shipped with 3.5.4 and expect an automatic migration.
+        $config = [IO.File]::ReadAllText((Join-Path $projectRoot "src/test/resources/migration/config-3.5.4.yml"), [Text.Encoding]::UTF8)
+        $config = Set-YamlValue $config "web-config.port" $webPort
+        [IO.File]::WriteAllText((Join-Path $dataDir "config.yml"), $config, [Text.UTF8Encoding]::new($false))
+    }
+    $mode = if ($profile.StartsWith("casual-")) { "CASUAL" } elseif ($profile -eq "upgrade") { "NORMAL" } else { $profile.ToUpperInvariant() }
     $config = Set-YamlValue $sourceConfig "settings.gamemode" $mode
     $config = Set-YamlValue $config "web-config.port" $webPort
     $config = Set-YamlValue $config "casual.start-pre-scan.enabled" $(if ($mode -eq "CASUAL") { "true" } else { "false" })
     if ($mode -eq "CASUAL") { $config = Set-YamlValue $config "casual.start-pre-scan.mode" $profile.Substring(7).ToUpperInvariant() }
-    [IO.File]::WriteAllText((Join-Path $dataDir "config.yml"), $config, [Text.UTF8Encoding]::new($false))
+    if ($profile -ne "upgrade") {
+        [IO.File]::WriteAllText((Join-Path $dataDir "config.yml"), $config, [Text.UTF8Encoding]::new($false))
+    }
 
     $startInfo = [Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $Java
@@ -118,6 +127,9 @@ foreach ($profile in $Profiles) {
     $process.StartInfo = $startInfo
     $watch = [Diagnostics.Stopwatch]::StartNew()
     [void]$process.Start()
+    # Windows PowerShell writes a UTF-8 BOM before the first stdin line; absorb it with an empty command.
+    $process.StandardInput.WriteLine("")
+    $process.StandardInput.Flush()
     $stdout = $process.StandardOutput.ReadToEndAsync()
     $stderr = $process.StandardError.ReadToEndAsync()
     $logFile = Join-Path $scenario "logs/latest.log"
@@ -135,6 +147,9 @@ foreach ($profile in $Profiles) {
         }
         if (-not $ready) { throw "Server did not become ready in $profile. Inspect $scenario." }
         $startupSeconds = [Math]::Round($watch.Elapsed.TotalSeconds, 2)
+        if ($ExpectedPlatform -and -not ($log -match ('Server platform: ' + [regex]::Escape($ExpectedPlatform) + ' '))) {
+            throw "Expected platform '$ExpectedPlatform' was not detected in $profile."
+        }
         try {
             Invoke-WebRequest -Uri "http://127.0.0.1:$webPort/api/status" -UseBasicParsing -TimeoutSec 10 | Out-Null
             throw "Unauthenticated web API unexpectedly succeeded."
@@ -143,6 +158,32 @@ foreach ($profile in $Profiles) {
         }
         $page = Invoke-WebRequest -Uri "http://127.0.0.1:$webPort/" -UseBasicParsing -TimeoutSec 10
         if ($page.StatusCode -ne 200 -or -not $page.Content.Contains('Speedrun')) { throw "Web editor failed to load." }
+        if (-not $page.Headers['Content-Security-Policy']) { throw "Web editor responses lack a Content-Security-Policy." }
+        $translation = Invoke-WebRequest -Uri "http://127.0.0.1:$webPort/i18n/de.json" -UseBasicParsing -TimeoutSec 10
+        if ($translation.StatusCode -ne 200) { throw "Editor translations are not served." }
+
+        # Console commands exercise the run lifecycle and fetch a private editor link.
+        foreach ($command in @("run help", "run status", "run start", "run pause", "run pause", "run records", "run reset", "run stop", "run webconfig")) {
+            $process.StandardInput.WriteLine($command)
+            $process.StandardInput.Flush()
+            Start-Sleep -Milliseconds 400
+        }
+        Start-Sleep -Seconds 2
+        $log = Read-ServerLog $logFile
+        $tokenMatch = [regex]::Match($log, '#token=([0-9a-f]{48})')
+        if (-not $tokenMatch.Success) { throw "The console did not print an editor link in $profile." }
+        $headers = @{ "X-Speedrun-Token" = $tokenMatch.Groups[1].Value }
+        $configResponse = Invoke-WebRequest -Uri "http://127.0.0.1:$webPort/api/config" -Headers $headers -UseBasicParsing -TimeoutSec 15
+        $document = $configResponse.Content | ConvertFrom-Json
+        if (-not $document.ok -or -not $document.revision) { throw "Authenticated configuration request failed in $profile." }
+        $validate = Invoke-WebRequest -Uri "http://127.0.0.1:$webPort/api/config/validate" -Method Post -Headers $headers `
+            -ContentType "application/json" -Body (@{ revision = $document.revision; changes = @{ "settings.log-attempts" = $true } } | ConvertTo-Json) `
+            -UseBasicParsing -TimeoutSec 15
+        if (-not ($validate.Content | ConvertFrom-Json).ok) { throw "Validation request failed in $profile." }
+        if ($profile -eq "upgrade") {
+            if (-not (Test-Path -LiteralPath (Join-Path $dataDir "config-backups"))) { throw "The upgrade did not back up the old configuration." }
+            if ($document.migration.status -ne "MIGRATED") { throw "The 3.5.4 configuration was not migrated." }
+        }
         $process.StandardInput.WriteLine("stop")
         $process.StandardInput.Flush()
         if (-not (Wait-ServerExit $process 45)) { throw "Server did not stop gracefully in $profile." }
@@ -153,7 +194,7 @@ foreach ($profile in $Profiles) {
             throw "Plugin runtime error in $profile. Inspect $logFile."
         }
         $results += [pscustomobject]@{ Profile = $profile; StartupSeconds = $startupSeconds; ExitCode = $process.ExitCode; Result = "PASS" }
-        Write-Output "PASS ${profile}: startup, web authentication, static UI, graceful shutdown ($startupSeconds s)"
+        Write-Output "PASS ${profile}: startup, console commands, web API and authentication, static UI, graceful shutdown ($startupSeconds s)"
     } finally {
         if (-not $process.HasExited) {
             try { $process.StandardInput.WriteLine("stop"); $process.StandardInput.Flush() } catch {}

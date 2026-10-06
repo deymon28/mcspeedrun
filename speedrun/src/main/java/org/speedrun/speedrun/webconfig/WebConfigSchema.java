@@ -1,11 +1,13 @@
 package org.speedrun.speedrun.webconfig;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.speedrun.speedrun.managers.ConfigManager;
+import org.speedrun.speedrun.config.ConfigFileStore;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -14,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.math.BigInteger;
 
 import static org.speedrun.speedrun.webconfig.WebConfigField.ApplyImpact.INSTANT;
 import static org.speedrun.speedrun.webconfig.WebConfigField.ApplyImpact.RESTART_TASK;
@@ -34,6 +37,8 @@ public final class WebConfigSchema {
     private static final Set<String> STRUCTURED_SECTIONS = Set.of("progression", "rewards");
     private static final Set<String> WORLDS = Set.of("NORMAL", "NETHER", "THE_END");
     private static final String LANGUAGE_PATH = "settings.language";
+    private static final Set<String> STRUCTURE_TASKS = Set.of("LAVA_POOL", "VILLAGE", "NETHER_PORTAL",
+            "NETHER_PORTAL_OVERWORLD", "NETHER_PORTAL_NETHER", "FORTRESS", "BASTION", "END_PORTAL");
 
     private WebConfigSchema() {
     }
@@ -65,6 +70,12 @@ public final class WebConfigSchema {
     public static WebConfigValidationResult validatePatch(JSONObject patch) {
         WebConfigValidationResult result = new WebConfigValidationResult();
 
+        for (String parent : patch.keySet()) {
+            if (patch.keySet().stream().anyMatch(child -> child.startsWith(parent + "."))) {
+                result.error("Overlapping config paths are not allowed: " + parent);
+            }
+        }
+
         for (String key : patch.keySet()) {
             if (STRUCTURED_SECTIONS.contains(key)) {
                 validateStructuredSection(key, patch.opt(key), result);
@@ -77,6 +88,45 @@ public final class WebConfigSchema {
                 continue;
             }
             validateField(field, patch.opt(key), result);
+        }
+        return result;
+    }
+
+    public static WebConfigValidationResult validateValue(String path, Object value) {
+        WebConfigValidationResult result = new WebConfigValidationResult();
+        WebConfigField field = FIELDS.get(path);
+        if (field == null) {
+            result.error("Unsupported config path: " + path);
+        } else {
+            validateField(field, value instanceof List<?> list ? new JSONArray(list) : value, result);
+        }
+        return result;
+    }
+
+    /** Validate actual stored values, without coercing malformed YAML through typed getters. */
+    public static WebConfigValidationResult validateConfiguration(FileConfiguration config) {
+        WebConfigValidationResult result = new WebConfigValidationResult();
+        for (WebConfigField field : FIELDS.values()) {
+            if (!config.contains(field.path(), true)) {
+                continue;
+            }
+            WebConfigValidationResult fieldResult = validateValue(field.path(), config.get(field.path()));
+            fieldResult.errors().forEach(result::error);
+        }
+        for (String path : STRUCTURED_SECTIONS) {
+            if (!config.contains(path, true)) {
+                continue;
+            }
+            ConfigurationSection section = config.getConfigurationSection(path);
+            if (section == null) {
+                result.error(path + " must be an object.");
+                continue;
+            }
+            try {
+                validateStructuredSection(path, sectionToJson(section), result);
+            } catch (RuntimeException exception) {
+                result.error(path + " contains an unsupported value.");
+            }
         }
         return result;
     }
@@ -168,7 +218,11 @@ public final class WebConfigSchema {
             return;
         }
         double numeric = number.doubleValue();
-        if (integerOnly && Math.floor(numeric) != numeric) {
+        if (!Double.isFinite(numeric)) {
+            result.error(field.path() + " must be finite.");
+            return;
+        }
+        if (integerOnly && !isInteger(value)) {
             result.error(field.path() + " must be an integer.");
         }
         if (field.min() != null && numeric < field.min()) {
@@ -177,6 +231,23 @@ public final class WebConfigSchema {
         if (field.max() != null && numeric > field.max()) {
             result.error(field.path() + " must be at most " + formatLimit(field.max()) + ".");
         }
+    }
+
+    public static boolean isInteger(Object value) {
+        return value instanceof Byte || value instanceof Short || value instanceof Integer
+                || value instanceof Long || value instanceof BigInteger;
+    }
+
+    public static boolean isTaskKey(String key) {
+        if (!key.matches("[A-Z0-9_]+")) {
+            return false;
+        }
+        if (key.startsWith("STRUCTURE_")) {
+            return STRUCTURE_TASKS.contains(key.substring("STRUCTURE_".length()));
+        }
+        Material material = Material.getMaterial(key);
+        return material != null && !material.isLegacy() && material != Material.AIR
+                && material != Material.CAVE_AIR && material != Material.VOID_AIR;
     }
 
     private static String formatLimit(double value) {
@@ -194,7 +265,7 @@ public final class WebConfigSchema {
             }
             return;
         }
-        String normalized = string.toUpperCase(Locale.ROOT);
+        String normalized = string.trim().toUpperCase(Locale.ROOT);
         if (field.options() == null || field.options().stream().noneMatch(option -> option.equalsIgnoreCase(normalized))) {
             result.error(field.path() + " must be one of " + field.options() + ".");
         }
@@ -218,7 +289,7 @@ public final class WebConfigSchema {
             case DECIMAL -> ((Number) value).doubleValue();
             case ENUM -> LANGUAGE_PATH.equals(field.path())
                     ? ConfigManager.normalizeLanguageCode((String) value)
-                    : ((String) value).toUpperCase(Locale.ROOT);
+                    : ((String) value).trim().toUpperCase(Locale.ROOT);
             case STRING_LIST -> jsonToConfigValue(value);
             default -> value;
         };
@@ -239,6 +310,11 @@ public final class WebConfigSchema {
     private static void validateProgression(JSONObject progression, WebConfigValidationResult result) {
         for (String stageKey : progression.keySet()) {
             if ("settings".equals(stageKey)) {
+                if (!(progression.opt(stageKey) instanceof JSONObject settings)) {
+                    result.error("progression.settings must be an object.");
+                } else {
+                    validateProgressionSettings(settings, "progression.settings", result);
+                }
                 continue;
             }
             Object stageValue = progression.opt(stageKey);
@@ -246,8 +322,8 @@ public final class WebConfigSchema {
                 result.error("progression." + stageKey + " must be an object.");
                 continue;
             }
-            String world = stage.optString("world", "NORMAL").toUpperCase(Locale.ROOT);
-            if (!WORLDS.contains(world)) {
+            Object world = stage.opt("world");
+            if (world != null && (!(world instanceof String text) || !WORLDS.contains(text.toUpperCase(Locale.ROOT)))) {
                 result.error("progression." + stageKey + ".world must be NORMAL, NETHER, or THE_END.");
             }
             if (stage.has("display-name") && !(stage.opt("display-name") instanceof String)) {
@@ -264,18 +340,34 @@ public final class WebConfigSchema {
         }
     }
 
+    private static void validateProgressionSettings(JSONObject settings, String path, WebConfigValidationResult result) {
+        for (String key : settings.keySet()) {
+            String childPath = path + "." + key;
+            WebConfigField field = FIELDS.get(childPath);
+            Object value = settings.opt(key);
+            if (field != null) {
+                validateField(field, value, result);
+            } else if (value instanceof JSONObject child) {
+                validateProgressionSettings(child, childPath, result);
+            } else if (FIELDS.keySet().stream().anyMatch(known -> known.startsWith(childPath + "."))) {
+                result.error(childPath + " must be an object.");
+            }
+        }
+    }
+
     private static void validateProgressionTasks(String path, JSONObject tasks, WebConfigValidationResult result) {
         for (String taskKey : tasks.keySet()) {
-            if (!taskKey.matches("[A-Z0-9_]+")) {
+            if (!isTaskKey(taskKey)) {
                 result.error(path + "." + taskKey + " uses an invalid task key.");
             }
             if (!(tasks.opt(taskKey) instanceof JSONObject task)) {
                 result.error(path + "." + taskKey + " must be an object.");
                 continue;
             }
-            int amount = task.optInt("amount", -1);
-            if (amount < 0) {
-                result.error(path + "." + taskKey + ".amount must be 0 or higher.");
+            Object amount = task.opt("amount");
+            if (amount != null && (!isInteger(amount) || ((Number) amount).doubleValue() < 0
+                    || ((Number) amount).doubleValue() > Integer.MAX_VALUE)) {
+                result.error(path + "." + taskKey + ".amount must be an integer from 0 to 2147483647.");
             }
             if (task.has("display-name") && !(task.opt("display-name") instanceof String)) {
                 result.error(path + "." + taskKey + ".display-name must be text.");
@@ -360,15 +452,7 @@ public final class WebConfigSchema {
     }
 
     public static YamlConfiguration patchedCopy(FileConfiguration source, JSONObject patch) {
-        YamlConfiguration copy = new YamlConfiguration();
-        for (String key : source.getKeys(false)) {
-            Object value = source.get(key);
-            if (value instanceof ConfigurationSection section) {
-                setConfigValue(copy, key, jsonToConfigValue(sectionToJson(section)));
-            } else {
-                copy.set(key, value);
-            }
-        }
+        YamlConfiguration copy = ConfigFileStore.copy(source);
         applyPatch(copy, patch);
         return copy;
     }
@@ -379,7 +463,8 @@ public final class WebConfigSchema {
         add(fields, field("web-config.bind", "General", "Web bind address", "Use 127.0.0.1 unless you intentionally expose the editor.", STRING, STARTUP_ONLY, DANGEROUS, "127.0.0.1"));
         add(fields, number("web-config.port", "General", "Web port", "Local HTTP port for the editor.", INTEGER, STARTUP_ONLY, CAUTION, 8765, 1024, 65535));
         add(fields, enumField("settings.gamemode", "General", "Game mode", "NORMAL, CASUAL, or HARDCORE runtime behavior.", RUN_SENSITIVE, CAUTION, "NORMAL", "NORMAL", "CASUAL", "HARDCORE"));
-        add(fields, enumField("settings.language", "General", "Language", "Language file from plugins/Speedrun/lang.", INSTANT, NONE, "en", "en", "uk"));
+        add(fields, enumField("settings.language", "General", "Language", "Language of in-game messages. Message files are in plugins/Speedrun/lang.", INSTANT, NONE, "en", "en", "uk", "de", "es", "fr", "pt_BR", "pl", "zh_CN"));
+        add(fields, field("settings.pause-when-empty", "General", "Pause when empty", "Pause the timer while no players are online; preserve manually paused runs.", BOOLEAN, INSTANT, NONE, false));
         add(fields, field("settings.start-on-first-join", "General", "Start on first join", "Start the timer when the first player joins.", BOOLEAN, STARTUP_ONLY, CAUTION, true));
         add(fields, field("settings.reset_time_on_join", "General", "Reset day on join", "Set clock worlds to day when first-join starts a run.", BOOLEAN, INSTANT, NONE, true));
         add(fields, field("settings.allow-reassigning-locations", "General", "Allow location reassignment", "Allow /run new to reassign tracked locations.", BOOLEAN, INSTANT, NONE, true));
@@ -388,6 +473,10 @@ public final class WebConfigSchema {
         add(fields, field("settings.scale-resources-by-playercount.enabled", "General", "Scale resources by players", "Scale item task requirements by online player count.", BOOLEAN, RUN_SENSITIVE, NONE, true));
         add(fields, number("settings.scale-resources-by-playercount.multiplier", "General", "Player scaling multiplier", "Additional requirement multiplier per extra player.", DECIMAL, RUN_SENSITIVE, NONE, 0.5, 0, 10));
         add(fields, field("settings.log-attempts", "General", "Attempt logs", "Write plain and structured run logs.", BOOLEAN, INSTANT, NONE, true));
+        add(fields, field("settings.notify-admins-on-join", "General", "Admin join notices", "Tell administrators on join about configuration upgrades and the web editor.", BOOLEAN, INSTANT, NONE, true));
+        add(fields, field("settings.scoreboard.hide-score-numbers", "General", "Hide score numbers", "Hide the red numbers on the sidebar (Paper only).", BOOLEAN, INSTANT, NONE, true));
+        add(fields, field("records.enabled", "General", "Personal bests", "Remember the best completion time and best stage splits.", BOOLEAN, INSTANT, NONE, true));
+        add(fields, field("records.announce-splits", "General", "Announce splits", "Announce each completed stage with the difference to the best split.", BOOLEAN, INSTANT, NONE, true));
         add(fields, enumField("settings.coordinate-display.mode", "General", "Coordinate display", "How Overworld/Nether linked coordinates appear.", INSTANT, NONE, "CONDITIONAL", "UNIFIED", "SEPARATE", "CONDITIONAL"));
         add(fields, field("settings.chunk-biome-logging.enabled", "General", "Chunk biome logging", "Log visited Overworld chunk biomes.", BOOLEAN, INSTANT, NONE, true));
 
@@ -410,12 +499,13 @@ public final class WebConfigSchema {
         add(fields, number("settings.proximity-scanner.lava-pool.required-source-blocks", "Scanner", "Lava source blocks", "Minimum source blocks for a lava pool.", INTEGER, INSTANT, NONE, 12, 1, 256));
         add(fields, number("settings.proximity-scanner.village.radius", "Scanner", "Village bell radius", "Bell scan radius for village confirmation.", INTEGER, INSTANT, CAUTION, 32, 1, 96));
         add(fields, number("settings.proximity-scanner.nether-portal.check-radius", "Scanner", "Nether portal check radius", "Radius around fire/light events for portal detection.", INTEGER, INSTANT, NONE, 4, 1, 32));
-        add(fields, number("settings.proximity-scanner.nether-portal.search-radius", "Scanner", "Portal search radius", "Precise destination-side portal search radius.", INTEGER, INSTANT, CAUTION, 90, 1, 256));
+        add(fields, number("settings.proximity-scanner.nether-portal.search-radius", "Scanner", "Portal search radius", "Precise destination-side portal search radius.", INTEGER, INSTANT, CAUTION, 90, 1, 160));
         add(fields, number("settings.proximity-scanner.portal-search-timeout", "Scanner", "Portal search timeout", "Seconds before exact portal search falls back.", INTEGER, INSTANT, NONE, 15, 1, 120));
         add(fields, field("casual.start-pre-scan.enabled", "Scanner", "Casual start pre-scan", "Controlled discovery when a Casual run starts.", BOOLEAN, RESTART_TASK, CAUTION, false));
         add(fields, enumField("casual.start-pre-scan.mode", "Scanner", "Start pre-scan mode", "SAFE, BALANCED, AGGRESSIVE, or LOCATE profile.", RESTART_TASK, DANGEROUS, "BALANCED", "SAFE", "BALANCED", "AGGRESSIVE", "LOCATE"));
         add(fields, number("casual.start-pre-scan.radius", "Scanner", "Pre-scan radius blocks", "Configured block radius for start pre-scan.", INTEGER, RESTART_TASK, DANGEROUS, 1000, 1, 10000));
         add(fields, number("casual.start-pre-scan.loaded-chunk-radius", "Scanner", "Loaded chunk scan radius", "Radius in chunks around players for loaded-chunk scans.", INTEGER, RESTART_TASK, DANGEROUS, 10, 0, 64));
+        add(fields, field("casual.start-pre-scan.allow-sync-chunk-loading", "Scanner", "Allow synchronous chunk loading", "Let BALANCED/AGGRESSIVE load missing chunks on servers without asynchronous chunk loading (Spigot, CraftBukkit). Limited to one chunk per tick.", BOOLEAN, RESTART_TASK, DANGEROUS, false));
         add(fields, field("casual.start-pre-scan.include-lava-pool", "Scanner", "Pre-scan lava pools", "Include lava pool detection in start pre-scan.", BOOLEAN, RESTART_TASK, CAUTION, true));
         add(fields, number("casual.start-pre-scan.lava-pool-vertical-scan.below-player", "Scanner", "Lava scan below player", "Blocks below player origin for lava scans.", INTEGER, RESTART_TASK, CAUTION, 12, 0, 128));
         add(fields, number("casual.start-pre-scan.lava-pool-vertical-scan.above-player", "Scanner", "Lava scan above player", "Blocks above player origin for lava scans.", INTEGER, RESTART_TASK, CAUTION, 32, 0, 128));
@@ -446,7 +536,7 @@ public final class WebConfigSchema {
         add(fields, number(path + "chunks-per-run", "Scanner", profile + " chunks per run", "Background chunks scanned per scheduler run for " + profile + ".", INTEGER, RESTART_TASK, DANGEROUS, "SAFE".equals(profile) || "LOCATE".equals(profile) ? 0 : "BALANCED".equals(profile) ? 2 : 8, 0, 64));
         add(fields, number(path + "period-ticks", "Scanner", profile + " period ticks", "Scheduler period for " + profile + ".", INTEGER, RESTART_TASK, DANGEROUS, "AGGRESSIVE".equals(profile) ? 10 : "BALANCED".equals(profile) ? 20 : 40, 1, 1200));
         add(fields, number(path + "max-queued-chunks", "Scanner", profile + " max queued chunks", "Background queue size for " + profile + ".", INTEGER, RESTART_TASK, DANGEROUS, "SAFE".equals(profile) || "LOCATE".equals(profile) ? 0 : "BALANCED".equals(profile) ? 1500 : 5000, 0, 20000));
-        add(fields, field(path + "load-missing-chunks", "Scanner", profile + " load missing chunks", "Allow Paper async chunk loads for " + profile + ".", BOOLEAN, RESTART_TASK, DANGEROUS, "BALANCED".equals(profile) || "AGGRESSIVE".equals(profile)));
+        add(fields, field(path + "load-missing-chunks", "Scanner", profile + " load missing chunks", "Load missing chunks for " + profile + " (asynchronous on Paper).", BOOLEAN, RESTART_TASK, DANGEROUS, "BALANCED".equals(profile) || "AGGRESSIVE".equals(profile)));
         add(fields, field(path + "scan-spawn", "Scanner", profile + " scan spawn", "Queue spawn chunks for " + profile + ".", BOOLEAN, RESTART_TASK, CAUTION, "BALANCED".equals(profile) || "AGGRESSIVE".equals(profile)));
         add(fields, field(path + "scan-players", "Scanner", profile + " scan players", "Queue player chunks for " + profile + ".", BOOLEAN, RESTART_TASK, CAUTION, "BALANCED".equals(profile) || "AGGRESSIVE".equals(profile)));
         add(fields, field(path + "include-nether", "Scanner", profile + " include Nether", "Include Nether chunks for " + profile + ".", BOOLEAN, RESTART_TASK, DANGEROUS, "AGGRESSIVE".equals(profile)));
@@ -503,7 +593,8 @@ public final class WebConfigSchema {
         if (path.startsWith("settings.scale-resources-by-playercount.")) return "general.resource-scaling";
         if (path.startsWith("settings.coordinate-display.")) return "general.display";
         if (path.startsWith("settings.chunk-biome-logging.") || path.startsWith("settings.log-attempts")) return "general.logging";
-        if (path.startsWith("settings.")) return "general.runtime";
+        if (path.startsWith("settings.scoreboard.")) return "general.display";
+        if (path.startsWith("records.")) return "general.records";
         if (path.startsWith("progression.settings.")) return "progression.display";
         if (path.startsWith("casual.compass.")) return "casual.compass";
         if (path.startsWith("casual.structure_waypoints.")) return "casual.waypoints";
@@ -521,6 +612,7 @@ public final class WebConfigSchema {
         if (path.startsWith("settings.proximity-scanner.village.")) return "scanner.proximity.village";
         if (path.startsWith("settings.proximity-scanner.nether-portal.")) return "scanner.proximity.portal";
         if (path.startsWith("settings.proximity-scanner.")) return "scanner.proximity";
+        if (path.startsWith("settings.")) return "general.runtime";
         if (path.startsWith("tracking.")) return "diagnostics.tracking";
         if (path.startsWith("diagnostics.trace.")) return "diagnostics.trace";
         if (path.startsWith("rewards.")) return "rewards.general";
@@ -532,7 +624,8 @@ public final class WebConfigSchema {
             case "general.web-config" -> "Web Config";
             case "general.runtime" -> "Runtime";
             case "general.resource-scaling" -> "Resource Scaling";
-            case "general.display" -> "Coordinate Display";
+            case "general.display" -> "Display";
+            case "general.records" -> "Personal Bests";
             case "general.logging" -> "Logging";
             case "progression.display" -> "Progression Display";
             case "casual.mode" -> "Casual Mode";
@@ -576,6 +669,9 @@ public final class WebConfigSchema {
         }
         if (path.startsWith("rewards.") && !path.equals("rewards.enabled")) {
             return new Dependency("rewards.enabled", true, "Only active when rewards are enabled.");
+        }
+        if (path.equals("records.announce-splits")) {
+            return new Dependency("records.enabled", true, "Only active when personal bests are enabled.");
         }
         if (path.startsWith("settings.scale-resources-by-playercount.") && !path.endsWith(".enabled")) {
             return new Dependency("settings.scale-resources-by-playercount.enabled", true, "Only active when resource scaling is enabled.");

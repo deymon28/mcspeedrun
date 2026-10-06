@@ -6,9 +6,8 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import java.io.File;
-import java.io.FileWriter;
+import org.speedrun.speedrun.utils.AsyncLineWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
@@ -20,14 +19,11 @@ import org.json.JSONObject;
 /**
  * Handles logging of speedrun events to files.
  * Creates both a human-readable (.log) file and a machine-readable (.json) file for each run.
- * |
- * Обробляє логування подій спідрану у файли.
- * Створює як людиночитний (.log) файл, так і машиночитний (.json) файл для кожного забігу.
  */
 public class SpeedrunLogger {
     private final Speedrun plugin;
-    private PrintWriter writer;
-    private PrintWriter structuredWriter;
+    private AsyncLineWriter writer;
+    private AsyncLineWriter structuredWriter;
     private boolean active = false;
 
     public SpeedrunLogger(Speedrun plugin) {
@@ -37,13 +33,9 @@ public class SpeedrunLogger {
     /**
      * Starts a new logging session.
      * Creates new log files with a timestamp and sets the logger to active.
-     * |
-     * Починає нову сесію логування.
-     * Створює нові файли логів з часовою міткою та активує логер.
      */
     public void start() {
         // Stop any previous, unclosed session to prevent data corruption.
-        // Зупиняємо будь-яку попередню, незакриту сесію, щоб уникнути пошкодження даних.
         if (active) stop("Interrupted", "N/A");
 
         try {
@@ -57,8 +49,8 @@ public class SpeedrunLogger {
             File logFile = new File(logDir, "speedrun-" + timestamp + ".log");
             File jsonFile = new File(logDir, "speedrun-" + timestamp + ".json");
 
-            this.writer = new PrintWriter(new FileWriter(logFile, true));
-            this.structuredWriter = new PrintWriter(new FileWriter(jsonFile, true));
+            this.writer = new AsyncLineWriter(logFile.toPath(), "Speedrun-RunLog", plugin.getLogger()::warning);
+            this.structuredWriter = new AsyncLineWriter(jsonFile.toPath(), "Speedrun-RunLogJson", plugin.getLogger()::warning);
             this.active = true;
 
 
@@ -73,12 +65,9 @@ public class SpeedrunLogger {
     /**
      * Stops the current logging session.
      * Writes final summary information and closes the file writers.
-     * |
-     * Зупиняє поточну сесію логування.
-     * Записує підсумкову інформацію та закриває файлові потоки.
      *
-     * @param outcome A string describing how the run ended (e.g., "Completed", "Reset"). / Рядок, що описує, як завершився забіг (напр., "Завершено", "Скинуто").
-     * @param finalTime The final time of the speedrun. / Фінальний час спідрану.
+     * @param outcome A string describing how the run ended (e.g., "Completed", "Reset").
+     * @param finalTime The final time of the speedrun.
      */
     public void stop(String outcome, String finalTime) {
         if (!active) return;
@@ -97,16 +86,13 @@ public class SpeedrunLogger {
 
     /**
      * Closes the PrintWriter resources safely.
-     * Безпечно закриває ресурси PrintWriter.
      */
     private void closeWriters() {
-        if( writer != null){
-            writer.flush();
+        if (writer != null) {
             writer.close();
             writer = null;
         }
-        if(structuredWriter != null){
-            structuredWriter.flush();
+        if (structuredWriter != null) {
             structuredWriter.close();
             structuredWriter = null;
         }
@@ -114,7 +100,6 @@ public class SpeedrunLogger {
 
     /**
      * Logs the inventories of all online players at the end of the run.
-     * Логує інвентарі всіх онлайн-гравців наприкінці забігу.
      */
     private void logPlayerInventories() {
         if (!active) return;
@@ -131,10 +116,14 @@ public class SpeedrunLogger {
         log(Level.INFO, "------------------------------------------");
     }
 
+    private static String minecraftVersion() {
+        return Bukkit.getBukkitVersion().split("-", 2)[0];
+    }
+
     private void logRunMetadata() {
         JSONObject json = new JSONObject();
         json.put("event", "run_metadata");
-        json.put("minecraft_version", Bukkit.getMinecraftVersion());
+        json.put("minecraft_version", minecraftVersion());
         json.put("bukkit_version", Bukkit.getVersion());
         if (!Bukkit.getWorlds().isEmpty()) {
             World world = Bukkit.getWorlds().get(0);
@@ -142,7 +131,7 @@ public class SpeedrunLogger {
             json.put("seed", world.getSeed());
         }
         logStructuredEvent(json);
-        info("Minecraft version: " + Bukkit.getMinecraftVersion());
+        info("Minecraft version: " + minecraftVersion());
         if (!Bukkit.getWorlds().isEmpty()) {
             World world = Bukkit.getWorlds().get(0);
             info("World seed (" + world.getName() + "): " + world.getSeed());
@@ -151,7 +140,6 @@ public class SpeedrunLogger {
 
     /**
      * Generates a final JSON summary object with all collected statistics.
-     * Генерує фінальний JSON-об'єкт з усією зібраною статистикою.
      */
     private JSONObject generateSummary(String outcome, String finalTime){
         JSONObject summary = new JSONObject();
@@ -179,7 +167,6 @@ public class SpeedrunLogger {
 
     /**
      * Logs an informational message to the text log file.
-     * Логує інформаційне повідомлення до текстового файлу логів.
      */
     public void info(String message) {
         log(Level.INFO, message);
@@ -191,24 +178,20 @@ public class SpeedrunLogger {
 
     /**
      * Writes a message to the human-readable .log file.
-     * Записує повідомлення до людиночитнoго .log файлу.
      */
     private void log(Level level, String message) {
         if (!active || writer == null) return;
         String timestamp = new SimpleDateFormat("HH:mm:ss").format(new Date());
-        writer.println(String.format("[%s] [%s]: %s", timestamp, level.getName(), message));
-        writer.flush();
+        writer.write(String.format("[%s] [%s]: %s", timestamp, level.getName(), message));
     }
 
     /**
      * Writes a JSON object to the machine-readable .json file.
-     * Записує JSON-об'єкт до машиночитнoго .json файлу.
      */
     public void logStructuredEvent(JSONObject json) {
         if(!active || structuredWriter == null) return;
         json.put("timestamp", new SimpleDateFormat("HH:mm:ss").format(new Date()));
-        structuredWriter.println(json);
-        structuredWriter.flush();
+        structuredWriter.write(json.toString());
     }
 
     // =========================================================================================

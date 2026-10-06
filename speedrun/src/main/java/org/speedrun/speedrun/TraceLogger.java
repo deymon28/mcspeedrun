@@ -6,9 +6,8 @@ import org.bukkit.entity.Player;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileWriter;
+import org.speedrun.speedrun.utils.AsyncLineWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
@@ -23,7 +22,7 @@ import java.util.logging.Level;
  */
 public class TraceLogger {
     private final Speedrun plugin;
-    private PrintWriter writer;
+    private AsyncLineWriter writer;
     private boolean active;
     private boolean mirrorToConsole;
     private Set<String> categories = Set.of();
@@ -51,7 +50,7 @@ public class TraceLogger {
 
             String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
             File traceFile = new File(traceDir, "trace-" + timestamp + ".jsonl");
-            writer = new PrintWriter(new FileWriter(traceFile, true));
+            writer = new AsyncLineWriter(traceFile.toPath(), "Speedrun-Trace", plugin.getLogger()::warning);
             trace("diagnostics", "trace_started",
                     "file", traceFile.getAbsolutePath(),
                     "categories", categories.toString(),
@@ -66,7 +65,6 @@ public class TraceLogger {
 
     public synchronized void close() {
         if (writer != null) {
-            writer.flush();
             writer.close();
             writer = null;
         }
@@ -88,8 +86,7 @@ public class TraceLogger {
             json.put(String.valueOf(attributes[i]), normalizeValue(attributes[i + 1]));
         }
 
-        writer.println(json);
-        writer.flush();
+        writer.write(json.toString());
 
         if (mirrorToConsole) {
             plugin.getLogger().info("[trace:" + category + "] " + event + " " + json);

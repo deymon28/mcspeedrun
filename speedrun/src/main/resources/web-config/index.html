@@ -3,59 +3,100 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Speedrun Config</title>
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <title>Speedrun · Settings</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-mark">SR</div>
-      <div>
-        <h1>Speedrun Config</h1>
-        <p id="server-status">Connecting...</p>
+  <a class="skip-link" href="#editor" data-i18n="ui.skip">Skip to settings</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">SR</div>
+        <div>
+          <h1>Speedrun</h1>
+          <p data-i18n="ui.brandSubtitle">Server settings</p>
+        </div>
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-controls="tabs" aria-expanded="false" aria-label="Menu">☰</button>
       </div>
-    </div>
-    <div class="sidebar-tools">
       <label class="search-box">
-        <span>Find setting</span>
-        <input id="config-search" type="search" placeholder="Search name, key, group...">
+        <span data-i18n="ui.search">Search all settings</span>
+        <input id="config-search" type="search" autocomplete="off" spellcheck="false" data-i18n-placeholder="ui.searchPlaceholder">
       </label>
-      <label class="toggle-row">
-        <input id="hide-inactive" type="checkbox">
-        <span>Hide inactive</span>
-      </label>
-      <p id="filter-status">Showing all settings.</p>
-    </div>
-    <nav id="tabs"></nav>
-    <div class="actions">
-      <button id="validate-btn" type="button">Validate</button>
-      <button id="save-btn" type="button">Save</button>
-      <button id="apply-btn" type="button">Apply</button>
-      <button id="save-apply-btn" type="button" class="primary">Save &amp; Apply</button>
-    </div>
-  </aside>
-
-  <main>
-    <header class="topbar">
-      <div>
-        <h2 id="section-title">General</h2>
-        <p id="section-summary">Local-only configuration editor.</p>
+      <nav id="tabs" aria-label="Sections"></nav>
+      <div class="sidebar-footer">
+        <label class="select-row"><span data-i18n="ui.interfaceLanguage">Interface language</span><select id="ui-language"></select></label>
+        <label class="select-row"><span data-i18n="ui.theme">Theme</span>
+          <select id="ui-theme">
+            <option value="auto" data-i18n="ui.themeAuto">System</option>
+            <option value="light" data-i18n="ui.themeLight">Light</option>
+            <option value="dark" data-i18n="ui.themeDark">Dark</option>
+          </select>
+        </label>
+        <p class="connection" id="server-status" role="status"><span class="dot"></span><span id="server-status-text" data-i18n="ui.connecting">Connecting…</span></p>
+        <p class="local-note" data-i18n="ui.localOnly">Runs on your server. No cloud account.</p>
       </div>
-      <div class="status-pill" id="dirty-pill">Clean</div>
-    </header>
+    </aside>
 
-    <section id="messages" class="messages"></section>
-    <section id="editor" class="editor"></section>
-    <section class="preview">
-      <div class="preview-header">
-        <h3>Change Preview</h3>
-        <span id="change-count">0 changes</span>
+    <main id="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" data-i18n="ui.configuration">Configuration</p>
+          <h2 id="section-title">Overview</h2>
+          <p id="section-summary"></p>
+        </div>
+        <button id="refresh-btn" class="secondary" type="button" data-i18n="ui.refresh">Reload</button>
+      </header>
+
+      <section id="auth" class="auth-panel" hidden>
+        <h3 data-i18n="ui.connectTitle">Connect to your server</h3>
+        <p data-i18n="ui.connectHelp">Run /run webconfig and open the link it shows.</p>
+        <form id="auth-form" class="auth-form">
+          <label class="label-wrap"><span data-i18n="ui.accessToken">Access link or key</span>
+            <input id="access-token" type="password" autocomplete="off" spellcheck="false" required>
+          </label>
+          <button id="connect-btn" class="primary" type="submit" data-i18n="ui.connect">Connect</button>
+        </form>
+      </section>
+
+      <section id="messages" class="messages" role="status" aria-live="polite" tabindex="-1"></section>
+
+      <div class="workspace" id="workspace" hidden>
+        <div class="content-column">
+          <div class="filter-bar" id="filter-bar">
+            <label class="toggle-row"><input id="hide-inactive" type="checkbox"><span data-i18n="ui.hideInactive">Hide settings that are inactive</span></label>
+            <span id="filter-status"></span>
+          </div>
+          <section id="editor" class="editor" tabindex="-1" aria-live="off"></section>
+        </div>
+
+        <aside class="review-panel" id="review-panel" aria-labelledby="review-title">
+          <div class="preview-header">
+            <h3 id="review-title" data-i18n="ui.review">Review changes</h3>
+            <span id="dirty-pill" class="status-pill">All saved</span>
+          </div>
+          <p id="change-count" class="change-count"></p>
+          <ul id="change-list" class="change-list"></ul>
+          <details class="raw-preview"><summary data-i18n="ui.rawPatch">Show technical details</summary><pre id="preview-json">{}</pre></details>
+          <div class="actions">
+            <button id="save-apply-btn" type="button" class="primary" data-i18n="ui.saveApply">Save &amp; apply</button>
+            <div class="action-pair">
+              <button id="save-btn" type="button" data-i18n="ui.save">Save only</button>
+              <button id="validate-btn" type="button" data-i18n="ui.validate">Check</button>
+            </div>
+            <div class="action-pair">
+              <button id="apply-btn" type="button" class="ghost" data-i18n="ui.apply">Apply without saving</button>
+              <button id="discard-btn" type="button" class="ghost" data-i18n="ui.discard">Undo all</button>
+            </div>
+            <p class="action-help" data-i18n="ui.actionHelp">Save writes config.yml. Apply changes the running server.</p>
+            <p class="action-help subtle" data-i18n="ui.shortcutHint">Ctrl+S saves and applies.</p>
+          </div>
+        </aside>
       </div>
-      <div id="impact-preview" class="impact-preview"></div>
-      <pre id="preview-json">{}</pre>
-    </section>
-  </main>
-
+    </main>
+  </div>
+  <script src="/editor-state.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

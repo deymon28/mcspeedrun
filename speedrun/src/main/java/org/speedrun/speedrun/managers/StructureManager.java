@@ -7,6 +7,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.generator.structure.GeneratedStructure;
 import org.bukkit.generator.structure.Structure;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -16,7 +17,6 @@ import org.bukkit.util.BoundingBox;
 import org.bukkit.util.StructureSearchResult;
 import org.speedrun.speedrun.utils.LocationUtil;
 import org.speedrun.speedrun.utils.MessageUtil;
-import org.speedrun.speedrun.utils.PaperCheckUtil;
 import org.speedrun.speedrun.Speedrun;
 import org.speedrun.speedrun.events.StructureFoundEvent;
 
@@ -26,15 +26,11 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Manages the detection, storage, and state of key structures.
  * This includes handling complex logic for Nether Portals, which have linked locations in two dimensions.
- * |
- * Керує виявленням, зберіганням та станом ключових структур.
- * Включає обробку складної логіки для порталів у Незер, які мають пов'язані локації у двох вимірах.
  */
 public class StructureManager {
     private static final String HIDDEN_LODESTONE_METADATA = "speedrun_hidden_lodestone";
     private final Speedrun plugin;
     // Stores locations of all tracked structures. Using LinkedHashMap to maintain insertion order.
-    // Зберігає локації всіх відстежуваних структур. Використовується LinkedHashMap для збереження порядку додавання.
     private final Map<String, Location> foundLocations = new LinkedHashMap<>();
     private final Map<String, Location> hiddenLodestones = new LinkedHashMap<>();
     private final Map<String, Material> hiddenLodestonePreviousBlocks = new HashMap<>();
@@ -49,11 +45,11 @@ public class StructureManager {
     private BukkitTask backgroundScanTask;
     private BukkitTask locateTask;
     private long preScanGeneration = 0;
+    private boolean forceChunkLoadsOnClear;
 
     public boolean villageSearchFailed = false;
 
     // Separate locations for each side of the portal pair.
-    // Окремі локації для кожної сторони пари порталів.
     private Location overworldPortalLocation;
     private Location netherPortalLocation;
 
@@ -70,9 +66,6 @@ public class StructureManager {
     /**
      * Resets all found structure locations to their initial (null) state.
      * Called at the start of a new speedrun.
-     * |
-     * Скидає всі знайдені локації структур до початкового (null) стану.
-     * Викликається на початку нового спідрану.
      */
     public void reset() {
         cancelPreScan();
@@ -94,10 +87,9 @@ public class StructureManager {
         villageSearchFailed = false;
 
         // Initialize the map with all structures that need to be tracked.
-        // Ініціалізуємо мапу всіма структурами, які потрібно відстежувати.
         foundLocations.put("LAVA_POOL", null);
         foundLocations.put("VILLAGE", null);
-        foundLocations.put("NETHER_PORTAL", null); // This key is a placeholder for display purposes. / Цей ключ є плейсхолдером для відображення.
+        foundLocations.put("NETHER_PORTAL", null); // This key is a placeholder for display purposes.
         foundLocations.put("FORTRESS", null);
         foundLocations.put("BASTION", null);
         foundLocations.put("END_PORTAL", null);
@@ -391,13 +383,15 @@ public class StructureManager {
             return;
         }
 
-        if (!plugin.getConfigManager().shouldStartPreScanLoadMissingChunks() || !PaperCheckUtil.IsPaper()) {
+        boolean canLoadMissingChunks = plugin.getPlatform().supportsAsyncChunkLoading()
+                || plugin.getConfigManager().isStartPreScanSyncChunkLoadingAllowed();
+        if (!plugin.getConfigManager().shouldStartPreScanLoadMissingChunks() || !canLoadMissingChunks) {
             plugin.getTraceLogger().trace("scanner", "background_chunk_skipped",
                     "world", world,
                     "chunk_x", chunkX,
                     "chunk_z", chunkZ,
                     "player_driven", searchChunk.playerDriven(),
-                    "reason", "missing_chunk_load_disabled_or_not_paper");
+                    "reason", "missing_chunk_load_disabled_or_unsupported");
             return;
         }
 
@@ -405,23 +399,28 @@ public class StructureManager {
                 "world", world,
                 "chunk_x", chunkX,
                 "chunk_z", chunkZ,
-                "player_driven", searchChunk.playerDriven());
-        world.getChunkAtAsync(chunkX, chunkZ).thenAccept(chunk ->
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (generation != preScanGeneration || !plugin.getGameManager().isRunning()) {
-                        plugin.getTraceLogger().trace("scanner", "background_chunk_load_ignored",
-                                "world", chunk.getWorld(),
-                                "chunk_x", chunk.getX(),
-                                "chunk_z", chunk.getZ(),
-                                "reason", generation != preScanGeneration ? "stale_generation" : "run_not_active");
-                        return;
-                    }
-                    plugin.getTraceLogger().trace("scanner", "background_chunk_scan_after_load",
-                            "world", chunk.getWorld(),
-                            "chunk_x", chunk.getX(),
-                            "chunk_z", chunk.getZ());
-                    scanLoadedChunk(null, chunk.getWorld(), chunk.getX(), chunk.getZ());
-                }));
+                "player_driven", searchChunk.playerDriven(),
+                "async", plugin.getPlatform().supportsAsyncChunkLoading());
+        plugin.getPlatform().loadChunk(world, chunkX, chunkZ).whenComplete((chunk, error) -> {
+            if (error != null || chunk == null) {
+                // Rejected or cancelled loads may be retried if the area is queued again.
+                completedBackgroundChunks.remove(searchChunk.key());
+                return;
+            }
+            if (generation != preScanGeneration || !plugin.getGameManager().isRunning()) {
+                plugin.getTraceLogger().trace("scanner", "background_chunk_load_ignored",
+                        "world", chunk.getWorld(),
+                        "chunk_x", chunk.getX(),
+                        "chunk_z", chunk.getZ(),
+                        "reason", generation != preScanGeneration ? "stale_generation" : "run_not_active");
+                return;
+            }
+            plugin.getTraceLogger().trace("scanner", "background_chunk_scan_after_load",
+                    "world", chunk.getWorld(),
+                    "chunk_x", chunk.getX(),
+                    "chunk_z", chunk.getZ());
+            scanLoadedChunk(null, chunk.getWorld(), chunk.getX(), chunk.getZ());
+        });
     }
 
     public void scanLoadedPlayerChunk(Player player) {
@@ -449,14 +448,22 @@ public class StructureManager {
             return;
         }
         String key = world.getUID() + ":" + chunkX + ":" + chunkZ;
-        if (!liveScannedChunks.add(key)) {
-            plugin.getTraceLogger().trace("scanner", "loaded_chunk_skipped",
+        if (liveScannedChunks.contains(key)) {
+            return;
+        }
+
+        boolean overworld = world.getEnvironment() == World.Environment.NORMAL;
+        boolean scanLava = overworld && isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled();
+        if (scanLava && !plugin.getPlatform().hasWorkerCapacity()) {
+            // Leave the chunk unmarked so a later pass retries it once workers are free.
+            plugin.getTraceLogger().trace("scanner", "loaded_chunk_deferred",
                     "world", world,
                     "chunk_x", chunkX,
                     "chunk_z", chunkZ,
-                    "reason", "already_scanned");
+                    "reason", "worker_queue_full");
             return;
         }
+        liveScannedChunks.add(key);
 
         plugin.getTraceLogger().trace("scanner", "loaded_chunk_scanning",
                 "player", player,
@@ -464,24 +471,34 @@ public class StructureManager {
                 "environment", world.getEnvironment(),
                 "chunk_x", chunkX,
                 "chunk_z", chunkZ);
+        Chunk chunk = world.getChunkAt(chunkX, chunkZ);
         scanGeneratedStructuresInChunk(player, world, chunkX, chunkZ);
 
-        if (world.getEnvironment() != World.Environment.NORMAL) {
-            plugin.getTraceLogger().trace("scanner", "block_snapshot_scan_skipped",
-                    "world", world,
-                    "chunk_x", chunkX,
-                    "chunk_z", chunkZ,
-                    "reason", "not_overworld",
-                    "environment", world.getEnvironment());
+        if (!overworld) {
             return;
         }
 
-        if (PaperCheckUtil.IsPaper()) {
-            scanLoadedChunkSnapshotAsync(player, world, chunkX, chunkZ);
-            return;
+        if (isVillageSearchActive()) {
+            // Bells are block entities, so the chunk's block-entity list finds them without a block scan.
+            Location bell = findBellInChunk(chunk);
+            if (bell != null) {
+                structureFound(player, "VILLAGE", bell);
+            }
         }
 
-        scanLoadedChunkSynchronously(player, world, chunkX, chunkZ);
+        if (scanLava) {
+            scanChunkSnapshotForLava(player, world, chunk);
+        }
+    }
+
+    /** Returns the first bell block in a loaded chunk, using the block-entity list. */
+    static Location findBellInChunk(Chunk chunk) {
+        for (BlockState state : chunk.getTileEntities()) {
+            if (state.getType() == Material.BELL) {
+                return state.getLocation();
+            }
+        }
+        return null;
     }
 
     private void scanGeneratedStructuresInChunk(Player player, World world, int chunkX, int chunkZ) {
@@ -569,61 +586,30 @@ public class StructureManager {
         return new Location(world, (chunkX << 4) + 8.0, y, (chunkZ << 4) + 8.0);
     }
 
-    private void scanLoadedChunkSynchronously(Player player, World world, int chunkX, int chunkZ) {
-        Location origin = scanOrigin(player, world, chunkX, chunkZ);
-        if (isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled()) {
-            Location lavaPool = findLavaClusterInChunk(world, chunkX, chunkZ, origin,
-                    plugin.getConfigManager().getStartPreScanRadius(),
-                    plugin.getConfigManager().getLavaPoolRequiredSources(),
-                    plugin.getConfigManager().getStartPreScanLavaScanBelowBlocks(),
-                    plugin.getConfigManager().getStartPreScanLavaScanAboveBlocks());
-            if (lavaPool != null) {
-                structureFound(player, "LAVA_POOL", lavaPool);
-            }
-        }
-        if (isVillageSearchActive()) {
-            Location bell = findBlockInChunk(world, chunkX, chunkZ, Material.BELL);
-            if (bell != null) {
-                structureFound(player, "VILLAGE", bell);
-            }
-        }
-    }
-
-    private void scanLoadedChunkSnapshotAsync(Player player, World world, int chunkX, int chunkZ) {
-        ChunkSnapshot snapshot = world.getChunkAt(chunkX, chunkZ).getChunkSnapshot(true, false, false);
-        Location origin = scanOrigin(player, world, chunkX, chunkZ);
-        boolean scanLava = isLavaPoolSearchActive() && plugin.getConfigManager().isStartPreScanLavaEnabled();
-        boolean scanVillage = isVillageSearchActive();
+    /** Captures a snapshot on the server thread and searches it for a lava cluster on a worker. */
+    private void scanChunkSnapshotForLava(Player player, World world, Chunk chunk) {
+        ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, false, false);
+        Location origin = scanOrigin(player, world, chunk.getX(), chunk.getZ());
         int radius = plugin.getConfigManager().getStartPreScanRadius();
         int requiredSources = plugin.getConfigManager().getLavaPoolRequiredSources();
         int lavaScanBelowBlocks = plugin.getConfigManager().getStartPreScanLavaScanBelowBlocks();
         int lavaScanAboveBlocks = plugin.getConfigManager().getStartPreScanLavaScanAboveBlocks();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Location lavaPool = null;
-            Location bell = null;
-
-            if (scanLava) {
-                lavaPool = findLavaClusterInSnapshot(snapshot, world, origin, radius, requiredSources,
-                        lavaScanBelowBlocks, lavaScanAboveBlocks);
-            }
-            if (scanVillage) {
-                bell = findBlockInSnapshot(snapshot, world, Material.BELL);
-            }
-
-            Location finalLavaPool = lavaPool;
-            Location finalBell = bell;
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (!plugin.getGameManager().isRunning()) {
-                    return;
-                }
-                if (finalLavaPool != null && isLavaPoolSearchActive()) {
-                    structureFound(player, "LAVA_POOL", finalLavaPool);
-                }
-                if (finalBell != null && isVillageSearchActive()) {
-                    structureFound(player, "VILLAGE", finalBell);
-                }
-            });
-        });
+        int minHeight = world.getMinHeight();
+        int maxHeight = world.getMaxHeight();
+        long generation = preScanGeneration;
+        plugin.getPlatform().compute(() -> findLavaClusterInSnapshot(snapshot, world, origin, radius, requiredSources,
+                        lavaScanBelowBlocks, lavaScanAboveBlocks, minHeight, maxHeight))
+                .thenAccept(lavaPool -> {
+                    if (lavaPool == null) {
+                        return;
+                    }
+                    plugin.getPlatform().executeSync(() -> {
+                        if (generation == preScanGeneration && plugin.getGameManager().isRunning()
+                                && isLavaPoolSearchActive()) {
+                            structureFound(player != null && player.isOnline() ? player : null, "LAVA_POOL", lavaPool);
+                        }
+                    });
+                });
     }
 
     private Location scanOrigin(Player player, World world, int chunkX, int chunkZ) {
@@ -638,38 +624,11 @@ public class StructureManager {
         return new Location(world, x, y, z);
     }
 
-    private Location findLavaClusterInChunk(World world, int chunkX, int chunkZ, Location origin, int radiusBlocks,
-                                            int requiredSources, int scanBelowBlocks, int scanAboveBlocks) {
-        int minY = startPreScanLavaMinY(origin.getBlockY(), world.getMinHeight(), scanBelowBlocks);
-        int maxY = startPreScanLavaMaxY(origin.getBlockY(), world.getMaxHeight(), scanAboveBlocks);
-        int count = 0;
-        Location first = null;
-
-        for (int x = chunkX << 4; x < (chunkX << 4) + 16; x++) {
-            for (int z = chunkZ << 4; z < (chunkZ << 4) + 16; z++) {
-                if (Math.abs(x - origin.getBlockX()) > radiusBlocks || Math.abs(z - origin.getBlockZ()) > radiusBlocks) {
-                    continue;
-                }
-                for (int y = minY; y <= maxY; y++) {
-                    Block block = world.getBlockAt(x, y, z);
-                    if (block.getType() == Material.LAVA) {
-                        if (first == null) {
-                            first = block.getLocation();
-                        }
-                        if (++count >= requiredSources) {
-                            return first;
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private Location findLavaClusterInSnapshot(ChunkSnapshot snapshot, World world, Location origin, int radiusBlocks,
-                                               int requiredSources, int scanBelowBlocks, int scanAboveBlocks) {
-        int minY = startPreScanLavaMinY(origin.getBlockY(), world.getMinHeight(), scanBelowBlocks);
-        int maxY = startPreScanLavaMaxY(origin.getBlockY(), world.getMaxHeight(), scanAboveBlocks);
+    static Location findLavaClusterInSnapshot(ChunkSnapshot snapshot, World world, Location origin, int radiusBlocks,
+                                              int requiredSources, int scanBelowBlocks, int scanAboveBlocks,
+                                              int worldMinHeight, int worldMaxHeight) {
+        int minY = startPreScanLavaMinY(origin.getBlockY(), worldMinHeight, scanBelowBlocks);
+        int maxY = startPreScanLavaMaxY(origin.getBlockY(), worldMaxHeight, scanAboveBlocks);
         int chunkBlockX = snapshot.getX() << 4;
         int chunkBlockZ = snapshot.getZ() << 4;
         int count = 0;
@@ -708,41 +667,6 @@ public class StructureManager {
         return Math.min(worldMaxHeight - 1, originY + Math.max(0, scanAboveBlocks));
     }
 
-    private Location findBlockInChunk(World world, int chunkX, int chunkZ, Material material) {
-        int minY = world.getMinHeight();
-        int maxY = world.getMaxHeight() - 1;
-
-        for (int x = chunkX << 4; x < (chunkX << 4) + 16; x++) {
-            for (int z = chunkZ << 4; z < (chunkZ << 4) + 16; z++) {
-                for (int y = minY; y <= maxY; y++) {
-                    Block block = world.getBlockAt(x, y, z);
-                    if (block.getType() == material) {
-                        return block.getLocation();
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private Location findBlockInSnapshot(ChunkSnapshot snapshot, World world, Material material) {
-        int minY = world.getMinHeight();
-        int maxY = world.getMaxHeight() - 1;
-        int chunkBlockX = snapshot.getX() << 4;
-        int chunkBlockZ = snapshot.getZ() << 4;
-
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = minY; y <= maxY; y++) {
-                    if (snapshot.getBlockType(x, y, z) == material) {
-                        return new Location(world, chunkBlockX + x, y, chunkBlockZ + z);
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
     public void cancelPreScan() {
         preScanGeneration++;
         locateQueue.clear();
@@ -765,13 +689,10 @@ public class StructureManager {
     /**
      * Registers a found structure (except for Nether Portals, which have special handling).
      * Fires a StructureFoundEvent and broadcasts a message.
-     * |
-     * Реєструє знайдену структуру (окрім порталів у Незер, які мають спеціальну обробку).
-     * Викликає подію StructureFoundEvent та розсилає повідомлення.
      *
-     * @param player The player who found the structure. / Гравець, який знайшов структуру.
-     * @param key The unique key of the structure (e.g., "VILLAGE"). / Унікальний ключ структури (напр., "VILLAGE").
-     * @param loc The location of the structure. / Місцезнаходження структури.
+     * @param player The player who found the structure.
+     * @param key The unique key of the structure (e.g., "VILLAGE").
+     * @param loc The location of the structure.
      */
     public void structureFound(Player player, String key, Location loc) {
         structureFound(player, key, loc, false);
@@ -779,7 +700,6 @@ public class StructureManager {
 
     public void structureFound(Player player, String key, Location loc, boolean approximate) {
         // Nether portals are handled by portalLit() and portalExitFound().
-        // Портали в Незер обробляються методами portalLit() та portalExitFound().
         if (key.equals("NETHER_PORTAL")) {
             return;
         }
@@ -838,12 +758,9 @@ public class StructureManager {
     /**
      * Registers a newly lit Nether Portal. This becomes the new "main" portal pair.
      * It resets any previously found portal locations.
-     * |
-     * Реєструє щойно запалений портал у Незер. Він стає новою "основною" парою порталів.
-     * Скидає будь-які раніше знайдені локації порталів.
      *
-     * @param player The player who lit the portal, or null if lit by environment. / Гравець, що запалив портал, або null, якщо запалено оточенням.
-     * @param loc The location of a portal block. / Місцезнаходження блоку порталу.
+     * @param player The player who lit the portal, or null if lit by environment.
+     * @param loc The location of a portal block.
      */
     public void portalLit(Player player, Location loc) {
         // Ignore duplicate detections around the same physical portal frame.
@@ -865,11 +782,9 @@ public class StructureManager {
         }
 
         // Determine which dimension the portal was lit in.
-        // Визначаємо, в якому вимірі було запалено портал.
         World.Environment world = (player != null) ? player.getWorld().getEnvironment() : loc.getWorld().getEnvironment();
 
         // Reset both locations to establish a new primary portal pair.
-        // Скидаємо обидві локації, щоб створити нову основну пару порталів.
         this.overworldPortalLocation = null;
         this.netherPortalLocation = null;
 
@@ -878,13 +793,12 @@ public class StructureManager {
         } else if (world == World.Environment.NETHER) {
             this.netherPortalLocation = loc;
         } else {
-            return; // Portals in other dimensions are not tracked. / Портали в інших вимірах не відстежуються.
+            return; // Portals in other dimensions are not tracked.
         }
 
         clearHiddenLodestone("NETHER_PORTAL");
 
         // Update the placeholder for scoreboard display.
-        // Оновлюємо плейсхолдер для відображення на скорборді.
         foundLocations.put("NETHER_PORTAL", loc);
         approximateStructures.remove("NETHER_PORTAL");
         disabledSearches.remove("NETHER_PORTAL");
@@ -908,18 +822,14 @@ public class StructureManager {
         }
 
         // Update scoreboards for all players to reflect the new portal location.
-        // Оновлюємо скорборд для всіх гравців, щоб відобразити нову локацію порталу.
         Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
     }
 
     /**
      * Registers the location of a portal on the destination side after teleportation.
      * This only sets the location if it hasn't been discovered yet.
-     * |
-     * Реєструє місцезнаходження порталу на стороні призначення після телепортації.
-     * Встановлює локацію, тільки якщо її ще не було виявлено.
      *
-     * @param exitLoc The precise location of the exit portal. / Точне місцезнаходження вихідного порталу.
+     * @param exitLoc The precise location of the exit portal.
      */
     public void portalExitFound(Location exitLoc) {
         World.Environment exitWorld = exitLoc.getWorld().getEnvironment();
@@ -953,11 +863,9 @@ public class StructureManager {
 
     /**
      * Handles the logic for the `/run new nether portal` command.
-     * |
-     * Обробляє логіку команди `/run new nether portal`.
      *
-     * @param player The player executing the command. / Гравець, що виконує команду.
-     * @return True if the portal was successfully reassigned. / True, якщо портал було успішно перепризначено.
+     * @param player The player executing the command.
+     * @return True if the portal was successfully reassigned.
      */
     public boolean reassignNetherPortal(Player player) {
         if (!plugin.getConfigManager().isReassigningLocationsEnabled()) {
@@ -971,13 +879,11 @@ public class StructureManager {
 
     /**
      * Updates a structure's location via an admin command.
-     * |
-     * Оновлює локацію структури через команду адміністратора.
      *
-     * @param naturalName The user-friendly name of the structure (e.g., "Bastion Remnant"). / Зрозуміла назва структури (напр., "Bastion Remnant").
-     * @param newLocation The new location to set. / Нова локація для встановлення.
-     * @param player The player who issued the command. / Гравець, що видав команду.
-     * @return True on success. / True у разі успіху.
+     * @param naturalName The user-friendly name of the structure (e.g., "Bastion Remnant").
+     * @param newLocation The new location to set.
+     * @param player The player who issued the command.
+     * @return True on success.
      */
     public boolean updateStructureLocation(String naturalName, Location newLocation, Player player) {
         String key = naturalName.replace(' ', '_').toUpperCase();
@@ -997,7 +903,6 @@ public class StructureManager {
             return false;
         }
         // Use the standard structureFound method to ensure all logic (events, messages) is triggered.
-        // Використовуємо стандартний метод structureFound, щоб гарантувати спрацювання всієї логіки (події, повідомлення).
         structureFound(player, key, newLocation);
         return true;
     }
@@ -1037,15 +942,14 @@ public class StructureManager {
         return hiddenStructures.contains(key);
     }
 
-    /** @return The location of the Overworld-side portal, or null if not found. / Локація порталу у Звичайному світі, або null, якщо не знайдено. */
+    /** @return The location of the Overworld-side portal, or null if not found. */
     public Location getOverworldPortalLocation() { return overworldPortalLocation; }
 
-    /** @return The location of the Nether-side portal, or null if not found. / Локація порталу в Незері, або null, якщо не знайдено. */
+    /** @return The location of the Nether-side portal, or null if not found. */
     public Location getNetherPortalLocation() { return netherPortalLocation; }
 
     /**
      * Gets the appropriate portal location to display on the scoreboard based on the player's current dimension.
-     * Отримує відповідну локацію порталу для відображення на скорборді, залежно від поточного виміру гравця.
      */
     public Location getPortalLocationForWorld(World.Environment world) {
         if (world == World.Environment.NORMAL) return overworldPortalLocation;
@@ -1053,17 +957,17 @@ public class StructureManager {
         return null;
     }
 
-    /** @return True if at least one side of the Nether Portal pair has been found. / True, якщо знайдено хоча б одну сторону пари порталів у Незер. */
+    /** @return True if at least one side of the Nether Portal pair has been found. */
     public boolean isPortalPartiallyFound() {
         return overworldPortalLocation != null || netherPortalLocation != null;
     }
 
-    /** @return True if both sides of the Nether Portal pair have been found. / True, якщо знайдено обидві сторони пари порталів у Незер. */
+    /** @return True if both sides of the Nether Portal pair have been found. */
     public boolean isPortalFullyFound() {
         return overworldPortalLocation != null && netherPortalLocation != null;
     }
 
-    /** @return A map of all tracked structures and their locations. / Мапа всіх відстежуваних структур та їхніх локацій. */
+    /** @return A map of all tracked structures and their locations. */
     public Map<String, Location> getFoundStructures() {
         return foundLocations;
     }
@@ -1072,12 +976,12 @@ public class StructureManager {
         return approximateStructures.contains(key);
     }
 
-    /** Gets the localized, user-friendly name for a structure key. / Отримує локалізовану, зрозумілу назву для ключа структури. */
+    /** Gets the localized, user-friendly name for a structure key. */
     public String getLocalizedStructureName(String key) {
         return plugin.getConfigManager().getLangString("structures." + key, key);
     }
 
-    /** Checks if the village search timer has expired. / Перевіряє, чи не сплив час таймера пошуку села. */
+    /** Checks if the village search timer has expired. */
     public void checkVillageTimeout() {
         if (foundLocations.get("VILLAGE") != null) return;
         if (disabledSearches.contains("VILLAGE")
@@ -1092,7 +996,7 @@ public class StructureManager {
         Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
     }
 
-    /** @return True if the plugin is currently actively searching for a village. / True, якщо плагін наразі активно шукає село. */
+    /** @return True if the plugin is currently actively searching for a village. */
     public boolean isVillageSearchActive() {
         Location villageLocation = foundLocations.get("VILLAGE");
         boolean needsExactBellLocation = villageLocation == null || approximateStructures.contains("VILLAGE");
@@ -1106,27 +1010,26 @@ public class StructureManager {
         return villageSearchFailed;
     }
 
-    /** @return True if the plugin is actively searching for a lava pool. / True, якщо плагін активно шукає озеро лави. */
+    /** @return True if the plugin is actively searching for a lava pool. */
     public boolean isLavaPoolSearchActive() {
         // Search for lava only if a portal hasn't been found yet.
-        // Шукаємо лаву, тільки якщо портал ще не знайдено.
         return foundLocations.containsKey("LAVA_POOL")
                 && foundLocations.get("LAVA_POOL") == null
                 && !disabledSearches.contains("LAVA_POOL")
                 && !isPortalPartiallyFound();
     }
 
-    /** @return The predicted location of the End Portal from triangulation, or null. / Передбачена локація порталу в Край з тріангуляції, або null. */
+    /** @return The predicted location of the End Portal from triangulation, or null. */
     public Location getPredictedEndPortalLocation() {
         return predictedEndPortalLocation;
     }
 
-    /** @return True while the End Portal location is only a triangulated estimate. / True, якщо локація порталу Краю є лише приблизною. */
+    /** @return True while the End Portal location is only a triangulated estimate. */
     public boolean isPredictedEndPortalApproximate() {
         return predictedEndPortalApproximate;
     }
 
-    /** Sets the predicted location of the End Portal. / Встановлює передбачену локацію порталу в Край. */
+    /** Sets the predicted location of the End Portal. */
     public void setPredictedEndPortalLocation(Location location) {
         this.predictedEndPortalLocation = location;
         this.predictedEndPortalApproximate = location != null;
@@ -1169,35 +1072,20 @@ public class StructureManager {
                 "target", structureLocation,
                 "chunk_x", chunkX,
                 "chunk_z", chunkZ,
-                "paper_async", PaperCheckUtil.IsPaper());
+                "async", plugin.getPlatform().supportsAsyncChunkLoading());
 
-        if (PaperCheckUtil.IsPaper()) {
-            world.getChunkAtAsync(chunkX, chunkZ).whenComplete((chunk, error) ->
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        if (error != null) {
-                            plugin.getTraceLogger().trace("lodestone", "chunk_load_failed",
-                                    "key", key,
-                                    "target", structureLocation,
-                                    "chunk_x", chunkX,
-                                    "chunk_z", chunkZ,
-                                    "error", error.toString());
-                            result.complete(null);
-                            return;
-                        }
-                        result.complete(registerHiddenLodestone(key, structureLocation));
-                    }));
-            return result;
-        }
-
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            boolean loaded = world.loadChunk(chunkX, chunkZ, true);
-            plugin.getTraceLogger().trace("lodestone", "sync_chunk_load_finished",
-                    "key", key,
-                    "target", structureLocation,
-                    "chunk_x", chunkX,
-                    "chunk_z", chunkZ,
-                    "loaded", loaded);
-            result.complete(loaded ? registerHiddenLodestone(key, structureLocation) : null);
+        plugin.getPlatform().loadChunk(world, chunkX, chunkZ).whenComplete((chunk, error) -> {
+            if (error != null || chunk == null) {
+                plugin.getTraceLogger().trace("lodestone", "chunk_load_failed",
+                        "key", key,
+                        "target", structureLocation,
+                        "chunk_x", chunkX,
+                        "chunk_z", chunkZ,
+                        "error", String.valueOf(error));
+                result.complete(null);
+                return;
+            }
+            result.complete(registerHiddenLodestone(key, structureLocation));
         });
         return result;
     }
@@ -1296,11 +1184,15 @@ public class StructureManager {
         }
 
         if (!lodestoneLocation.getWorld().isChunkLoaded(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4)) {
-            plugin.getTraceLogger().trace("lodestone", "clear_skipped",
-                    "storage_key", storageKey,
-                    "lodestone", lodestoneLocation,
-                    "reason", "chunk_unloaded");
-            return false;
+            if (!forceChunkLoadsOnClear) {
+                plugin.getTraceLogger().trace("lodestone", "clear_skipped",
+                        "storage_key", storageKey,
+                        "lodestone", lodestoneLocation,
+                        "reason", "chunk_unloaded");
+                return false;
+            }
+            // Reset and shutdown must not leave lodestones behind; there is at most one per tracked location.
+            lodestoneLocation.getWorld().getChunkAt(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4);
         }
 
         hiddenLodestones.remove(storageKey);
@@ -1321,9 +1213,20 @@ public class StructureManager {
     }
 
     private void clearAllHiddenLodestones() {
-        for (String key : new ArrayList<>(hiddenLodestones.keySet())) {
-            clearHiddenLodestoneStorageKey(key);
+        forceChunkLoadsOnClear = true;
+        try {
+            for (String key : new ArrayList<>(hiddenLodestones.keySet())) {
+                clearHiddenLodestoneStorageKey(key);
+            }
+        } finally {
+            forceChunkLoadsOnClear = false;
         }
+    }
+
+    /** Removes every world change of the structure tracker. Called on plugin disable. */
+    public void shutdown() {
+        cancelPreScan();
+        clearAllHiddenLodestones();
     }
 
     private String hiddenLodestoneStorageKey(String key, Location structureLocation) {

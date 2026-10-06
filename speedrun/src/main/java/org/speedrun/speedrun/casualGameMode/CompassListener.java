@@ -13,6 +13,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.NamespacedKey;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
@@ -26,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,18 +45,23 @@ import java.util.stream.Collectors;
 public class CompassListener implements Listener {
 
     private final Speedrun plugin;
-    private final Map<Player, DestinationSelection> playerDestinations = new HashMap<>();
+    private final Map<UUID, DestinationSelection> playerDestinations = new HashMap<>();
     private final Map<World, Map<String, Location>> predefinedDestinationsByWorld = new HashMap<>();
     private final Map<String, Material> customDestinationIcons = new HashMap<>();
     private final Map<UUID, DeathDestination> playerDeathDestinations = new HashMap<>();
 
-    private final List<Player> playersInMenu = new ArrayList<>();
-    private static final String GUI_TITLE_PREFIX = ChatColor.DARK_BLUE + "Destinations - ";
+    private final Set<UUID> playersInMenu = new HashSet<>();
+    /** Marks plugin compasses independently of their (translated) display name. */
+    private final NamespacedKey compassKey;
+    /** Destination key stored on menu icons. */
+    private final NamespacedKey destinationKey;
 
     private BukkitRunnable compassUpdateTask;
 
     public CompassListener(Speedrun plugin) {
         this.plugin = plugin;
+        this.compassKey = new NamespacedKey(plugin, "navigation_compass");
+        this.destinationKey = new NamespacedKey(plugin, "destination");
         initializePredefinedDestinations();
         initializeCustomDestinationIcons();
         startCompassUpdateTask();
@@ -144,6 +155,7 @@ public class CompassListener implements Listener {
         if (meta != null) {
             meta.setDisplayName(getCompassDisplayName());
             meta.setLore(plugin.getConfigManager().getFormattedTextList("items.navigation-compass.lore"));
+            meta.getPersistentDataContainer().set(compassKey, PersistentDataType.BYTE, (byte) 1);
             if (meta instanceof CompassMeta compassMeta) {
                 if (lodestoneLocation != null) {
                     compassMeta.setLodestone(lodestoneLocation);
@@ -171,18 +183,11 @@ public class CompassListener implements Listener {
             Player player = event.getPlayer();
             ItemStack item = event.getItem();
 
-            if ((event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) &&
-                    (event.getHand() == EquipmentSlot.HAND || (Bukkit.getVersion().contains("1.8") && event.getHand() == null))) {
-
-                if (item != null && item.getType() == Material.COMPASS) {
-                    ItemMeta meta = item.getItemMeta();
-                    if (meta != null && meta.hasDisplayName() &&
-                            meta.getDisplayName().equals(getCompassDisplayName())) {
-
-                        event.setCancelled(true);
-                        openDestinationMenu(player);
-                    }
-                }
+            if ((event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                    && event.getHand() == EquipmentSlot.HAND
+                    && isNavigationCompass(item)) {
+                event.setCancelled(true);
+                openDestinationMenu(player);
             }
         }
     }
@@ -212,9 +217,12 @@ public class CompassListener implements Listener {
         int size = rows * 9;
         if (size > 54) size = 54;
 
-        String guiTitle = GUI_TITLE_PREFIX + getWorldDisplayName(playerWorld);
+        String guiTitle = plugin.getConfigManager().getFormattedText("compass.gui.title",
+                "%world%", getWorldDisplayName(playerWorld));
 
-        Inventory menu = Bukkit.createInventory(null, size, guiTitle);
+        DestinationMenuHolder holder = new DestinationMenuHolder();
+        Inventory menu = Bukkit.createInventory(holder, size, guiTitle);
+        holder.inventory = menu;
 
         ItemStack filler = getFillerItem(playerWorld);
         for (int i = 0; i < size; i++) {
@@ -259,6 +267,7 @@ public class CompassListener implements Listener {
                         plugin.getConfigManager().getFormattedText("compass.gui.click-hint")
                 );
                 meta.setLore(lore);
+                meta.getPersistentDataContainer().set(destinationKey, PersistentDataType.STRING, name);
                 item.setItemMeta(meta);
             }
             menu.setItem(slot++, item);
@@ -268,7 +277,7 @@ public class CompassListener implements Listener {
         }
 
         player.openInventory(menu);
-        playersInMenu.add(player);
+        playersInMenu.add(player.getUniqueId());
     }
 
     private ItemStack createDeathDestinationItem(DeathDestination deathDestination) {
@@ -286,6 +295,7 @@ public class CompassListener implements Listener {
                     "",
                     plugin.getConfigManager().getFormattedText("compass.gui.death-click-hint")
             ));
+            meta.getPersistentDataContainer().set(destinationKey, PersistentDataType.STRING, "PLAYER_DEATH");
             item.setItemMeta(meta);
         }
         return item;
@@ -293,63 +303,74 @@ public class CompassListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (!(event.getWhoClicked() instanceof Player player)
+                || !(event.getInventory().getHolder() instanceof DestinationMenuHolder)) {
+            return;
+        }
+        event.setCancelled(true);
+        if (event.getClickedInventory() == null || !(event.getClickedInventory().getHolder() instanceof DestinationMenuHolder)) {
+            return;
+        }
 
-        Player player = (Player) event.getWhoClicked();
+        ItemStack clickedItem = event.getCurrentItem();
+        if (clickedItem == null || clickedItem.getType() == Material.AIR || !clickedItem.hasItemMeta()) {
+            return;
+        }
+        String destinationName = clickedItem.getItemMeta().getPersistentDataContainer()
+                .get(destinationKey, PersistentDataType.STRING);
+        if (destinationName == null) {
+            return; // Filler pane.
+        }
 
-        if (event.getView().getTitle().startsWith(GUI_TITLE_PREFIX)) {
-            event.setCancelled(true);
-
-            if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) {
-                return;
-            }
-
-            ItemStack clickedItem = event.getCurrentItem();
-            ItemStack filler = getFillerItem(player.getWorld());
-            if (clickedItem.getType() == filler.getType() &&
-                    clickedItem.hasItemMeta() && filler.hasItemMeta() &&
-                    Objects.equals(clickedItem.getItemMeta().getDisplayName(), filler.getItemMeta().getDisplayName())) {
-                return;
-            }
-
-            ItemMeta clickedItemMeta = clickedItem.getItemMeta();
-            if (clickedItemMeta == null || !clickedItemMeta.hasDisplayName()) {
-                return;
-            }
-
-            String destinationName = resolveDestinationKey(player.getWorld(), ChatColor.stripColor(clickedItemMeta.getDisplayName()));
-
-            World playerWorld = player.getWorld();
-            refreshSpawnDestination(playerWorld);
-            Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(playerWorld);
+        World playerWorld = player.getWorld();
+        refreshSpawnDestination(playerWorld);
+        if ("PLAYER_DEATH".equals(destinationName)) {
             DeathDestination deathDestination = getDeathDestination(player);
-
-            if (deathDestination != null
-                    && ChatColor.stripColor(clickedItemMeta.getDisplayName()).equals(ChatColor.stripColor(
-                    plugin.getConfigManager().getFormattedText("compass.gui.death-location-name",
-                            "%player%", deathDestination.playerName())))) {
+            if (deathDestination != null) {
                 setPlayerDestination(player, "PLAYER_DEATH", deathDestination.location());
                 player.closeInventory();
-                return;
             }
+            return;
+        }
 
-            if (destinationsForWorld != null && destinationsForWorld.containsKey(destinationName)) {
-                setPlayerDestination(player, destinationName, destinationsForWorld.get(destinationName));
-                player.closeInventory();
-            } else {
-                MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.destination-not-found"));
-            }
+        Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(playerWorld);
+        if (destinationsForWorld != null && destinationsForWorld.containsKey(destinationName)) {
+            setPlayerDestination(player, destinationName, destinationsForWorld.get(destinationName));
+            player.closeInventory();
+        } else {
+            MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.destination-not-found"));
+        }
+    }
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (event.getInventory().getHolder() instanceof DestinationMenuHolder) {
+            event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player)) return;
-
-        Player player = (Player) event.getPlayer();
-        if (event.getView().getTitle().startsWith(GUI_TITLE_PREFIX)) {
-            playersInMenu.remove(player);
+        if (event.getInventory().getHolder() instanceof DestinationMenuHolder) {
+            playersInMenu.remove(event.getPlayer().getUniqueId());
         }
+    }
+
+    /** Releases per-player state when a player leaves; the death point is kept for the run. */
+    public void forgetPlayer(Player player) {
+        playersInMenu.remove(player.getUniqueId());
+    }
+
+    /** True for compasses created by this plugin, including ones created before item tagging. */
+    public boolean isNavigationCompass(ItemStack item) {
+        if (item == null || item.getType() != Material.COMPASS || !item.hasItemMeta()) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta.getPersistentDataContainer().has(compassKey, PersistentDataType.BYTE)) {
+            return true;
+        }
+        return meta.hasDisplayName() && meta.getDisplayName().equals(getCompassDisplayName());
     }
 
     public void setPlayerDestination(Player player, Location targetLocation) {
@@ -358,7 +379,7 @@ public class CompassListener implements Listener {
 
     private void setPlayerDestination(Player player, String destinationKey, Location targetLocation) {
         if (targetLocation != null) {
-            playerDestinations.put(player, new DestinationSelection(destinationKey, targetLocation));
+            playerDestinations.put(player.getUniqueId(), new DestinationSelection(destinationKey, targetLocation));
             Location lodestoneLocation = findLodestoneForDestination(player, destinationKey, targetLocation);
             plugin.getTraceLogger().trace("compass", "target_selected",
                     "player", player,
@@ -371,7 +392,7 @@ public class CompassListener implements Listener {
                 String lodestoneKey = hiddenLodestoneKeyFor(player, destinationKey);
                 plugin.getStructureManager().ensureHiddenLodestoneAsync(lodestoneKey, targetLocation)
                         .thenAccept(loadedLodestone -> Bukkit.getScheduler().runTask(plugin, () -> {
-                            DestinationSelection currentSelection = playerDestinations.get(player);
+                            DestinationSelection currentSelection = playerDestinations.get(player.getUniqueId());
                             if (!player.isOnline()
                                     || currentSelection == null
                                     || !Objects.equals(currentSelection.destinationKey(), destinationKey)
@@ -439,29 +460,15 @@ public class CompassListener implements Listener {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (playersInMenu.contains(player)) {
+                    if (playersInMenu.contains(player.getUniqueId())) {
                         continue;
                     }
 
-                    ItemStack mainHandItem = player.getInventory().getItemInMainHand();
-                    ItemStack offHandItem = player.getInventory().getItemInOffHand();
-
-                    boolean isHoldingCompass = false;
-                    if (mainHandItem != null && mainHandItem.getType() == Material.COMPASS) {
-                        ItemMeta meta = mainHandItem.getItemMeta();
-                        if (meta != null && meta.hasDisplayName() && meta.getDisplayName().equals(getCompassDisplayName())) {
-                            isHoldingCompass = true;
-                        }
-                    }
-                    if (!isHoldingCompass && offHandItem != null && offHandItem.getType() == Material.COMPASS) {
-                        ItemMeta meta = offHandItem.getItemMeta();
-                        if (meta != null && meta.hasDisplayName() && meta.getDisplayName().equals(getCompassDisplayName())) {
-                            isHoldingCompass = true;
-                        }
-                    }
+                    boolean isHoldingCompass = isNavigationCompass(player.getInventory().getItemInMainHand())
+                            || isNavigationCompass(player.getInventory().getItemInOffHand());
 
                     if (isHoldingCompass) {
-                        DestinationSelection selection = playerDestinations.get(player);
+                        DestinationSelection selection = playerDestinations.get(player.getUniqueId());
                         Location destination = resolveSelectedDestination(selection);
                         if (destination != null) {
                             if (player.getWorld().equals(destination.getWorld())) {
@@ -484,7 +491,9 @@ public class CompassListener implements Listener {
                             else {
                                 String distanceString = String.format("%.1f", player.getLocation().distance(destination)) + "m";
 
-                                if (destinationName == null) { return; }
+                                if (destinationName == null) {
+                                    continue;
+                                }
 
                                 MessageUtil.actionBar(player, plugin.getConfigManager().getFormatted("compass.target-actionbar",
                                         "%destination%", getDestinationDisplayName(Objects.requireNonNull(destinationName)),
@@ -549,7 +558,7 @@ public class CompassListener implements Listener {
      * @return The Location of the player's current destination, or null if none is set.
      */
     public Location getPlayerDestination(Player player) {
-        return resolveSelectedDestination(playerDestinations.get(player));
+        return resolveSelectedDestination(playerDestinations.get(player.getUniqueId()));
     }
 
     private <T, E> T getKeyByValue(Map<T, E> map, E value) {
@@ -594,8 +603,7 @@ public class CompassListener implements Listener {
                 continue;
             }
 
-            ItemMeta meta = stack.getItemMeta();
-            if (meta != null && meta.hasDisplayName() && meta.getDisplayName().equals(getCompassDisplayName())) {
+            if (isNavigationCompass(stack)) {
                 player.getInventory().setItem(slot, compass);
                 return;
             }
@@ -692,23 +700,6 @@ public class CompassListener implements Listener {
         return plugin.getConfigManager().getLangString("structures." + key, key);
     }
 
-    private String resolveDestinationKey(World world, String displayName) {
-        Map<String, Location> destinationsForWorld = predefinedDestinationsByWorld.get(world);
-        if (destinationsForWorld == null) {
-            return displayName;
-        }
-
-        for (String key : destinationsForWorld.keySet()) {
-            String plainName = getDestinationDisplayName(key);
-            String approximateName = ChatColor.stripColor(plugin.getConfigManager().getFormattedText("compass.gui.approximate-destination-name",
-                    "%destination%", plainName));
-            if (plainName.equals(displayName) || approximateName.equals(displayName)) {
-                return key;
-            }
-        }
-        return displayName;
-    }
-
     private String getWorldDisplayName(World world) {
         if (world.getEnvironment() == World.Environment.NETHER) {
             return plugin.getConfigManager().getFormattedText("compass.gui.nether");
@@ -754,6 +745,16 @@ public class CompassListener implements Listener {
     }
 
     private record DestinationSelection(String destinationKey, Location fallbackLocation) {
+    }
+
+    /** Identifies the destination menu without relying on its translated title. */
+    private static final class DestinationMenuHolder implements InventoryHolder {
+        private Inventory inventory;
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
     }
 
     private record DeathDestination(String playerName, Location location) {
