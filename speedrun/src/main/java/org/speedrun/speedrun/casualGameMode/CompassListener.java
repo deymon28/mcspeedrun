@@ -404,12 +404,14 @@ public class CompassListener implements Listener {
                                         "lodestone", loadedLodestone);
                                 return;
                             }
-                            finishSetPlayerDestination(player, destinationKey, targetLocation, loadedLodestone);
+                            // The player may have dropped or stored the compass while the chunk
+                            // loaded; only update a compass they still carry, never hand out a new one.
+                            finishSetPlayerDestination(player, destinationKey, targetLocation, loadedLodestone, false);
                         }));
                 return;
             }
 
-            finishSetPlayerDestination(player, destinationKey, targetLocation, lodestoneLocation);
+            finishSetPlayerDestination(player, destinationKey, targetLocation, lodestoneLocation, true);
         } else {
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-invalid"));
             plugin.getTraceLogger().trace("compass", "target_rejected",
@@ -419,11 +421,12 @@ public class CompassListener implements Listener {
         }
     }
 
-    private void finishSetPlayerDestination(Player player, String destinationKey, Location targetLocation, @Nullable Location lodestoneLocation) {
+    private void finishSetPlayerDestination(Player player, String destinationKey, Location targetLocation,
+                                            @Nullable Location lodestoneLocation, boolean mayAddCompass) {
         MessageUtil.send(player, plugin.getConfigManager().getFormatted("compass.target-set",
                 "%destination%", destinationKey != null ? getDestinationDisplayName(destinationKey) : plugin.getConfigManager().getLangString("compass.gui.custom-location", "a custom location"),
                 "%world%", targetLocation.getWorld().getName()));
-        giveConfiguredCompass(player, targetLocation, lodestoneLocation);
+        giveConfiguredCompass(player, targetLocation, lodestoneLocation, mayAddCompass);
         plugin.getTraceLogger().trace("compass", "target_applied",
                 "player", player,
                 "destination_key", destinationKey,
@@ -587,15 +590,16 @@ public class CompassListener implements Listener {
         }
     }
 
-    private void giveConfiguredCompass(Player player, Location targetLocation, @Nullable Location lodestoneLocation) {
+    private void giveConfiguredCompass(Player player, Location targetLocation, @Nullable Location lodestoneLocation,
+                                       boolean mayAddCompass) {
         ItemStack configuredCompass = createNavigationCompass(targetLocation, lodestoneLocation);
-        replaceOrAddCompass(player, configuredCompass);
+        replaceOrAddCompass(player, configuredCompass, mayAddCompass);
         if (player.getWorld().equals(targetLocation.getWorld())) {
             player.setCompassTarget(targetLocation);
         }
     }
 
-    private void replaceOrAddCompass(Player player, ItemStack compass) {
+    private void replaceOrAddCompass(Player player, ItemStack compass, boolean mayAdd) {
         ItemStack[] contents = player.getInventory().getContents();
         for (int slot = 0; slot < contents.length; slot++) {
             ItemStack stack = contents[slot];
@@ -609,7 +613,9 @@ public class CompassListener implements Listener {
             }
         }
 
-        player.getInventory().addItem(compass);
+        if (mayAdd) {
+            player.getInventory().addItem(compass);
+        }
     }
 
     private String getCompassDisplayName() {

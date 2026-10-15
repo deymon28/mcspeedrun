@@ -8,12 +8,16 @@ It runs on **Paper, Spigot, and CraftBukkit** and uses each platform's strengths
 asynchronous chunk loading and native text components on Paper, the Spigot chat API on
 Spigot, and plain Bukkit everywhere else.
 
-Current version: **4.0.0 beta** for Minecraft **26.3** (`speedrun-26.3-4.0.0-BETA.jar`).
+Current version: **4.1.0 beta** for Minecraft **26.3** (`speedrun-26.3-4.1.0-BETA.jar`).
+See [docs/releases/v4.1.0-beta.md](docs/releases/v4.1.0-beta.md) for what changed.
 
 ## Highlights
 
 - **Run timer** that starts with the first player or immediately, pauses and resumes, optionally
-  pauses itself while the server is empty, and stops when the Ender Dragon dies.
+  pauses itself while the server is empty, and stops when the Ender Dragon dies. It measures real
+  time, so a lagging server does not slow it down.
+- **Runs survive restarts and crashes** – an active run is saved regularly and continues after the
+  server comes back (paused until the first player joins; the downtime does not count).
 - **Stages and tasks** – collect items (wood, iron, cooked food, pearls, blaze rods, …) or find
   structures; the next stage starts when the current one is complete.
 - **Location tracking** for lava pools, villages, Nether portals (both sides), fortresses,
@@ -47,7 +51,7 @@ Requires **Java 25** or newer. Paper builds for 26.3 are marked beta by the Pape
 
 ## Installation
 
-1. Download `speedrun-26.3-4.0.0-BETA.jar` from the [releases page](https://github.com/deymon28/mcspeedrun/releases)
+1. Download `speedrun-26.3-4.1.0-BETA.jar` from the [releases page](https://github.com/deymon28/mcspeedrun/releases)
    and check it against the published `.sha256` file.
 2. Put the jar into your server's `plugins/` folder and start the server.
 3. Join as an operator and run `/run webconfig`. Click the link to open the settings editor.
@@ -74,7 +78,8 @@ to operators. Administrative commands also work from the server console.
 | `/run skipstage` | admin | Complete the current stage (the run will not count for records). |
 | `/run new <location> [x y z]` | admin | Set a location at your position or at coordinates. |
 | `/run remove <location>` | admin | Hide a location from the scoreboard. |
-| `/run locate pos1` / `pos2` | admin | Estimate the stronghold from two Eye of Ender throws. |
+| `/run locate pos1` / `pos2` | admin | Estimate the stronghold from two Eye of Ender throws (stand where you threw and look where the eye flew). |
+| `/run locate <x1> <z1> <yaw1> <x2> <z2> <yaw2>` | admin | Same estimate from two throws noted from the F3 screen. |
 | `/run records reset` | admin | Clear the records of the current game mode. |
 | `/run reload` | admin | Reload `config.yml` and message files. |
 | `/run webconfig [restart\|stop]` | admin | Get a private link to the settings editor. |
@@ -113,6 +118,7 @@ The most important settings:
 | `settings.language` | `en` | `en`, `uk`, `de`, `es`, `fr`, `pt_BR`, `pl`, `zh_CN`. |
 | `settings.start-on-first-join` | `true` | Start the timer with the first join. |
 | `settings.pause-when-empty` | `false` | Pause while nobody is online. |
+| `settings.resume-after-restart` | `true` | Continue an active run after a server restart or crash. |
 | `settings.task-tracking-mode` | `INVENTORY` | Count carried items or everything collected (`CUMULATIVE`). |
 | `records.enabled` | `true` | Store personal bests and splits. |
 | `casual.start-pre-scan.mode` | `BALANCED` | Background structure search: `SAFE`, `BALANCED`, `AGGRESSIVE`, `LOCATE`. |
@@ -166,6 +172,9 @@ command rewards can only be added in `config.yml`, not from the browser editor (
   worker pools are bounded; run logs are written by a background writer.
 - Gold highlighting uses glowing block displays (no hitbox, never saved with the world) and is
   capped at 256 blocks.
+- Light beams and compass lodestones are the only blocks the plugin places. They are protected
+  against mining, explosions, and pistons, are removed on reset, stop, and shutdown, and are
+  recorded in `world-changes.yml` so they are removed on the next start even after a crash.
 
 ## Security
 
@@ -187,6 +196,8 @@ command rewards can only be added in `config.yml`, not from the browser editor (
 | `config-backups/` | Previous configuration files and `migration-report.txt`. |
 | `lang/`, `lang-backups/` | Message files and their backups. |
 | `records.yml` | Personal bests and splits. |
+| `run-state.yml` | The active run, saved every 30 seconds and on shutdown (`settings.resume-after-restart`). |
+| `world-changes.yml` | Temporary blocks (light beams, compass lodestones) to undo after a crash. Empty or absent normally. |
 | `logs/` | Text and JSON log of every run (`settings.log-attempts`). |
 | `traces/` | Optional diagnostics (`diagnostics.trace.enabled`). |
 
@@ -197,7 +208,7 @@ cd speedrun
 ./gradlew build
 ```
 
-The jar is written to `speedrun/build/libs/speedrun-26.3-4.0.0-BETA.jar`. The build compiles the
+The jar is written to `speedrun/build/libs/speedrun-26.3-4.1.0-BETA.jar`. The build compiles the
 common code against the Spigot API, the Paper adapter (`src/paper/java`) against the Paper API,
 shades and relocates Adventure and JSON-java, and runs the unit tests. Browser editor tests:
 
@@ -207,7 +218,9 @@ node --test speedrun/scripts/web-editor-test.cjs
 
 `speedrun/scripts/server-smoke-test.ps1` starts real servers in isolated folders under
 `speedrun/build/`, checks startup, the protected web API, console commands, and a clean shutdown
-for every game mode. It needs server jars you provide and an accepted Minecraft EULA.
+for every game mode. `speedrun/scripts/resume-smoke-test.ps1` boots a server twice and checks that
+an active run is saved on shutdown and restored on the next start. Both need server jars you
+provide and an accepted Minecraft EULA.
 
 ## Troubleshooting
 
@@ -215,6 +228,10 @@ for every game mode. It needs server jars you provide and an accepted Minecraft 
   use `/run webconfig restart`.
 - **A location is wrong** – stand at the right place and use `/run new <location>` or give coordinates.
 - **No compass distance on CraftBukkit** – use Spigot or Paper for the full feature set.
+- **A run did not come back after a restart** – the console says why (for example a changed world,
+  game mode, or stage setup). Runs stopped with `/run stop` or `/run reset` are not kept.
+- **A new run does not start when players join** – after a finished or stopped run, start the next
+  one with `/run start` or `/run reset`.
 - **Something behaves strangely** – enable `diagnostics.trace.enabled`, reproduce the problem, and
   attach the newest file from `plugins/Speedrun/traces/` to your report.
 

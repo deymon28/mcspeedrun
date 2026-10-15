@@ -115,6 +115,16 @@ public class Task {
         plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
     }
 
+    /**
+     * Restores saved progress without completion effects (a run resumed after a restart).
+     * Restored completed tasks count as completed long ago, so a hide timeout hides them at once.
+     */
+    public void restoreProgress(int savedProgress, boolean savedCompleted) {
+        completed = savedCompleted;
+        progress = savedCompleted ? requiredAmount : Math.max(0, savedProgress);
+        completedAtMillis = savedCompleted ? 1L : 0L;
+    }
+
     public void resetProgress() {
         if (taskType == Type.ITEM && !completed) {
             progress = 0;

@@ -7,6 +7,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.Levelled;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -33,8 +34,19 @@ public class GameManager {
     private CompassListener compassListener;
 
     // Game state fields
-    private long totalSeconds = 0;
+    /**
+     * Run time is measured on the wall clock instead of by counting timer ticks, so a lagging
+     * server does not slow the timer down. {@code accumulatedNanos} holds finished segments;
+     * {@code segmentStartNanos} is the start of the current unpaused segment, or -1 while the
+     * clock is stopped (paused, finished, or no run).
+     */
+    private long accumulatedNanos = 0;
+    private long segmentStartNanos = -1;
     private boolean isRunning = false;
+    /** False after a run was stopped or completed, so a rejoin does not silently start a new run. */
+    private boolean autoStartAllowed = true;
+    /** True between restoring a saved run and the first resume, to announce the restore. */
+    private boolean restoredRunWaiting;
     private boolean isPaused = false;
     private boolean dragonKilledEnd = false; // True if the run ended by killing the dragon.
     private boolean autoPaused = false; // True while settings.pause-when-empty paused the timer.
@@ -53,11 +65,7 @@ public class GameManager {
         this.plugin = plugin;
         this.logger = plugin.getSpeedrunLogger();
         this.casualModeStructureManager = new CasualModeStructureManager(plugin);
-
-        // If not configured to wait for the first player, start the run immediately.
-        if (!plugin.getConfigManager().isStartOnFirstJoin()) {
-            startRun();
-        }
+        // The plugin starts (or restores) the first run once every manager exists.
     }
 
     /**
@@ -72,7 +80,9 @@ public class GameManager {
                 "hardcore", plugin.getConfigManager().isHardcoreModeEnabled());
         isRunning = true;
         isPaused = false;
-        totalSeconds = 0;
+        accumulatedNanos = 0;
+        segmentStartNanos = -1;
+        resumeClock();
         villageTimeElapsed = 0;
         dragonKilledEnd = false;
         autoPaused = false;
@@ -103,6 +113,8 @@ public class GameManager {
                 Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.joining(", ")));
         plugin.getTraceLogger().trace("lifecycle", "run_started",
                 "players", Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.joining(",")));
+        // A run started on an empty server (at boot, or from the console) pauses right away.
+        Bukkit.getScheduler().runTask(plugin, this::handleServerEmptyCheck);
     }
 
     /**
@@ -128,12 +140,87 @@ public class GameManager {
     }
 
     /**
+     * Restores a run saved before a server restart (see {@link RunStateManager}). The run comes
+     * back paused; it continues when the first player joins, or stays paused if an administrator
+     * had paused it. World side effects (lodestones, light beams) are rebuilt from the state.
+     */
+    public void resumeRun(ConfigurationSection state) {
+        if (isRunning) return;
+        ConfigurationSection timer = state.getConfigurationSection("run.timer");
+        long elapsedMillis = timer == null ? 0 : Math.max(0, timer.getLong("elapsed-millis"));
+        boolean manuallyPaused = timer != null && timer.getBoolean("manually-paused");
+
+        isRunning = true;
+        isPaused = true;
+        autoPaused = !manuallyPaused;
+        restoredRunWaiting = true;
+        accumulatedNanos = elapsedMillis * 1_000_000L;
+        segmentStartNanos = -1;
+        villageTimeElapsed = timer == null ? 0 : Math.max(0, timer.getLong("village-elapsed"));
+        dragonKilledEnd = false;
+        autoStartAllowed = true;
+        counters.clear();
+
+        if (plugin.getConfigManager().isLogAttemptsEnabled()) {
+            logger.start();
+            logger.info("Run restored after a server restart at " + getFormattedTime() + ".");
+        }
+        plugin.getRecordsManager().restoreState(state.getConfigurationSection("records"));
+        plugin.getTaskManager().reloadTasks();
+        plugin.getTaskManager().restoreState(state.getConfigurationSection("tasks"));
+        plugin.getStructureManager().reset();
+        casualModeStructureManager.clearWaypoints();
+        plugin.getStructureManager().restoreState(state.getConfigurationSection("structures"));
+        if (plugin.getConfigManager().isStartPreScanEnabled()
+                && !plugin.getConfigManager().isHardcoreModeEnabled()) {
+            plugin.getStructureManager().preScanRequiredStructures();
+        }
+
+        startTimer();
+        if (!plugin.getConfigManager().isHardcoreModeEnabled()) {
+            startProximityScanner();
+        }
+        plugin.getTraceLogger().trace("lifecycle", "run_restored",
+                "time", getFormattedTime(),
+                "manually_paused", manuallyPaused);
+    }
+
+    /** Writes the timer part of the saved run state. */
+    void writeState(ConfigurationSection section) {
+        long elapsed = accumulatedNanos;
+        if (segmentStartNanos >= 0) {
+            elapsed += System.nanoTime() - segmentStartNanos;
+        }
+        section.set("elapsed-millis", elapsed / 1_000_000L);
+        section.set("manually-paused", isPaused && !autoPaused);
+        section.set("village-elapsed", villageTimeElapsed);
+    }
+
+    /**
+     * Ends the active run because the server stops while settings.resume-after-restart keeps it.
+     * World side effects are removed like on a stop, but the saved state is kept for the next start.
+     */
+    public void suspendRun() {
+        endRun(false, true);
+    }
+
+    /**
      * Stops the current speedrun.
      *
      * @param dragonKilled True if the run ended because the Ender Dragon was killed.
      */
     public void stopRun(boolean dragonKilled) {
-        if (!isRunning && !dragonKilled) return;
+        endRun(dragonKilled, false);
+    }
+
+    private void endRun(boolean dragonKilled, boolean suspend) {
+        // A dragon killed while no run is active (before the start, after /run stop, or a
+        // respawned dragon after a finished run) must not end or announce anything.
+        if (!isRunning) return;
+        restoredRunWaiting = false;
+        if (!suspend && plugin.getRunStateManager() != null) {
+            plugin.getRunStateManager().delete();
+        }
         plugin.getTraceLogger().trace("lifecycle", "run_stop_requested",
                 "dragon_killed", dragonKilled,
                 "time", getFormattedTime(),
@@ -149,29 +236,37 @@ public class GameManager {
             proximityScannerTask = null;
         }
         plugin.getStructureManager().cancelPreScan();
+        if (plugin.getPlatform() != null) {
+            // Queued chunk loads and scans belong to the run that just ended.
+            plugin.getPlatform().invalidatePendingWork();
+        }
         casualModeStructureManager.clearWaypoints();
+        plugin.getStructureManager().clearHiddenLodestones();
         if (plugin.getGameListener() != null) {
             plugin.getGameListener().resetRuntimeCaches();
         }
 
-        String outcome = dragonKilled ? "Completed (Dragon Slain)" : "Ended/Reset";
+        // Freeze the clock on the final time.
+        pauseClock();
+        autoStartAllowed = false;
+        String outcome = dragonKilled ? "Completed (Dragon Slain)"
+                : suspend ? "Suspended (server stopped; the run resumes after the restart)" : "Ended/Reset";
         String finalTime = getFormattedTime();
 
         if (dragonKilled) {
-            isPaused = true; // Pause to freeze the timer on the final time.
+            isPaused = true;
             dragonKilledEnd = true;
             MessageUtil.broadcast(plugin.getConfigManager().getFormatted("messages.dragon-slain"));
             MessageUtil.broadcast(plugin.getConfigManager().getFormatted("messages.final-time", "%time%", finalTime));
             if (plugin.getRecordsManager() != null && isRunning) {
-                plugin.getRecordsManager().onRunCompleted(totalSeconds);
+                plugin.getRecordsManager().onRunCompleted(getTotalSeconds());
             }
             // Update scoreboards one last time to show the final state.
             Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
         }
 
-        if (plugin.getConfigManager().isLogAttemptsEnabled()) {
-            logger.stop(outcome, finalTime);
-        }
+        // Always close the session: log-attempts may have been switched off during the run.
+        logger.stop(outcome, finalTime);
 
         isRunning = false;
         plugin.getTraceLogger().trace("lifecycle", "run_stopped",
@@ -186,8 +281,9 @@ public class GameManager {
      */
     public void togglePause() {
         if (!isRunning || dragonKilledEnd) return;
-        isPaused = !isPaused;
+        setPaused(!isPaused);
         autoPaused = false;
+        restoredRunWaiting = false;
         MessageUtil.broadcast(plugin.getConfigManager().getFormatted(
                 isPaused ? "commands.timer-paused" : "commands.timer-resumed"));
         logger.info("Timer " + (isPaused ? "paused." : "resumed."));
@@ -200,14 +296,21 @@ public class GameManager {
     private void startTimer() {
         if (mainTimerTask != null) mainTimerTask.cancel();
         mainTimerTask = new BukkitRunnable() {
+            private int secondsSinceSave;
+
             @Override
             public void run() {
                 if (!isRunning && !dragonKilledEnd) {
                     cancel();
                     return;
                 }
+                if (isRunning && ++secondsSinceSave >= RunStateManager.AUTOSAVE_SECONDS) {
+                    secondsSinceSave = 0;
+                    if (plugin.getRunStateManager() != null) {
+                        plugin.getRunStateManager().saveAsync();
+                    }
+                }
                 if (!isPaused) {
-                    totalSeconds++;
                     if (plugin.getStructureManager().isVillageSearchActive()
                             && plugin.getStructureManager().getFoundStructures().get("VILLAGE") == null) {
                         villageTimeElapsed++;
@@ -366,7 +469,7 @@ public class GameManager {
             return;
         }
         if (Bukkit.getOnlinePlayers().isEmpty()) {
-            isPaused = true;
+            setPaused(true);
             autoPaused = true;
             logger.info("Timer paused automatically: no players online.");
         }
@@ -375,9 +478,12 @@ public class GameManager {
     /** Resumes a run that was paused only because the server was empty. */
     public void handlePlayerReturn() {
         if (autoPaused && isRunning && isPaused) {
-            isPaused = false;
+            setPaused(false);
             autoPaused = false;
-            MessageUtil.broadcast(plugin.getConfigManager().getFormatted("commands.timer-resumed"));
+            MessageUtil.broadcast(restoredRunWaiting
+                    ? plugin.getConfigManager().getFormatted("messages.run-restored", "%time%", getFormattedTime())
+                    : plugin.getConfigManager().getFormatted("commands.timer-resumed"));
+            restoredRunWaiting = false;
             logger.info("Timer resumed automatically: a player joined.");
         }
     }
@@ -388,7 +494,41 @@ public class GameManager {
 
     /** @return Elapsed run time in seconds, excluding pauses. */
     public long getTotalSeconds() {
-        return totalSeconds;
+        long elapsed = accumulatedNanos;
+        if (segmentStartNanos >= 0) {
+            elapsed += System.nanoTime() - segmentStartNanos;
+        }
+        return elapsed / 1_000_000_000L;
+    }
+
+    private void setPaused(boolean paused) {
+        isPaused = paused;
+        if (paused) {
+            pauseClock();
+        } else {
+            resumeClock();
+        }
+    }
+
+    private void resumeClock() {
+        if (segmentStartNanos < 0) {
+            segmentStartNanos = System.nanoTime();
+        }
+    }
+
+    private void pauseClock() {
+        if (segmentStartNanos >= 0) {
+            accumulatedNanos += System.nanoTime() - segmentStartNanos;
+            segmentStartNanos = -1;
+        }
+    }
+
+    /**
+     * Whether a player join may start a run (settings.start-on-first-join). After a run was
+     * stopped or completed, an administrator starts the next one with /run start or /run reset.
+     */
+    public boolean isAutoStartAllowed() {
+        return autoStartAllowed && !isRunning;
     }
 
     /** @return The speedrun logger instance. */
@@ -418,7 +558,7 @@ public class GameManager {
     }
 
     /** @return The total elapsed time of the run, formatted as HH:MM:SS. */
-    public String getFormattedTime() { return TimeUtil.format(totalSeconds); }
+    public String getFormattedTime() { return TimeUtil.format(getTotalSeconds()); }
 
     /** @return The remaining time in seconds to find a village. */
     public long getVillageTimeRemaining() {

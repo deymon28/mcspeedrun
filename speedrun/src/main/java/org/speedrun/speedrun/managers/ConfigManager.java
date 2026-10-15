@@ -99,15 +99,36 @@ public class ConfigManager {
             config = result.config();
             migrationReport = result.report();
         } catch (IOException | InvalidConfigurationException failure) {
-            plugin.getLogger().severe("config.yml could not be loaded: " + failure.getMessage()
-                    + " Built-in defaults are used until the file is fixed (then run /run reload).");
-            config = ConfigFileStore.copy(bundledDefaults);
+            config = readUnmigrated(configPath, failure);
             migrationReport = ConfigMigrationReport.failed(version, failure.getMessage());
         }
         config.setDefaults(bundledDefaults);
         reportMigration();
         upgradeLanguageFiles();
         reloadLanguageFromCurrentConfig();
+    }
+
+    /**
+     * Fallback when the upgrade failed. A readable file (for example when only the backup or the
+     * atomic replace failed) is used as it is, so the server keeps its game mode, stages, and
+     * editor settings; the upgrade is retried on the next start. Only unreadable YAML falls back
+     * to the built-in defaults.
+     */
+    private FileConfiguration readUnmigrated(Path configPath, Exception failure) {
+        if (failure instanceof IOException && Files.isRegularFile(configPath) && !Files.isSymbolicLink(configPath)) {
+            try {
+                YamlConfiguration existing = ConfigFileStore.read(configPath);
+                ConfigMigrationService.replaceInvalidValues(existing, bundledDefaults);
+                plugin.getLogger().severe("config.yml could not be upgraded (" + failure.getMessage()
+                        + "). The existing settings are used; the upgrade is retried on the next start.");
+                return existing;
+            } catch (IOException | InvalidConfigurationException unreadable) {
+                // fall through to the defaults below
+            }
+        }
+        plugin.getLogger().severe("config.yml could not be loaded: " + failure.getMessage()
+                + " Built-in defaults are used until the file is fixed (then run /run reload).");
+        return ConfigFileStore.copy(bundledDefaults);
     }
 
     private void reportMigration() {
@@ -241,6 +262,11 @@ public class ConfigManager {
         return config.getBoolean("settings.notify-admins-on-join", true);
     }
 
+    /** Keep an active run across server restarts (see RunStateManager). */
+    public boolean isResumeAfterRestartEnabled() {
+        return config.getBoolean("settings.resume-after-restart", true);
+    }
+
     public boolean isPauseWhenEmptyEnabled() {
         return config.getBoolean("settings.pause-when-empty", false);
     }
@@ -333,8 +359,9 @@ public class ConfigManager {
     // =========================================================================================
     // Configuration Getters
     // =========================================================================================
+    /** Legacy-formatted message without the chat prefix (scoreboard lines and titles). */
     public String getFormattedString(String key, String... replacements) {
-        return MessageUtil.toLegacy(getFormatted(key, replacements));
+        return getFormattedText(key, replacements);
     }
 
     public int getPortalSearchTimeout() {
@@ -360,7 +387,12 @@ public class ConfigManager {
 
     /** @return The currently configured resource tracking mode. */
     public TrackingMode getTrackingMode() {
-        return TrackingMode.valueOf(config.getString("settings.task-tracking-mode", "INVENTORY").toUpperCase());
+        String raw = config.getString("settings.task-tracking-mode", "INVENTORY");
+        try {
+            return TrackingMode.valueOf(raw == null ? "INVENTORY" : raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException invalid) {
+            return TrackingMode.INVENTORY;
+        }
     }
 
     public TaskDisplayMode getTaskDisplayMode() {

@@ -143,12 +143,18 @@ public class RunCommand implements CommandExecutor, TabCompleter {
             case "reload":
                 plugin.getConfigManager().reload();
                 plugin.getTraceLogger().reload();
-                plugin.getTaskManager().reloadTasks();
+                if (plugin.getGameManager().isRunning()) {
+                    // Keep the progress of the active run; changed stages apply to the next run.
+                    plugin.getTaskManager().refreshDisplayNames();
+                    send(sender, message("commands.reload-progress-kept"));
+                } else {
+                    plugin.getTaskManager().reloadTasks();
+                }
                 new RuntimeConfigApplier(plugin).apply(new JSONObject());
                 plugin.getGameManager().refreshRuntimeConfig();
                 plugin.getAdminNotices().clear();
                 if (plugin.getWebConfigManager() != null) {
-                    plugin.getWebConfigManager().restart();
+                    plugin.getWebConfigManager().restartAfterReload();
                 }
                 send(sender, message("commands.reloaded"));
                 return true;
@@ -157,8 +163,8 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                 return handleWebConfigCommand(sender, args);
 
             case "skipstage":
-                plugin.getTaskManager().skipStage();
-                send(sender, message("commands.stage-skipped"));
+                send(sender, message(plugin.getTaskManager().skipStage()
+                        ? "commands.stage-skipped" : "commands.stage-skip-unavailable"));
                 return true;
 
             case "status":
@@ -353,6 +359,9 @@ public class RunCommand implements CommandExecutor, TabCompleter {
             double x = Double.parseDouble(args[args.length - 3]);
             double y = Double.parseDouble(args[args.length - 2]);
             double z = Double.parseDouble(args[args.length - 1]);
+            if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
+                return null;
+            }
             Location custom = new Location(player.getWorld(), x, y, z);
             return new ParsedStructureInput(key, rawName, custom);
         }
@@ -386,7 +395,7 @@ public class RunCommand implements CommandExecutor, TabCompleter {
     private boolean handleLocateCommand(Player player, String[] args) {
         // /run locate pos1 or /run locate pos2
         if (args.length == 2) {
-            String locateSubCommand = args[1].toLowerCase();
+            String locateSubCommand = args[1].toLowerCase(Locale.ROOT);
             if (locateSubCommand.equals("pos1")) {
                 playerPos1.put(player.getUniqueId(), player.getLocation());
                 send(player, message("commands.locate-pos1"));
@@ -398,22 +407,21 @@ public class RunCommand implements CommandExecutor, TabCompleter {
                 checkAndCalculateLocate(player);
                 return true;
             }
-            else return false;
         }
 
-        // /run locate <x1> <y1> <z1> <x2> <y2> <z2>
-        // Fixed index for Z coordinates and use of float for yaw.
+        // /run locate <x1> <z1> <yaw1> <x2> <z2> <yaw2>: two throw positions with the facing
+        // angle shown in the F3 screen, for throws measured without /run locate pos1/pos2.
         if (args.length == 7) {
             try {
-                double x1 = Double.parseDouble(args[1]);
-                //double y1 = Double.parseDouble(args[2]);
-                double z1 = Double.parseDouble(args[3]);
-                double x2 = Double.parseDouble(args[4]);
-                //double y2 = Double.parseDouble(args[5]);
-                double z2 = Double.parseDouble(args[6]);
-
-                // Yaw/pitch are not provided via manual coordinate entry.
-                Location predicted = LocationUtil.triangulate(x1, z1, 0f, x2, z2, 0f);
+                double[] values = new double[6];
+                for (int i = 0; i < values.length; i++) {
+                    values[i] = Double.parseDouble(args[i + 1]);
+                    if (!Double.isFinite(values[i])) {
+                        throw new NumberFormatException(args[i + 1]);
+                    }
+                }
+                Location predicted = LocationUtil.triangulate(values[0], values[1], (float) values[2],
+                        values[3], values[4], (float) values[5]);
 
                 calculateAndDisplayLocate(player, predicted);
                 return true;
@@ -459,8 +467,8 @@ public class RunCommand implements CommandExecutor, TabCompleter {
         if (predicted != null) {
             predicted.setWorld(findWorldByEnvironment(World.Environment.NORMAL, player.getWorld()));
             plugin.getStructureManager().setPredictedEndPortalLocation(predicted);
-            int netherX = predicted.getBlockX() / 8;
-            int netherZ = predicted.getBlockZ() / 8;
+            int netherX = Math.floorDiv(predicted.getBlockX(), 8);
+            int netherZ = Math.floorDiv(predicted.getBlockZ(), 8);
             send(player, message("commands.locate-predicted",
                     "%coords%", LocationUtil.format(predicted),
                     "%nether_x%", String.valueOf(netherX),

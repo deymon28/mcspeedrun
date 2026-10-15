@@ -15,6 +15,10 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Personal bests and stage splits, stored per game mode in {@code records.yml}.
@@ -31,8 +35,14 @@ public class RecordsManager {
     private final Path file;
     private YamlConfiguration records = new YamlConfiguration();
     private final Map<String, Long> currentSplits = new LinkedHashMap<>();
+    private final ExecutorService writer = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "Speedrun-Records");
+        thread.setDaemon(true);
+        return thread;
+    });
     private boolean eligible = true;
     private boolean readOnly;
+    private String runModeKey;
 
     public RecordsManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -62,14 +72,37 @@ public class RecordsManager {
         }
     }
 
+    /**
+     * Saves a snapshot on the records writer thread: the atomic write syncs the file to disk,
+     * which can take a noticeable time on slow drives and must not stall a tick.
+     */
     private void save() {
         if (readOnly) {
             return;
         }
+        String snapshot = records.saveToString();
         try {
-            ConfigFileStore.writeAtomically(file, records);
-        } catch (IOException failure) {
-            plugin.getLogger().warning("Could not save " + FILE_NAME + ": " + failure.getMessage());
+            writer.execute(() -> {
+                try {
+                    ConfigFileStore.writeAtomically(file, snapshot);
+                } catch (IOException failure) {
+                    plugin.getLogger().warning("Could not save " + FILE_NAME + ": " + failure.getMessage());
+                }
+            });
+        } catch (RejectedExecutionException closed) {
+            plugin.getLogger().warning("Could not save " + FILE_NAME + ": the plugin is shutting down.");
+        }
+    }
+
+    /** Finishes pending writes. Called on plugin disable. */
+    public void close() {
+        writer.shutdown();
+        try {
+            if (!writer.awaitTermination(10, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("Timed out while saving " + FILE_NAME + ".");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -81,6 +114,41 @@ public class RecordsManager {
     public void startRun() {
         currentSplits.clear();
         eligible = true;
+        runModeKey = modeKey();
+    }
+
+    /**
+     * Game mode the current run is recorded under. A run whose game mode changed underway (for
+     * example by a hand edit and /run reload) is not comparable and is not stored.
+     */
+    private String runModeKey() {
+        String current = modeKey();
+        if (runModeKey == null) {
+            runModeKey = current;
+        } else if (!runModeKey.equals(current)) {
+            eligible = false;
+        }
+        return runModeKey;
+    }
+
+    /** Writes the splits of the active run for {@link RunStateManager}. */
+    void writeState(ConfigurationSection section) {
+        section.set("eligible", eligible);
+        section.set("mode", runModeKey);
+        currentSplits.forEach((stage, seconds) -> section.set("splits." + stage, seconds));
+    }
+
+    /** Restores the splits of a run saved before a restart. */
+    void restoreState(ConfigurationSection section) {
+        currentSplits.clear();
+        eligible = section == null || section.getBoolean("eligible", true);
+        runModeKey = section == null ? modeKey() : section.getString("mode", modeKey());
+        ConfigurationSection splits = section == null ? null : section.getConfigurationSection("splits");
+        if (splits != null) {
+            for (String stage : splits.getKeys(false)) {
+                currentSplits.put(stage, splits.getLong(stage));
+            }
+        }
     }
 
     /** A skipped stage makes the run ineligible for records. */
@@ -98,7 +166,7 @@ public class RecordsManager {
             return;
         }
         currentSplits.put(stageKey, elapsedSeconds);
-        String path = modeKey() + ".splits." + stageKey;
+        String path = runModeKey() + ".splits." + stageKey;
         long best = records.getLong(path, -1);
         if (plugin.getConfigManager().areSplitAnnouncementsEnabled()) {
             MessageUtil.broadcast(plugin.getConfigManager().getFormatted("records.split",
@@ -117,21 +185,22 @@ public class RecordsManager {
         if (!plugin.getConfigManager().areRecordsEnabled()) {
             return;
         }
-        String base = modeKey() + ".best";
+        String mode = runModeKey();
+        String base = mode + ".best";
         long best = records.getLong(base + ".time", -1);
         String deltaText = delta(totalSeconds, best);
         if (eligible && (best < 0 || totalSeconds < best)) {
             records.set(base + ".time", totalSeconds);
             records.set(base + ".date", LocalDate.now().toString());
             records.set(base + ".splits", new LinkedHashMap<>(currentSplits));
-            records.set(modeKey() + ".completed-runs", records.getInt(modeKey() + ".completed-runs", 0) + 1);
+            records.set(mode + ".completed-runs", records.getInt(mode + ".completed-runs", 0) + 1);
             save();
             MessageUtil.broadcast(plugin.getConfigManager().getFormatted("records.new-best",
                     "%time%", TimeUtil.format(totalSeconds), "%delta%", deltaText));
             return;
         }
         if (eligible) {
-            records.set(modeKey() + ".completed-runs", records.getInt(modeKey() + ".completed-runs", 0) + 1);
+            records.set(mode + ".completed-runs", records.getInt(mode + ".completed-runs", 0) + 1);
             save();
         }
         if (best >= 0) {

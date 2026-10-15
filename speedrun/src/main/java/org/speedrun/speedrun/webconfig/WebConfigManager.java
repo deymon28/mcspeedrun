@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -107,12 +108,9 @@ public class WebConfigManager {
             server.createContext("/api/config/apply", closedHandler("/api/config/apply", exchange -> handleMutation(exchange, WebConfigSession.Mode.APPLY)));
             server.createContext("/api/config/save-apply", closedHandler("/api/config/save-apply", exchange -> handleMutation(exchange, WebConfigSession.Mode.SAVE_APPLY)));
             server.createContext("/api/status", closedHandler("/api/status", this::handleStatus));
-            // A small pool so one slow connection cannot block the editor for everyone else.
-            executor = Executors.newFixedThreadPool(3, runnable -> {
-                Thread thread = new Thread(runnable, "Speedrun-WebConfig");
-                thread.setDaemon(true);
-                return thread;
-            });
+            // One virtual thread per exchange: the JDK server reads requests on executor threads
+            // without a time limit, so a fixed pool could be exhausted by a few stalled connections.
+            executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("Speedrun-WebConfig-", 0).factory());
             server.setExecutor(executor);
             server.start();
 
@@ -147,11 +145,38 @@ public class WebConfigManager {
         }
     }
 
-    /** Restarts the server with a new access token; old links stop working. */
+    /**
+     * Restarts the server with a new access token; old links stop working. The startup settings
+     * {@code web-config.enabled}, {@code bind}, and {@code port} are read from config.yml again,
+     * so an edited port takes effect without a full reload.
+     */
     public synchronized void restart() {
+        stop();
+        reloadStartupSettingsFromDisk();
+        start();
+    }
+
+    /** Restart after /run reload: the configuration was re-read, so a failed apply is recovered. */
+    public synchronized void restartAfterReload() {
         stop();
         session.markRecovered();
         start();
+    }
+
+    private void reloadStartupSettingsFromDisk() {
+        try {
+            YamlConfiguration onDisk = ConfigFileStore.read(plugin.getConfigFile().toPath());
+            FileConfiguration active = plugin.getConfigManager().getRawConfig();
+            for (String path : List.of("web-config.enabled", "web-config.bind", "web-config.port")) {
+                Object value = onDisk.get(path);
+                if (value != null && WebConfigSchema.validateValue(path, value).valid()) {
+                    active.set(path, value);
+                }
+            }
+        } catch (IOException | InvalidConfigurationException failure) {
+            plugin.getLogger().warning("config.yml could not be read for the editor restart: " + failure.getMessage()
+                    + ". The current editor settings are used.");
+        }
     }
 
     public boolean isRunning() {
@@ -474,10 +499,28 @@ public class WebConfigManager {
         }
     }
 
+    /**
+     * True when the bind address is a loopback address. Decided on the resolved address, so every
+     * spelling that really binds to loopback (for example {@code 0:0:0:0:0:0:0:1}) keeps the
+     * Host-header protection enabled.
+     */
     static boolean isLoopbackBind(String rawBind) {
-        String normalized = rawBind == null ? "" : rawBind.trim().toLowerCase(Locale.ROOT);
-        return "localhost".equals(normalized) || normalized.startsWith("127.") || "::1".equals(normalized)
-                || "[::1]".equals(normalized);
+        String normalized = rawBind == null ? "" : rawBind.trim();
+        if (normalized.startsWith("[") && normalized.endsWith("]")) {
+            normalized = normalized.substring(1, normalized.length() - 1);
+        }
+        if (normalized.isEmpty() || "localhost".equalsIgnoreCase(normalized)) {
+            return true; // an empty address binds to the loopback interface
+        }
+        if (!normalized.matches("[0-9A-Fa-f:.]+")) {
+            // Host names other than localhost are not resolved here; treat them as exposed.
+            return false;
+        }
+        try {
+            return InetAddress.getByName(normalized).isLoopbackAddress();
+        } catch (IOException invalid) {
+            return false;
+        }
     }
 
     private String newToken() {

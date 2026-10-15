@@ -61,6 +61,9 @@
     "conflict": "The configuration was changed elsewhere (another tab, a manual edit, or /run reload). Reload to see the current values; your unsaved edits are kept.",
     "reloadKeepEdits": "Reload and keep my edits",
     "requestFailed": "The request failed: {message}",
+    "invalidNumber": "Enter a number.",
+    "menu": "Menu",
+    "sections": "Sections",
     "networkError": "The server could not be reached. Is it running?",
     "yes": "On",
     "no": "Off",
@@ -269,6 +272,10 @@
     "settings.pause-when-empty": {
       "label": "Pause when the server is empty",
       "help": "Stop the timer while nobody is online and continue when a player returns."
+    },
+    "settings.resume-after-restart": {
+      "label": "Resume runs after a restart",
+      "help": "Keep an active run when the server stops or crashes. It comes back paused and continues when the first player joins; the downtime is not counted."
     },
     "settings.start-on-first-join": {
       "label": "Start when the first player joins",

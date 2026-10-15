@@ -177,9 +177,22 @@ public final class WebConfigSchema {
             case BOOLEAN -> config.getBoolean(field.path(), Boolean.TRUE.equals(field.defaultValue()));
             case INTEGER -> config.getInt(field.path(), field.defaultValue() instanceof Number number ? number.intValue() : 0);
             case DECIMAL -> config.getDouble(field.path(), field.defaultValue() instanceof Number number ? number.doubleValue() : 0.0);
-            case STRING, ENUM -> config.getString(field.path(), String.valueOf(field.defaultValue()));
+            case STRING -> config.getString(field.path(), String.valueOf(field.defaultValue()));
+            // The runtime accepts any case; report the canonical option so the editor can select it.
+            case ENUM -> canonicalOption(field, config.getString(field.path(), String.valueOf(field.defaultValue())));
             case STRING_LIST -> new JSONArray(config.getStringList(field.path()));
         };
+    }
+
+    private static String canonicalOption(WebConfigField field, String value) {
+        if (value != null && field.options() != null) {
+            for (String option : field.options()) {
+                if (option.equalsIgnoreCase(value.trim())) {
+                    return option;
+                }
+            }
+        }
+        return value;
     }
 
     private static void validateField(WebConfigField field, Object value, WebConfigValidationResult result) {
@@ -245,8 +258,9 @@ public final class WebConfigSchema {
         if (key.startsWith("STRUCTURE_")) {
             return STRUCTURE_TASKS.contains(key.substring("STRUCTURE_".length()));
         }
-        Material material = Material.getMaterial(key);
-        return material != null && !material.isLegacy() && material != Material.AIR
+        // Legacy (pre-1.13) materials carry the LEGACY_ prefix; tasks need a current item.
+        Material material = key.startsWith("LEGACY_") ? null : Material.getMaterial(key);
+        return material != null && material != Material.AIR
                 && material != Material.CAVE_AIR && material != Material.VOID_AIR;
     }
 
@@ -465,6 +479,7 @@ public final class WebConfigSchema {
         add(fields, enumField("settings.gamemode", "General", "Game mode", "NORMAL, CASUAL, or HARDCORE runtime behavior.", RUN_SENSITIVE, CAUTION, "NORMAL", "NORMAL", "CASUAL", "HARDCORE"));
         add(fields, enumField("settings.language", "General", "Language", "Language of in-game messages. Message files are in plugins/Speedrun/lang.", INSTANT, NONE, "en", "en", "uk", "de", "es", "fr", "pt_BR", "pl", "zh_CN"));
         add(fields, field("settings.pause-when-empty", "General", "Pause when empty", "Pause the timer while no players are online; preserve manually paused runs.", BOOLEAN, INSTANT, NONE, false));
+        add(fields, field("settings.resume-after-restart", "General", "Resume after restart", "Restore an active run after a server restart or crash.", BOOLEAN, INSTANT, NONE, true));
         add(fields, field("settings.start-on-first-join", "General", "Start on first join", "Start the timer when the first player joins.", BOOLEAN, STARTUP_ONLY, CAUTION, true));
         add(fields, field("settings.reset_time_on_join", "General", "Reset day on join", "Set clock worlds to day when first-join starts a run.", BOOLEAN, INSTANT, NONE, true));
         add(fields, field("settings.allow-reassigning-locations", "General", "Allow location reassignment", "Allow /run new to reassign tracked locations.", BOOLEAN, INSTANT, NONE, true));
@@ -503,7 +518,7 @@ public final class WebConfigSchema {
         add(fields, number("settings.proximity-scanner.portal-search-timeout", "Scanner", "Portal search timeout", "Seconds before exact portal search falls back.", INTEGER, INSTANT, NONE, 15, 1, 120));
         add(fields, field("casual.start-pre-scan.enabled", "Scanner", "Casual start pre-scan", "Controlled discovery when a Casual run starts.", BOOLEAN, RESTART_TASK, CAUTION, false));
         add(fields, enumField("casual.start-pre-scan.mode", "Scanner", "Start pre-scan mode", "SAFE, BALANCED, AGGRESSIVE, or LOCATE profile.", RESTART_TASK, DANGEROUS, "BALANCED", "SAFE", "BALANCED", "AGGRESSIVE", "LOCATE"));
-        add(fields, number("casual.start-pre-scan.radius", "Scanner", "Pre-scan radius blocks", "Configured block radius for start pre-scan.", INTEGER, RESTART_TASK, DANGEROUS, 1000, 1, 10000));
+        add(fields, number("casual.start-pre-scan.radius", "Scanner", "Pre-scan radius blocks", "Configured block radius for start pre-scan.", INTEGER, RESTART_TASK, DANGEROUS, 1000, 1, 1024));
         add(fields, number("casual.start-pre-scan.loaded-chunk-radius", "Scanner", "Loaded chunk scan radius", "Radius in chunks around players for loaded-chunk scans.", INTEGER, RESTART_TASK, DANGEROUS, 10, 0, 64));
         add(fields, field("casual.start-pre-scan.allow-sync-chunk-loading", "Scanner", "Allow synchronous chunk loading", "Let BALANCED/AGGRESSIVE load missing chunks on servers without asynchronous chunk loading (Spigot, CraftBukkit). Limited to one chunk per tick.", BOOLEAN, RESTART_TASK, DANGEROUS, false));
         add(fields, field("casual.start-pre-scan.include-lava-pool", "Scanner", "Pre-scan lava pools", "Include lava pool detection in start pre-scan.", BOOLEAN, RESTART_TASK, CAUTION, true));

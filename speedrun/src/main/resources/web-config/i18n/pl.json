@@ -61,6 +61,9 @@
     "conflict": "Konfiguracja została zmieniona gdzie indziej (inna karta, ręczna edycja lub /run reload). Odśwież, aby zobaczyć bieżące wartości; Twoje niezapisane zmiany zostaną zachowane.",
     "reloadKeepEdits": "Odśwież i zachowaj moje zmiany",
     "requestFailed": "Żądanie nie powiodło się: {message}",
+    "invalidNumber": "Wpisz liczbę.",
+    "menu": "Menu",
+    "sections": "Sekcje",
     "networkError": "Nie można połączyć się z serwerem. Czy działa?",
     "yes": "Wł.",
     "no": "Wył.",
@@ -269,6 +272,10 @@
     "settings.pause-when-empty": {
       "label": "Wstrzymaj, gdy serwer jest pusty",
       "help": "Zatrzymuje stoper, gdy nikogo nie ma online, i wznawia go, gdy wróci gracz."
+    },
+    "settings.resume-after-restart": {
+      "label": "Wznawiaj biegi po restarcie",
+      "help": "Zachowuje trwający bieg, gdy serwer się zatrzyma lub ulegnie awarii. Wraca wstrzymany i trwa dalej, gdy dołączy pierwszy gracz; czas przestoju nie jest liczony."
     },
     "settings.start-on-first-join": {
       "label": "Start po dołączeniu pierwszego gracza",

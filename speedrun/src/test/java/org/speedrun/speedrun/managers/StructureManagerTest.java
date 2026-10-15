@@ -19,6 +19,12 @@ class StructureManagerTest {
     }
 
     @Test
+    void portalTaskKeysNameTheSideThatWasFound() {
+        assertEquals("NETHER_PORTAL_OVERWORLD", StructureManager.portalTaskKey(org.bukkit.World.Environment.NORMAL));
+        assertEquals("NETHER_PORTAL_NETHER", StructureManager.portalTaskKey(org.bukkit.World.Environment.NETHER));
+    }
+
+    @Test
     void nonPortalLodestoneKeysStayStable() {
         UUID worldId = UUID.fromString("00000000-0000-0000-0000-000000000003");
 

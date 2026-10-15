@@ -27,6 +27,12 @@ class LocationUtilTest {
     }
 
     @Test
+    void rejectsIntersectionBehindAThrow() {
+        // The second throw faces north (yaw 180), away from the crossing point at (10, 0).
+        assertNull(LocationUtil.triangulate(0, 0, -90f, 10, -10, 180f));
+    }
+
+    @Test
     void returnsNullForParallelTriangulationLines() {
         assertNull(LocationUtil.triangulate(0, 0, 0f, 10, 10, 0f));
     }

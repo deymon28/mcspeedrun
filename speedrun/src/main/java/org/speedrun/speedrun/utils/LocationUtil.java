@@ -1,8 +1,6 @@
 package org.speedrun.speedrun.utils;
 
 import org.bukkit.Location;
-import org.bukkit.World;
-
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,18 +21,6 @@ public final class LocationUtil {
         return String.format("%d, %d, %d", loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
     }
 
-    public static String formatWithLinkedWorld(Location loc) {
-        if (loc == null || loc.getWorld() == null) return format(loc);
-        World.Environment environment = loc.getWorld().getEnvironment();
-        if (environment == World.Environment.NORMAL) {
-            return String.format("%s (N: %d, %d)", format(loc), loc.getBlockX() / 8, loc.getBlockZ() / 8);
-        }
-        if (environment == World.Environment.NETHER) {
-            return String.format("%s (O: %d, %d)", format(loc), loc.getBlockX() * 8, loc.getBlockZ() * 8);
-        }
-        return format(loc);
-    }
-
     /**
      * Calculates the intersection point of two lines in a 2D plane, defined by two points and their yaw angles.
      * This is used for triangulating the position of a stronghold.
@@ -45,7 +31,9 @@ public final class LocationUtil {
      * @param x2 The X-coordinate of the second point.
      * @param z2 The Z-coordinate of the second point.
      * @param yaw2 The yaw angle (direction) at the second point.
-     * @return A new Location of the intersection point, or null if the lines are parallel.
+     * @return A new Location of the intersection point, or null if the lines are parallel or
+     *         cross behind one of the throw positions (an Eye of Ender always flies towards the
+     *         stronghold, so such an intersection is a measuring error).
      */
     @Nullable
     public static Location triangulate(double x1, double z1, float yaw1, double x2, double z2, float yaw2) {
@@ -66,6 +54,10 @@ public final class LocationUtil {
         double dz = z2 - z1;
 
         double t = (dx * dir2.getZ() - dz * dir2.getX()) / det;
+        double s = (dx * dir1.getZ() - dz * dir1.getX()) / det;
+        if (t <= 0 || s <= 0) {
+            return null;
+        }
 
         // Calculate the intersection point coordinates using the parameter 't'.
         double intersectX = x1 + t * dir1.getX();

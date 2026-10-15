@@ -109,11 +109,8 @@ public final class ConfigMigrationService {
 
         if (oldSchema == CURRENT_SCHEMA_VERSION && pluginVersion.equals(oldPlugin)) {
             List<ConfigMigrationReport.Change> problems = new ArrayList<>();
-            for (WebConfigField field : WebConfigSchema.fields()) {
-                if (original.contains(field.path(), true)
-                        && !WebConfigSchema.validateValue(field.path(), original.get(field.path())).valid()) {
-                    problems.add(change(field.path(), "INVALID", "Value is outside the supported type or range; the built-in default is used."));
-                }
+            for (String invalidPath : replaceInvalidValues(original, defaults)) {
+                problems.add(change(invalidPath, "INVALID", "Value is outside the supported type or range; the built-in default is used."));
             }
             return new Result(original, new ConfigMigrationReport("CURRENT", oldSchema, CURRENT_SCHEMA_VERSION,
                     oldPlugin, pluginVersion, null, 0, problems));
@@ -142,6 +139,24 @@ public final class ConfigMigrationService {
         writer.write(path, candidate);
         return new Result(candidate, new ConfigMigrationReport("MIGRATED", oldSchema, CURRENT_SCHEMA_VERSION,
                 oldPlugin, pluginVersion, backup, transferred, changes));
+    }
+
+    /**
+     * Replaces values that fail schema validation with the bundled default, in memory only. The
+     * file keeps the administrator's text so the mistake can be seen and corrected.
+     *
+     * @return the replaced paths
+     */
+    public static List<String> replaceInvalidValues(FileConfiguration config, FileConfiguration defaults) {
+        List<String> replaced = new ArrayList<>();
+        for (WebConfigField field : WebConfigSchema.fields()) {
+            if (config.contains(field.path(), true)
+                    && !WebConfigSchema.validateValue(field.path(), config.get(field.path())).valid()) {
+                config.set(field.path(), ConfigFileStore.copyValue(defaults.get(field.path())));
+                replaced.add(field.path());
+            }
+        }
+        return replaced;
     }
 
     public static int schemaVersion(FileConfiguration config) throws InvalidConfigurationException {

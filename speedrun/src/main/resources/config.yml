@@ -46,6 +46,11 @@ settings:
   # Runs paused manually with /run pause stay paused.
   pause-when-empty: false
 
+  # Keep an active run when the server stops, restarts, or crashes. The run comes back paused
+  # and continues when the first player joins; the downtime is not counted. It is only restored
+  # into the same world, game mode, and stage setup.
+  resume-after-restart: true
+
   # Allow /run new <location> to move locations that were already found. If false, only empty locations can be set.
   allow-reassigning-locations: true
 
@@ -55,6 +60,7 @@ settings:
   # How collected resources count towards tasks:
   #   INVENTORY  - items currently in online players' inventories.
   #   CUMULATIVE - every item picked up or crafted during the run, even if used later.
+  #                Items that a player dropped are not counted again when picked up.
   task-tracking-mode: "INVENTORY"
 
   # Scale required resource amounts with the number of online players (only tasks with srbp: true).
@@ -146,7 +152,7 @@ casual:
     # AGGRESSIVE - larger chunk budget, also scans the Nether.
     # LOCATE     - uses the server's structure locate function in small steps.
     mode: "BALANCED"
-    # Maximum distance in blocks from spawn/players for background scanning.
+    # Maximum distance in blocks from spawn/players for background scanning (1-1024).
     radius: 1000
     # Radius in chunks around each player that is scanned when chunks are already loaded.
     loaded-chunk-radius: 10

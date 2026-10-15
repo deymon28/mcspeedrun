@@ -7,10 +7,16 @@ import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
@@ -19,6 +25,7 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.event.player.*;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -46,11 +53,11 @@ public class GameListener implements Listener {
     private final Map<UUID, String> lastLoggedPlayerBlocks = new ConcurrentHashMap<>();
     private static final long BELL_COOLDOWN = 5000;
 
-    // Cached config values for performance.
-    private final int NETHER_PORTAL_CHECK_RADIUS; // Radius for checking nearby blocks for portals when lighting
-    private final int TELEPORT_PORTAL_SEARCH_RADIUS; // Increased radius for finding portal block after teleportation
     private final AtomicLong portalSearchGeneration = new AtomicLong();
     private static final String STRUCTURE_MARKER_METADATA = "indestructible";
+    private static final String HIDDEN_LODESTONE_METADATA = "speedrun_hidden_lodestone";
+    /** Marks item entities dropped by players so picking them up again is not counted twice. */
+    private final NamespacedKey playerDropKey;
     /** Keeps one exit-portal search within the platform's chunk queue capacity (21 x 21 chunks). */
     static final int MAX_PORTAL_SEARCH_RADIUS = 160;
 
@@ -65,8 +72,12 @@ public class GameListener implements Listener {
         this.plugin = plugin;
         this.gameManager = gameManager;
 
-        this.NETHER_PORTAL_CHECK_RADIUS = plugin.getConfigManager().getNetherPortalCheckRadius();
-        this.TELEPORT_PORTAL_SEARCH_RADIUS = plugin.getConfigManager().getTeleportPortalSearchRadius();
+        this.playerDropKey = new NamespacedKey(plugin, "player_drop");
+    }
+
+    /** Structure detection and task progress only happen while a run is active. */
+    private boolean isRunActive() {
+        return gameManager.isRunning();
     }
 
     private void increment(String key){
@@ -120,7 +131,7 @@ public class GameListener implements Listener {
 
 
         // If configured, start the run when the first player joins.
-        if (plugin.getConfigManager().isStartOnFirstJoin() && !plugin.getGameManager().isRunning()) {
+        if (plugin.getConfigManager().isStartOnFirstJoin() && plugin.getGameManager().isAutoStartAllowed()) {
             if (Bukkit.getOnlinePlayers().size() == 1) {
                 plugin.getGameManager().startRun();
                 if (plugin.getConfigManager().isResetTimeOnJoinEnabled()) {
@@ -288,6 +299,10 @@ public class GameListener implements Listener {
         }
 
         logger.logPlayerDeath(player, deathCause, player.getLocation());
+        if (plugin.getCasualGameModeManager().isCasualModeActive() && gameManager.getCompassListener() != null) {
+            // The respawn handler hands out a fresh compass; a dropped one would be a duplicate.
+            event.getDrops().removeIf(gameManager.getCompassListener()::isNavigationCompass);
+        }
         if (plugin.getCasualGameModeManager().isCasualModeActive()
                 && plugin.getConfigManager().isDeathLocationCompassEnabled()
                 && gameManager.getCompassListener() != null) {
@@ -301,6 +316,9 @@ public class GameListener implements Listener {
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         if(plugin.getCasualGameModeManager().isCasualModeActive()){
             Player player = event.getPlayer();
+            if (hasNavigationCompass(player)) {
+                return; // kept inventory: do not hand out a second compass
+            }
             player.getInventory().addItem(createNavigationCompass());
             MessageUtil.send(player, plugin.getConfigManager().getFormatted("commands.givecompass.received"));
         }
@@ -366,16 +384,51 @@ public class GameListener implements Listener {
             return;
         }
 
-        if (block.getType() == Material.LODESTONE && block.hasMetadata("speedrun_hidden_lodestone")) {
+        if (block.getType() == Material.LODESTONE && block.hasMetadata(HIDDEN_LODESTONE_METADATA)) {
             event.setCancelled(true);
             MessageUtil.send(event.getPlayer(), plugin.getConfigManager().getFormatted("protection.hidden-lodestone"));
         }
     }
 
+    /** Waypoint markers and hidden lodestones must survive explosions (and must not drop as loot). */
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityExplode(EntityExplodeEvent event) {
+        event.blockList().removeIf(GameListener::isPluginBlock);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockExplode(BlockExplodeEvent event) {
+        event.blockList().removeIf(GameListener::isPluginBlock);
+    }
+
+    /** Pistons would move marker blocks away from their metadata, making them minable. */
+    @EventHandler(ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent event) {
+        if (event.getBlocks().stream().anyMatch(GameListener::isPluginBlock)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent event) {
+        if (event.getBlocks().stream().anyMatch(GameListener::isPluginBlock)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        plugin.getStructureManager().onChunkLoad(event.getChunk());
+    }
+
+    private static boolean isPluginBlock(Block block) {
+        return block.hasMetadata(STRUCTURE_MARKER_METADATA) || block.hasMetadata(HIDDEN_LODESTONE_METADATA);
+    }
+
     // --- Task & Progress Events ---
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled() || !isRunActive()) {
             return;
         }
         // Update tasks when in INVENTORY tracking mode.
@@ -384,9 +437,14 @@ public class GameListener implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDropItem(PlayerDropItemEvent event) {
+        event.getItemDrop().getPersistentDataContainer().set(playerDropKey, PersistentDataType.BYTE, (byte) 1);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerPickupItem(EntityPickupItemEvent event) {
-        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled() || !isRunActive()) {
             return;
         }
         if (!(event.getEntity() instanceof Player player)) return;
@@ -398,24 +456,45 @@ public class GameListener implements Listener {
             logger.logMilestone(player.getName(), "flint_pickup");
         }
 
-        // Update tasks when in CUMULATIVE tracking mode.
-        if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
-            plugin.getTaskManager().trackItemPickup(player, item);
+        // Update tasks when in CUMULATIVE tracking mode. Items a player dropped were already
+        // counted when they were first collected.
+        if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE
+                && !event.getItem().getPersistentDataContainer().has(playerDropKey, PersistentDataType.BYTE)) {
+            int pickedUp = item.getAmount() - Math.max(0, event.getRemaining());
+            plugin.getTaskManager().trackItemCollected(player, item.getType(), pickedUp);
             plugin.getTaskManager().updateItemTasks();
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCraftItem(CraftItemEvent event) {
-        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled() || !isRunActive()) {
             return;
         }
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         // Update tasks when in CUMULATIVE tracking mode.
         if (plugin.getConfigManager().getTrackingMode() == ConfigManager.TrackingMode.CUMULATIVE) {
-            plugin.getTaskManager().trackItemCraft(player, event.getCurrentItem());
-            plugin.getTaskManager().updateItemTasks();
+            ItemStack result = event.getRecipe().getResult();
+            if (event.isShiftClick()) {
+                // Shift-click crafts as many items as fit; the event only shows one result, so
+                // count the difference in the player's inventory after the craft is applied.
+                Material type = result.getType();
+                int before = countItems(player, type);
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (!player.isOnline() || !isRunActive()) {
+                        return;
+                    }
+                    int crafted = countItems(player, type) - before;
+                    if (crafted > 0) {
+                        plugin.getTaskManager().trackItemCollected(player, type, crafted);
+                        plugin.getTaskManager().updateItemTasks();
+                    }
+                });
+            } else {
+                plugin.getTaskManager().trackItemCollected(player, result.getType(), result.getAmount());
+                plugin.getTaskManager().updateItemTasks();
+            }
         }
 
         // craft log
@@ -427,7 +506,7 @@ public class GameListener implements Listener {
     // --- Structure Finding Events ---
     @EventHandler
     public void onAdvancement(PlayerAdvancementDoneEvent event) {
-        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled() || !isRunActive()) {
             return;
         }
         SpeedrunLogger logger = gameManager.getLogger();
@@ -449,16 +528,16 @@ public class GameListener implements Listener {
             put("story/enter_the_nether", () -> logger.logMilestone(playerName, "enter_the_nether"));
             put("nether/find_fortress", () -> {
                 logger.logMilestone(playerName, "find_fortress");
-                plugin.getStructureManager().structureFound(player, "FORTRESS", player.getLocation());
+                reportAdvancementStructure(player, "FORTRESS");
             });
             put("nether/find_bastion", () -> {
                 logger.logMilestone(playerName, "find_bastion");
-                plugin.getStructureManager().structureFound(player, "BASTION", player.getLocation());
+                reportAdvancementStructure(player, "BASTION");
             });
             put("nether/obtain_blaze_rod", () -> logger.logMilestone(playerName, "first_blaze_rod"));
             put("story/follow_ender_eye", () -> {
                 logger.logMilestone(playerName, "first_stronghold_enter");
-                plugin.getStructureManager().structureFound(player, "END_PORTAL", player.getLocation());
+                reportAdvancementStructure(player, "END_PORTAL");
             });
             put("story/enter_the_end", () -> logger.logMilestone(playerName, "first_end_enter"));
         }};
@@ -469,13 +548,25 @@ public class GameListener implements Listener {
         }
     }
 
+    /**
+     * Advancements are earned once per player, so in multiplayer later players would move an
+     * exactly known location to wherever they stand. Only empty or approximate locations are set.
+     */
+    private void reportAdvancementStructure(Player player, String key) {
+        if (plugin.getStructureManager().getFoundStructures().get(key) != null
+                && !plugin.getStructureManager().isApproximateStructure(key)) {
+            return;
+        }
+        plugin.getStructureManager().structureFound(player, key, player.getLocation());
+    }
+
     // =========================================================================================
     // Portal Detection Logic
     // =========================================================================================
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled() || !isRunActive()) {
             return;
         }
         // Manual village detection by interacting with a bell.
@@ -508,7 +599,7 @@ public class GameListener implements Listener {
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        for (Block nearby : getNearbyBlocks(clickedBlock, NETHER_PORTAL_CHECK_RADIUS)) {
+                        for (Block nearby : getNearbyBlocks(clickedBlock, plugin.getConfigManager().getNetherPortalCheckRadius())) {
                             if (nearby.getType() == Material.NETHER_PORTAL) {
                                 plugin.getStructureManager().portalLit(event.getPlayer(), nearby.getLocation());
                                 cancel();
@@ -523,7 +614,7 @@ public class GameListener implements Listener {
 
     @EventHandler
     public void onBlockIgnite(BlockIgniteEvent event) {
-        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled() || !isRunActive()) {
             return;
         }
         BlockIgniteEvent.IgniteCause cause = event.getCause();
@@ -537,7 +628,7 @@ public class GameListener implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                for (Block nearby : getNearbyBlocks(event.getBlock(), NETHER_PORTAL_CHECK_RADIUS)) {
+                for (Block nearby : getNearbyBlocks(event.getBlock(), plugin.getConfigManager().getNetherPortalCheckRadius())) {
                     if (nearby.getType() == Material.NETHER_PORTAL) {
                         plugin.getStructureManager().portalLit(event.getPlayer(), nearby.getLocation());
                         cancel();
@@ -550,7 +641,7 @@ public class GameListener implements Listener {
 
     @EventHandler
     public void onPlayerPortal(PlayerPortalEvent event) {
-        if (plugin.getConfigManager().isHardcoreModeEnabled()) {
+        if (plugin.getConfigManager().isHardcoreModeEnabled() || !isRunActive()) {
             return;
         }
         if (event.getTo() == null) {
@@ -687,7 +778,7 @@ public class GameListener implements Listener {
             return;
         }
 
-        Location preciseEntry = findPortalBlockSync(event.getFrom(), NETHER_PORTAL_CHECK_RADIUS);
+        Location preciseEntry = findPortalBlockSync(event.getFrom(), plugin.getConfigManager().getNetherPortalCheckRadius());
         Location entryLocation = preciseEntry != null ? preciseEntry : event.getFrom();
         plugin.getTraceLogger().trace("portal", "portal_entry_seeded",
                 "player", event.getPlayer(),
@@ -845,6 +936,28 @@ public class GameListener implements Listener {
     }
 
     record PortalBlockPosition(int x, int y, int z) { }
+
+    private static int countItems(Player player, Material type) {
+        int count = 0;
+        for (ItemStack stack : player.getInventory().getContents()) {
+            if (stack != null && stack.getType() == type) {
+                count += stack.getAmount();
+            }
+        }
+        return count;
+    }
+
+    private boolean hasNavigationCompass(Player player) {
+        if (gameManager.getCompassListener() == null) {
+            return false;
+        }
+        for (ItemStack stack : player.getInventory().getContents()) {
+            if (stack != null && gameManager.getCompassListener().isNavigationCompass(stack)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private boolean isStainedGlass(Material material) {
         return material.name().endsWith("_STAINED_GLASS") ||

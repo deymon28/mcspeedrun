@@ -26,6 +26,7 @@ public final class AsyncLineWriter implements AutoCloseable {
     private static final int QUEUE_CAPACITY = 50_000;
     private static final int BATCH_SIZE = 512;
     private static final String POISON = new String("\u0000close");
+    private static final long CLOSE_WAIT_MILLIS = 2_000;
 
     private final BlockingQueue<String> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private final AtomicLong dropped = new AtomicLong();
@@ -59,8 +60,11 @@ public final class AsyncLineWriter implements AutoCloseable {
         boolean failed = false;
         try {
             while (true) {
-                String first = queue.poll(1, TimeUnit.SECONDS);
+                String first = queue.poll(200, TimeUnit.MILLISECONDS);
                 if (first == null) {
+                    if (closed) {
+                        return; // closed while the queue was full, so no close marker fit in
+                    }
                     continue;
                 }
                 batch.add(first);
@@ -105,23 +109,24 @@ public final class AsyncLineWriter implements AutoCloseable {
         }
     }
 
-    /** Writes all queued lines and closes the file (waits up to five seconds). */
+    /**
+     * Writes all queued lines and closes the file. The caller (usually the server thread) waits at
+     * most {@link #CLOSE_WAIT_MILLIS}; a slow disk finishes the remaining lines in the background.
+     */
     @Override
     public void close() {
         if (closed) {
             return;
         }
+        closed = true;
         long lost = dropped.get();
         if (lost > 0) {
-            queue.offer("# " + lost + " log lines were dropped because the disk could not keep up.");
+            // Reported to the console only: a plain text line would corrupt a JSON-lines file.
+            errorReporter.accept(lost + " log lines were dropped because the disk could not keep up.");
         }
-        closed = true;
+        queue.offer(POISON);
         try {
-            if (!queue.offer(POISON, 5, TimeUnit.SECONDS)) {
-                thread.interrupt();
-                errorReporter.accept("Log writer did not drain in time; remaining lines were dropped.");
-            }
-            thread.join(TimeUnit.SECONDS.toMillis(5));
+            thread.join(CLOSE_WAIT_MILLIS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }

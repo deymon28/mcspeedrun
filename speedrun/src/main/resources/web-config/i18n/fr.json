@@ -61,6 +61,9 @@
     "conflict": "La configuration a été modifiée ailleurs (autre onglet, modification manuelle ou /run reload). Rechargez pour voir les valeurs actuelles ; vos modifications non enregistrées sont conservées.",
     "reloadKeepEdits": "Recharger et garder mes modifications",
     "requestFailed": "La requête a échoué : {message}",
+    "invalidNumber": "Saisissez un nombre.",
+    "menu": "Menu",
+    "sections": "Sections",
     "networkError": "Le serveur est injoignable. Est-il en cours d'exécution ?",
     "yes": "Activé",
     "no": "Désactivé",
@@ -269,6 +272,10 @@
     "settings.pause-when-empty": {
       "label": "Pause quand le serveur est vide",
       "help": "Arrête le chronomètre tant que personne n'est en ligne et le reprend au retour d'un joueur."
+    },
+    "settings.resume-after-restart": {
+      "label": "Reprendre les parties après un redémarrage",
+      "help": "Conserve la partie en cours quand le serveur s'arrête ou plante. Elle revient en pause et reprend quand le premier joueur se connecte ; le temps d'arrêt n'est pas compté."
     },
     "settings.start-on-first-join": {
       "label": "Démarrer à la connexion du premier joueur",

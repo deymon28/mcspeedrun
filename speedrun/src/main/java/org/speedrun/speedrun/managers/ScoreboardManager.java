@@ -14,6 +14,7 @@ import org.speedrun.speedrun.utils.WorldCoordinateUtil;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public class ScoreboardManager {
     private final Speedrun plugin;
@@ -79,8 +80,7 @@ public class ScoreboardManager {
                 }
             }
         } catch (Exception e) {
-            plugin.getLogger().severe("Error updating scoreboard for " + player.getName());
-            plugin.getLogger().severe(e.getMessage());
+            plugin.getLogger().log(Level.SEVERE, "Error updating scoreboard for " + player.getName(), e);
         }
     }
 
@@ -105,6 +105,26 @@ public class ScoreboardManager {
                 applyNumberFormat(objective);
             }
         }
+        lastTitles.clear();
+    }
+
+    /**
+     * Gives every online player the server's main scoreboard back and forgets all plugin boards.
+     * Called on plugin disable so no stale sidebar stays on screen after a reload or shutdown.
+     */
+    public void shutdown() {
+        org.bukkit.scoreboard.ScoreboardManager bukkitScoreboards = Bukkit.getScoreboardManager();
+        if (bukkitScoreboards != null) {
+            Scoreboard main = bukkitScoreboards.getMainScoreboard();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                Scoreboard board = playerBoards.get(player.getUniqueId());
+                if (board != null && player.getScoreboard() == board) {
+                    player.setScoreboard(main);
+                }
+            }
+        }
+        playerBoards.clear();
+        lastLines.clear();
         lastTitles.clear();
     }
 
@@ -205,8 +225,8 @@ public class ScoreboardManager {
 
             addTaskLines(player, lines, cm);
         } catch (Exception e) {
-            plugin.getLogger().severe("Error building scoreboard lines");
-            lines = Arrays.asList("§cScoreboard Error", "§7Check console logs");
+            plugin.getLogger().log(Level.SEVERE, "Error building scoreboard lines", e);
+            lines = List.of(cm.getFormattedString("scoreboard.error"));
         }
 
         // Ensure we don't exceed 15 lines
@@ -348,59 +368,83 @@ public class ScoreboardManager {
     }
 
     private void setTeamText(@NotNull Team team, @NotNull String text) {
-        // Remove the 32-character limit that was causing truncation
-        String cleanText = text;
-
-        String prefix, suffix;
-        if (cleanText.length() <= 16) {
-            // Short text: everything goes in prefix
-            prefix = cleanText;
-            suffix = "";
-        } else {
-            // Long text: split between prefix (16 chars) and suffix (remaining)
-            prefix = cleanText.substring(0, 16);
-            String remainingText = cleanText.substring(16);
-
-            if (prefix.endsWith("§")) {
-                prefix = prefix.substring(0, prefix.length() - 1);
-                remainingText = "§" + remainingText;
-            }
-
-            String formatting = getActiveFormatting(prefix);
-
-            // Put remaining text in suffix, preserving color formatting
-            if (!remainingText.startsWith("§") && !formatting.isEmpty()) {
-                suffix = formatting + remainingText;
-            } else {
-                suffix = remainingText;
-            }
-
-            // Bukkit has a limit for suffix length (around 16 chars in older versions)
-            // But in modern versions, this can be much longer
-            if (suffix.length() > 64) { // Safe limit for most Bukkit versions
-                suffix = suffix.substring(0, 64);
-            }
-        }
-
-        team.setPrefix(prefix);
-        team.setSuffix(suffix);
+        String[] parts = splitTeamText(text);
+        team.setPrefix(parts[0]);
+        team.setSuffix(parts[1]);
     }
 
+    /** Maximum length of one team prefix or suffix written by this plugin. */
+    static final int TEAM_PART_LIMIT = 64;
+    /** Length of a legacy hex color: {@code §x§r§r§g§g§b§b}. */
+    private static final int HEX_COLOR_LENGTH = 14;
 
-    private @NotNull String getActiveFormatting(@NotNull String input) {
+    /**
+     * Splits a legacy-formatted line into a team prefix and suffix. The cut never falls inside
+     * a color code (including the 14-character hex form), and the suffix repeats the color and
+     * decorations that are active at the cut so the line renders as one piece.
+     */
+    static String[] splitTeamText(@NotNull String text) {
+        if (text.length() <= TEAM_PART_LIMIT) {
+            return new String[]{text, ""};
+        }
+        int cut = safeCut(text, TEAM_PART_LIMIT);
+        String prefix = text.substring(0, cut);
+        String suffix = getActiveFormatting(prefix) + text.substring(cut);
+        return new String[]{prefix, suffix.substring(0, safeCut(suffix, TEAM_PART_LIMIT))};
+    }
+
+    /** Returns the largest cut position up to {@code limit} that does not split a color code. */
+    private static int safeCut(String text, int limit) {
+        if (text.length() <= limit) {
+            return text.length();
+        }
+        int i = 0;
+        while (i < limit) {
+            int length = formattingCodeLength(text, i);
+            if (length == 0) {
+                i++;
+            } else if (i + length > limit) {
+                return i;
+            } else {
+                i += length;
+            }
+        }
+        return limit;
+    }
+
+    /** Length of the color code starting at {@code index}, or 0 when none starts there. */
+    private static int formattingCodeLength(String text, int index) {
+        if (text.charAt(index) != '§') {
+            return 0;
+        }
+        if (index + 1 < text.length() && Character.toLowerCase(text.charAt(index + 1)) == 'x') {
+            return Math.min(HEX_COLOR_LENGTH, text.length() - index);
+        }
+        return Math.min(2, text.length() - index);
+    }
+
+    /** Color and decorations that are active at the end of {@code input}. */
+    static @NotNull String getActiveFormatting(@NotNull String input) {
         String color = "";
         StringBuilder formats = new StringBuilder();
-        char[] chars = input.toCharArray();
-        for (int i = 0; i < chars.length - 1; i++) {
-            if (chars[i] == '§') {
-                char code = Character.toLowerCase(chars[i + 1]);
-                if ((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f') || code == 'r') {
-                    color = code == 'r' ? "" : "§" + code;
-                    formats.setLength(0);
-                } else if ("klmno".indexOf(code) >= 0 && formats.indexOf("§" + code) < 0) {
-                    formats.append('§').append(code);
-                }
+        int i = 0;
+        while (i < input.length() - 1) {
+            int length = formattingCodeLength(input, i);
+            if (length == 0) {
+                i++;
+                continue;
             }
+            char code = Character.toLowerCase(input.charAt(i + 1));
+            if (code == 'x' && length == HEX_COLOR_LENGTH) {
+                color = input.substring(i, i + HEX_COLOR_LENGTH);
+                formats.setLength(0);
+            } else if ((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f') || code == 'r') {
+                color = code == 'r' ? "" : "§" + code;
+                formats.setLength(0);
+            } else if ("klmno".indexOf(code) >= 0 && formats.indexOf("§" + code) < 0) {
+                formats.append('§').append(code);
+            }
+            i += length;
         }
         return color + formats;
     }

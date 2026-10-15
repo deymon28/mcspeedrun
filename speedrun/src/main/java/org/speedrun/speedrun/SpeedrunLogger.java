@@ -59,6 +59,7 @@ public class SpeedrunLogger {
         } catch (IOException e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to initialize speedrun logger!", e);
             this.active = false;
+            closeWriters(); // the text log may already be open when the JSON log fails
         }
     }
 

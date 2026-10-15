@@ -225,8 +225,11 @@ public final class ServerPlatform implements AutoCloseable {
                 if (!async || request.world().isChunkLoaded(x, z)) {
                     complete(request, request.world().getChunkAt(x, z), null);
                 } else {
+                    // Count the load only once it was accepted; a synchronous failure must not
+                    // leak an in-flight slot and eventually stall the queue.
+                    CompletableFuture<Chunk> load = adapter.loadChunkAsync(request.world(), x, z);
                     inFlightChunks++;
-                    adapter.loadChunkAsync(request.world(), x, z).whenComplete((chunk, error) -> executeUi(() -> {
+                    load.whenComplete((chunk, error) -> executeUi(() -> {
                         inFlightChunks = Math.max(0, inFlightChunks - 1);
                         complete(request, chunk, error);
                     }));

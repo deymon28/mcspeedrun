@@ -49,14 +49,29 @@ public final class RewardUtil {
             return;
         }
 
-        for (Player target : targets) {
-            for (String rawCommand : commands) {
-                if ("on-stage-complete".equals(key) && isLegacyStageCompleteTellraw(rawCommand)) {
-                    continue;
-                }
+        for (String rawCommand : commands) {
+            if ("on-stage-complete".equals(key) && isLegacyStageCompleteTellraw(rawCommand)) {
+                continue;
+            }
+            if (runsOncePerReward(rawCommand)) {
+                // A console command without %player% (for example "say" or "give @a") would
+                // otherwise run once for every online player.
+                executeRewardCommand(plugin, targets.getFirst(), rawCommand);
+                continue;
+            }
+            for (Player target : targets) {
                 executeRewardCommand(plugin, target, rawCommand);
             }
         }
+    }
+
+    /**
+     * Sound and particle entries and commands with {@code %player%} apply to each target player;
+     * any other console command is dispatched once per reward.
+     */
+    static boolean runsOncePerReward(String rawCommand) {
+        String command = rawCommand.trim();
+        return !command.startsWith("api:") && !command.contains("%player%");
     }
 
     private static boolean isLegacyStageCompleteTellraw(String rawCommand) {

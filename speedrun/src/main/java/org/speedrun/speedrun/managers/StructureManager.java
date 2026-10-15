@@ -8,6 +8,8 @@ import org.bukkit.World;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.generator.structure.GeneratedStructure;
 import org.bukkit.generator.structure.Structure;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -33,7 +35,9 @@ public class StructureManager {
     // Stores locations of all tracked structures. Using LinkedHashMap to maintain insertion order.
     private final Map<String, Location> foundLocations = new LinkedHashMap<>();
     private final Map<String, Location> hiddenLodestones = new LinkedHashMap<>();
-    private final Map<String, Material> hiddenLodestonePreviousBlocks = new HashMap<>();
+    private final Map<String, BlockData> hiddenLodestonePreviousBlocks = new HashMap<>();
+    /** Released lodestones in unloaded chunks, restored when their chunk loads. */
+    private final Map<Location, BlockData> pendingLodestoneRestores = new HashMap<>();
     private final Set<String> disabledSearches = new HashSet<>();
     private final Set<String> liveScannedChunks = new HashSet<>();
     private final Set<String> approximateStructures = new HashSet<>();
@@ -93,6 +97,60 @@ public class StructureManager {
         foundLocations.put("FORTRESS", null);
         foundLocations.put("BASTION", null);
         foundLocations.put("END_PORTAL", null);
+    }
+
+    /** Writes found locations and search state for {@link RunStateManager}. */
+    void writeState(ConfigurationSection section) {
+        foundLocations.forEach((key, location) -> section.set("found." + key, RunStateManager.encode(location)));
+        section.set("approximate", new ArrayList<>(approximateStructures));
+        section.set("disabled-searches", new ArrayList<>(disabledSearches));
+        section.set("hidden", new ArrayList<>(hiddenStructures));
+        section.set("overworld-portal", RunStateManager.encode(overworldPortalLocation));
+        section.set("nether-portal", RunStateManager.encode(netherPortalLocation));
+        section.set("predicted-end-portal", RunStateManager.encode(predictedEndPortalLocation));
+        section.set("predicted-end-portal-approximate", predictedEndPortalApproximate);
+        section.set("village-search-failed", villageSearchFailed);
+    }
+
+    /**
+     * Restores state written by {@link #writeState} after {@link #reset()}. Found locations get
+     * their hidden lodestones and fire {@link StructureFoundEvent} again, so compass destinations
+     * and light beams come back, but nothing is announced and no rewards are given.
+     */
+    void restoreState(ConfigurationSection section) {
+        if (section == null) {
+            return;
+        }
+        ConfigurationSection found = section.getConfigurationSection("found");
+        if (found != null) {
+            for (String key : found.getKeys(false)) {
+                foundLocations.put(key, RunStateManager.decode(found.getString(key)));
+            }
+        }
+        approximateStructures.addAll(RunStateManager.strings(section, "approximate"));
+        disabledSearches.addAll(RunStateManager.strings(section, "disabled-searches"));
+        hiddenStructures.addAll(RunStateManager.strings(section, "hidden"));
+        overworldPortalLocation = RunStateManager.decode(section.getString("overworld-portal"));
+        netherPortalLocation = RunStateManager.decode(section.getString("nether-portal"));
+        predictedEndPortalLocation = RunStateManager.decode(section.getString("predicted-end-portal"));
+        predictedEndPortalApproximate = predictedEndPortalLocation != null
+                && section.getBoolean("predicted-end-portal-approximate");
+        villageSearchFailed = section.getBoolean("village-search-failed");
+
+        for (Map.Entry<String, Location> entry : new ArrayList<>(foundLocations.entrySet())) {
+            Location location = entry.getValue();
+            if (location == null || "NETHER_PORTAL".equals(entry.getKey())) {
+                continue;
+            }
+            registerHiddenLodestone(entry.getKey(), location);
+            Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, entry.getKey(), location));
+        }
+        for (Location portal : Arrays.asList(overworldPortalLocation, netherPortalLocation)) {
+            if (portal != null) {
+                registerHiddenLodestone("NETHER_PORTAL", portal);
+                Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", portal));
+            }
+        }
     }
 
     public void preScanRequiredStructures() {
@@ -815,7 +873,7 @@ public class StructureManager {
         String playerName = (player != null) ? player.getName() : "GAME_WORLD";
         plugin.getGameManager().getLogger().info("Nether Portal lit by " + playerName + " in " + world.name() + " at " + LocationUtil.format(loc));
 
-        boolean completedActiveStructureTask = plugin.getTaskManager().onStructureFound("NETHER_PORTAL_OVERWORLD", player);
+        boolean completedActiveStructureTask = plugin.getTaskManager().onStructureFound(portalTaskKey(world), player);
         MessageUtil.broadcast(plugin.getConfigManager().getFormatted("messages.portal-lit", "%player%", playerName));
         if (!completedActiveStructureTask) {
             plugin.getConfigManager().executeRewardCommands("on-task-complete", null);
@@ -839,6 +897,7 @@ public class StructureManager {
             registerHiddenLodestone("NETHER_PORTAL", exitLoc);
             Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Nether-side) found at " + LocationUtil.format(exitLoc));
+            plugin.getTaskManager().onStructureFound(portalTaskKey(exitWorld), null);
             plugin.getTraceLogger().trace("portal", "portal_exit_found",
                     "environment", exitWorld,
                     "location", exitLoc,
@@ -851,6 +910,7 @@ public class StructureManager {
             registerHiddenLodestone("NETHER_PORTAL", exitLoc);
             Bukkit.getPluginManager().callEvent(new StructureFoundEvent(null, "NETHER_PORTAL", exitLoc));
             plugin.getGameManager().getLogger().info("Nether Portal exit (Overworld-side) found at " + LocationUtil.format(exitLoc));
+            plugin.getTaskManager().onStructureFound(portalTaskKey(exitWorld), null);
             plugin.getTraceLogger().trace("portal", "portal_exit_found",
                     "environment", exitWorld,
                     "location", exitLoc,
@@ -859,6 +919,11 @@ public class StructureManager {
                     "hidden_lodestone", getHiddenLodestone("NETHER_PORTAL", exitLoc));
         }
         Bukkit.getOnlinePlayers().forEach(p -> plugin.getScoreboardManager().updateScoreboard(p));
+    }
+
+    /** Task key of one portal side: STRUCTURE_NETHER_PORTAL_OVERWORLD or _NETHER. */
+    static String portalTaskKey(World.Environment environment) {
+        return environment == World.Environment.NETHER ? "NETHER_PORTAL_NETHER" : "NETHER_PORTAL_OVERWORLD";
     }
 
     /**
@@ -1139,16 +1204,21 @@ public class StructureManager {
             return existing;
         }
 
-        if (hiddenLodestones.containsKey(storageKey) && !clearHiddenLodestoneStorageKey(storageKey)) {
-            plugin.getTraceLogger().trace("lodestone", "placement_skipped_clear_failed",
-                    "key", key,
-                    "storage_key", storageKey,
-                    "target", structureLocation,
-                    "lodestone", lodestoneLocation);
-            return null;
+        if (hiddenLodestones.containsKey(storageKey)) {
+            clearHiddenLodestoneStorageKey(storageKey);
         }
         Block block = lodestoneLocation.getBlock();
-        hiddenLodestonePreviousBlocks.put(storageKey, block.getType());
+        // Several keys (for example two deaths in one column) can share a lodestone block; they
+        // all remember the block that was there before the first lodestone.
+        BlockData previous = sharedPreviousBlock(storageKey, lodestoneLocation);
+        if (previous == null) {
+            previous = block.getBlockData();
+        }
+        pendingLodestoneRestores.remove(lodestoneLocation);
+        hiddenLodestonePreviousBlocks.put(storageKey, previous);
+        if (plugin.getWorldChangeJournal() != null) {
+            plugin.getWorldChangeJournal().record(block, Material.LODESTONE);
+        }
         block.setType(Material.LODESTONE, false);
         block.setMetadata(HIDDEN_LODESTONE_METADATA, new FixedMetadataValue(plugin, true));
         hiddenLodestones.put(storageKey, lodestoneLocation);
@@ -1157,8 +1227,20 @@ public class StructureManager {
                 "storage_key", storageKey,
                 "target", structureLocation,
                 "lodestone", lodestoneLocation,
-                "previous_block", hiddenLodestonePreviousBlocks.get(storageKey));
+                "previous_block", previous.getMaterial());
         return lodestoneLocation;
+    }
+
+    private BlockData sharedPreviousBlock(String storageKey, Location lodestoneLocation) {
+        for (Map.Entry<String, Location> entry : hiddenLodestones.entrySet()) {
+            if (!entry.getKey().equals(storageKey) && lodestoneLocation.equals(entry.getValue())) {
+                BlockData shared = hiddenLodestonePreviousBlocks.get(entry.getKey());
+                if (shared != null) {
+                    return shared;
+                }
+            }
+        }
+        return pendingLodestoneRestores.get(lodestoneLocation);
     }
 
     private void clearHiddenLodestone(String key) {
@@ -1173,43 +1255,88 @@ public class StructureManager {
         clearHiddenLodestoneStorageKey(key);
     }
 
-    private boolean clearHiddenLodestoneStorageKey(String storageKey) {
-        Location lodestoneLocation = hiddenLodestones.get(storageKey);
-        Material previousType = hiddenLodestonePreviousBlocks.get(storageKey);
+    /**
+     * Releases one lodestone key. The block is restored once no other key uses it. A block in an
+     * unloaded chunk is restored when its chunk loads again (or on reset, stop, and shutdown), so
+     * a new lodestone can always be placed without loading the old chunk on the server thread.
+     */
+    private void clearHiddenLodestoneStorageKey(String storageKey) {
+        Location lodestoneLocation = hiddenLodestones.remove(storageKey);
+        BlockData previous = hiddenLodestonePreviousBlocks.remove(storageKey);
         if (lodestoneLocation == null || lodestoneLocation.getWorld() == null) {
             plugin.getTraceLogger().trace("lodestone", "clear_skipped",
                     "storage_key", storageKey,
                     "reason", "not_registered");
-            return true;
+            return;
+        }
+        if (hiddenLodestones.containsValue(lodestoneLocation)) {
+            plugin.getTraceLogger().trace("lodestone", "clear_skipped",
+                    "storage_key", storageKey,
+                    "lodestone", lodestoneLocation,
+                    "reason", "shared_with_other_key");
+            return;
         }
 
         if (!lodestoneLocation.getWorld().isChunkLoaded(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4)) {
             if (!forceChunkLoadsOnClear) {
-                plugin.getTraceLogger().trace("lodestone", "clear_skipped",
+                pendingLodestoneRestores.put(lodestoneLocation, previous);
+                plugin.getTraceLogger().trace("lodestone", "clear_deferred",
                         "storage_key", storageKey,
                         "lodestone", lodestoneLocation,
                         "reason", "chunk_unloaded");
-                return false;
+                return;
             }
-            // Reset and shutdown must not leave lodestones behind; there is at most one per tracked location.
+            // Reset, stop, and shutdown must not leave lodestones behind; there are only a few.
             lodestoneLocation.getWorld().getChunkAt(lodestoneLocation.getBlockX() >> 4, lodestoneLocation.getBlockZ() >> 4);
         }
+        restoreLodestoneBlock(lodestoneLocation, previous);
+        plugin.getTraceLogger().trace("lodestone", "cleared",
+                "storage_key", storageKey,
+                "lodestone", lodestoneLocation,
+                "restored_block", previous != null ? previous.getMaterial() : null);
+    }
 
-        hiddenLodestones.remove(storageKey);
-        hiddenLodestonePreviousBlocks.remove(storageKey);
+    private void restoreLodestoneBlock(Location lodestoneLocation, BlockData previous) {
+        pendingLodestoneRestores.remove(lodestoneLocation);
         Block block = lodestoneLocation.getBlock();
         if (block.hasMetadata(HIDDEN_LODESTONE_METADATA)) {
             block.removeMetadata(HIDDEN_LODESTONE_METADATA, plugin);
         }
-
-        if (previousType != null) {
-            block.setType(previousType, false);
+        if (previous != null && block.getType() == Material.LODESTONE) {
+            block.setBlockData(previous, false);
         }
-        plugin.getTraceLogger().trace("lodestone", "cleared",
-                "storage_key", storageKey,
-                "lodestone", lodestoneLocation,
-                "restored_block", previousType);
-        return true;
+        if (plugin.getWorldChangeJournal() != null) {
+            plugin.getWorldChangeJournal().forget(lodestoneLocation);
+        }
+    }
+
+    /** Restores lodestones whose release was deferred because their chunk was not loaded. */
+    public void onChunkLoad(Chunk chunk) {
+        if (pendingLodestoneRestores.isEmpty()) {
+            return;
+        }
+        World world = chunk.getWorld();
+        List<Location> inChunk = new ArrayList<>();
+        for (Location location : pendingLodestoneRestores.keySet()) {
+            if (world.equals(location.getWorld())
+                    && location.getBlockX() >> 4 == chunk.getX()
+                    && location.getBlockZ() >> 4 == chunk.getZ()) {
+                inChunk.add(location);
+            }
+        }
+        if (inChunk.isEmpty()) {
+            return;
+        }
+        // Change blocks one tick later instead of inside the chunk load event.
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (Location location : inChunk) {
+                if (pendingLodestoneRestores.containsKey(location)
+                        && !hiddenLodestones.containsValue(location)
+                        && world.isChunkLoaded(chunk.getX(), chunk.getZ())) {
+                    restoreLodestoneBlock(location, pendingLodestoneRestores.get(location));
+                }
+            }
+        });
     }
 
     private void clearAllHiddenLodestones() {
@@ -1218,9 +1345,22 @@ public class StructureManager {
             for (String key : new ArrayList<>(hiddenLodestones.keySet())) {
                 clearHiddenLodestoneStorageKey(key);
             }
+            for (Map.Entry<Location, BlockData> pending : new ArrayList<>(pendingLodestoneRestores.entrySet())) {
+                Location location = pending.getKey();
+                if (location.getWorld() != null) {
+                    location.getWorld().getChunkAt(location.getBlockX() >> 4, location.getBlockZ() >> 4);
+                    restoreLodestoneBlock(location, pending.getValue());
+                }
+            }
+            pendingLodestoneRestores.clear();
         } finally {
             forceChunkLoadsOnClear = false;
         }
+    }
+
+    /** Removes all hidden lodestones from the world, for example when a run is stopped. */
+    public void clearHiddenLodestones() {
+        clearAllHiddenLodestones();
     }
 
     /** Removes every world change of the structure tracker. Called on plugin disable. */

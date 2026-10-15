@@ -61,6 +61,9 @@
     "conflict": "配置已在其他地方被修改（其他标签页、手动编辑或 /run reload）。请重新加载以查看当前值；你未保存的修改会被保留。",
     "reloadKeepEdits": "重新加载并保留我的修改",
     "requestFailed": "请求失败：{message}",
+    "invalidNumber": "请输入数字。",
+    "menu": "菜单",
+    "sections": "分区",
     "networkError": "无法连接到服务器。它正在运行吗？",
     "yes": "开",
     "no": "关",
@@ -269,6 +272,10 @@
     "settings.pause-when-empty": {
       "label": "服务器无人时暂停",
       "help": "无人在线时停止计时器，有玩家回来时继续。"
+    },
+    "settings.resume-after-restart": {
+      "label": "重启后继续速通",
+      "help": "服务器停止或崩溃时保留进行中的速通。重启后速通处于暂停状态，第一位玩家加入时继续；停机时间不计入。"
     },
     "settings.start-on-first-join": {
       "label": "首位玩家加入时开始",

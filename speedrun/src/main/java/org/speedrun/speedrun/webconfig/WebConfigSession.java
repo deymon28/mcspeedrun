@@ -184,11 +184,15 @@ final class WebConfigSession {
         return false;
     }
 
-    private static void restore(YamlConfiguration target, FileConfiguration source, String path) {
+    static void restore(YamlConfiguration target, FileConfiguration source, String path) {
         Object value = source.get(path);
-        target.set(path, value instanceof org.bukkit.configuration.ConfigurationSection section
-                ? WebConfigSchema.jsonToConfigValue(WebConfigSchema.sectionToJson(section))
-                : ConfigFileStore.copyValue(value));
+        target.set(path, null);
+        if (value instanceof org.bukkit.configuration.ConfigurationSection section) {
+            // set(path, Map) would store a raw map that getConfigurationSection() cannot read.
+            ConfigFileStore.copySection(section, target.createSection(path));
+        } else if (value != null) {
+            target.set(path, ConfigFileStore.copyValue(value));
+        }
     }
 
     /** Reward lines that would run console commands and are not already present in the saved file. */

@@ -61,6 +61,9 @@
     "conflict": "A configuração foi alterada em outro lugar (outra aba, edição manual ou /run reload). Recarregue para ver os valores atuais; suas alterações não salvas serão mantidas.",
     "reloadKeepEdits": "Recarregar e manter minhas alterações",
     "requestFailed": "A solicitação falhou: {message}",
+    "invalidNumber": "Digite um número.",
+    "menu": "Menu",
+    "sections": "Seções",
     "networkError": "Não foi possível acessar o servidor. Ele está em execução?",
     "yes": "Ligado",
     "no": "Desligado",
@@ -269,6 +272,10 @@
     "settings.pause-when-empty": {
       "label": "Pausar quando o servidor está vazio",
       "help": "Para o cronômetro enquanto ninguém estiver online e continua quando um jogador volta."
+    },
+    "settings.resume-after-restart": {
+      "label": "Retomar partidas após reiniciar",
+      "help": "Mantém a partida ativa quando o servidor para ou trava. Ela volta pausada e continua quando o primeiro jogador entra; o tempo parado não conta."
     },
     "settings.start-on-first-join": {
       "label": "Iniciar quando o primeiro jogador entrar",

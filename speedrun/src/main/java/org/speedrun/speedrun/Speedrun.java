@@ -6,6 +6,7 @@ import org.speedrun.speedrun.platform.PlatformDetector;
 import org.speedrun.speedrun.platform.ServerPlatform;
 import org.speedrun.speedrun.utils.MessageUtil;
 import org.speedrun.speedrun.utils.TabCoordinateDisplay;
+import org.speedrun.speedrun.utils.WorldChangeJournal;
 import org.speedrun.speedrun.webconfig.WebConfigManager;
 
 import java.io.File;
@@ -38,6 +39,8 @@ public final class Speedrun extends JavaPlugin {
     private ServerPlatform platform;
     private RecordsManager recordsManager;
     private AdminNotices adminNotices;
+    private WorldChangeJournal worldChangeJournal;
+    private RunStateManager runStateManager;
 
     private final TabCoordinateDisplay tabCoords = new TabCoordinateDisplay(this);
 
@@ -54,6 +57,9 @@ public final class Speedrun extends JavaPlugin {
         this.platform = new ServerPlatform(this, PlatformDetector.detect(getLogger()));
         MessageUtil.setPlatform(platform);
         getLogger().info("Server platform: " + platform.describe());
+        // Undo temporary blocks of a previous session that crashed, before anything new is placed.
+        this.worldChangeJournal = new WorldChangeJournal(this);
+        this.worldChangeJournal.restoreLeftovers();
         // Initialize managers in the correct order.
         this.configManager = new ConfigManager(this);           // Must be first, as others depend on it.
         this.traceLogger = new TraceLogger(this);
@@ -64,6 +70,7 @@ public final class Speedrun extends JavaPlugin {
         this.taskManager = new TaskManager(this);               // Loads task data from the config.
         this.structureManager = new StructureManager(this);     // Handles structure detection logic.
         this.gameManager = new GameManager(this);               // Contains the core game loop and state.
+        this.runStateManager = new RunStateManager(this);
         this.scoreboardManager = new ScoreboardManager(this);   // Manages the player-facing UI.
 
         this.casualGameModeManager = new CasualGameModeManager(this, gameManager);
@@ -87,6 +94,11 @@ public final class Speedrun extends JavaPlugin {
 
         this.webConfigManager = new WebConfigManager(this);
         this.webConfigManager.start();
+
+        // Continue a run saved before a restart, or start one now if no join is awaited.
+        if (!runStateManager.restoreOnStartup() && !configManager.isStartOnFirstJoin()) {
+            gameManager.startRun();
+        }
 
         getLogger().info("Speedrun plugin has been enabled.");
     }
@@ -140,7 +152,16 @@ public final class Speedrun extends JavaPlugin {
     public void onDisable() {
         // Gracefully stop any ongoing speedrun to save logs correctly.
         if (gameManager != null) {
-            gameManager.stopRun(false);
+            if (runStateManager != null && gameManager.isRunning() && configManager.isResumeAfterRestartEnabled()) {
+                // Keep the run for the next start instead of ending it.
+                runStateManager.saveNow();
+                gameManager.suspendRun();
+            } else {
+                gameManager.stopRun(false);
+            }
+        }
+        if (runStateManager != null) {
+            runStateManager.close();
         }
         if (casualGameModeManager != null) {
             casualGameModeManager.disable();
@@ -154,8 +175,17 @@ public final class Speedrun extends JavaPlugin {
         }
 
         tabCoords.disable();
+        if (scoreboardManager != null) {
+            scoreboardManager.shutdown();
+        }
         if (webConfigManager != null) {
             webConfigManager.stop();
+        }
+        if (worldChangeJournal != null) {
+            worldChangeJournal.close();
+        }
+        if (recordsManager != null) {
+            recordsManager.close();
         }
         if (traceLogger != null) {
             traceLogger.trace("lifecycle", "plugin_disabled");
@@ -234,6 +264,16 @@ public final class Speedrun extends JavaPlugin {
 
     public AdminNotices getAdminNotices() {
         return adminNotices;
+    }
+
+    /** Saved state of the active run; null before enable and in unit tests. */
+    public RunStateManager getRunStateManager() {
+        return runStateManager;
+    }
+
+    /** Journal of temporary world blocks; null before enable and in unit tests. */
+    public WorldChangeJournal getWorldChangeJournal() {
+        return worldChangeJournal;
     }
 
     /** The server software boundary; available for the whole enabled lifetime of the plugin. */

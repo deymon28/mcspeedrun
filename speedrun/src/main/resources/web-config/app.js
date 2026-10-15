@@ -31,6 +31,8 @@
   let fallback = {};
   let lastFieldStates = {};
   let busy = false;
+  /** Paths of number inputs that currently hold an invalid value; saving is blocked meanwhile. */
+  const invalidFields = new Set();
 
   /* ---------- storage helpers (storage can be unavailable) ---------- */
   function store(kind, key, value) {
@@ -111,6 +113,9 @@
     document.querySelectorAll("[data-i18n-placeholder]").forEach(node => {
       node.placeholder = t(node.dataset.i18nPlaceholder);
     });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach(node => {
+      node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel));
+    });
   }
   function initialLanguage() {
     const saved = recall("localStorage", "speedrunUiLanguage");
@@ -163,7 +168,7 @@
   function clearMessages() { el("messages").replaceChildren(); }
   function showMessage(kind, text, action) {
     if (!text) return;
-    const item = node("div", { class: `message ${kind}` }, node("span", { text }));
+    const item = node("div", { class: `message ${kind}`, role: kind === "error" ? "alert" : null }, node("span", { text }));
     if (action) item.append(node("button", { type: "button", class: "small", text: action.label, onclick: action.run }));
     el("messages").append(item);
   }
@@ -314,6 +319,7 @@
   }
 
   function renderEditor() {
+    invalidFields.clear(); // inputs are rebuilt from valid state values
     const title = el("section-title");
     const summary = el("section-summary");
     const filterBar = el("filter-bar");
@@ -399,7 +405,7 @@
     const value = state.value(field.path);
     const defaultValue = state.defaults[field.path] !== undefined ? state.defaults[field.path] : field.defaultValue;
     const id = `field-${field.path.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-    const errorNode = node("div", { class: "field-error", hidden: true });
+    const errorNode = node("div", { class: "field-error", id: `${id}-error`, hidden: true });
 
     const meta = node("div", { class: "field-meta" },
       badge(t(`ui.impact.${field.impact}`), field.impact === "INSTANT" ? "ok" : field.impact === "STARTUP_ONLY" ? "info" : "warn"),
@@ -440,7 +446,7 @@
   }
 
   function inputFor(field, value, id, errorNode) {
-    const described = `${id}-help`;
+    const described = `${id}-help ${id}-error`;
     if (field.type === "BOOLEAN") {
       const input = node("input", { type: "checkbox", id, "aria-describedby": described });
       input.checked = Boolean(value);
@@ -473,14 +479,20 @@
     input.addEventListener("input", () => {
       if (!numeric) { updateField(field, input.value, false); return; }
       const number = Number(input.value);
-      const problem = input.value === "" || !Number.isFinite(number) ? t("ui.requestFailed", { message: "NaN" })
+      const problem = input.value === "" || !Number.isFinite(number) ? t("ui.invalidNumber")
         : field.type === "INTEGER" && !Number.isInteger(number) ? `${fieldText(field, "label")}: 1, 2, 3…`
         : field.min !== undefined && number < field.min ? `≥ ${field.min}`
         : field.max !== undefined && number > field.max ? `≤ ${field.max}` : "";
       errorNode.hidden = !problem;
       errorNode.textContent = problem;
       input.setAttribute("aria-invalid", problem ? "true" : "false");
-      if (!problem) updateField(field, number, false);
+      if (problem) {
+        invalidFields.add(field.path);
+        renderReview();
+      } else {
+        invalidFields.delete(field.path);
+        updateField(field, number, false);
+      }
     });
     return input;
   }
@@ -570,7 +582,17 @@
   /* ---------- progression ---------- */
   function renderProgressionEditor() {
     const progression = copy(state.value("progression") || {});
-    const commit = () => { state.set("progression", progression); renderTabs(); renderReview(); };
+    const commit = () => {
+      // Settings under progression.settings are edited as separate fields after this copy was
+      // taken; keep their current values instead of the stale copy.
+      const current = state.value("progression");
+      if (current && typeof current === "object" && current.settings !== undefined) {
+        progression.settings = copy(current.settings);
+      }
+      state.set("progression", progression);
+      renderTabs();
+      renderReview();
+    };
     const wrap = node("section", { class: "structured" }, node("p", { class: "structured-intro", text: t("ui.progression.intro") }));
     const stageKeys = Object.keys(progression).filter(key => key !== "settings").sort();
 
@@ -740,9 +762,10 @@
         node("button", { type: "button", class: "small ghost", text: t("ui.revert"), onclick: () => { state.revert(path); render(); } }));
     }));
     el("preview-json").textContent = JSON.stringify(patch, null, 2);
-    el("save-btn").disabled = !dirty || busy;
-    el("save-apply-btn").disabled = !dirty || busy;
-    el("apply-btn").disabled = (!dirty && !pendingChanges.length) || busy;
+    const blocked = invalidFields.size > 0;
+    el("save-btn").disabled = !dirty || busy || blocked;
+    el("save-apply-btn").disabled = !dirty || busy || blocked;
+    el("apply-btn").disabled = (!dirty && !pendingChanges.length) || busy || blocked;
     el("discard-btn").disabled = !dirty || busy;
     el("validate-btn").disabled = busy;
   }

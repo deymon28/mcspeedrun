@@ -2,8 +2,11 @@ package org.speedrun.speedrun.casualGameMode;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Beacon;
 import org.bukkit.block.Block;
+import org.bukkit.block.TileState;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -16,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Manages configurable casual-mode structure waypoints.
@@ -37,6 +41,8 @@ public class CasualModeStructureManager {
     private final Speedrun plugin;
     private final Map<String, Waypoint> waypoints = new LinkedHashMap<>();
     private BukkitTask refreshTask;
+    /** Incremented by clearWaypoints() so waypoint work queued before a stop or reset is dropped. */
+    private long generation;
 
     public CasualModeStructureManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -56,26 +62,81 @@ public class CasualModeStructureManager {
         if (structureLocation == null || structureLocation.getWorld() == null) {
             return;
         }
+        // Light beams are an Overworld feature: in the Nether the highest block is the bedrock
+        // roof, so a marker would float above the ceiling where nobody below can see it.
+        if (structureLocation.getWorld().getEnvironment() != World.Environment.NORMAL) {
+            return;
+        }
 
+        long expectedGeneration = generation;
         new BukkitRunnable() {
             @Override
             public void run() {
-                Waypoint oldWaypoint = waypoints.remove(structureKey);
-                if (oldWaypoint != null) {
-                    restoreBlocks(oldWaypoint.blocks());
-                }
-
-                Waypoint waypoint = createWaypoint(structureLocation, structureKey);
-                waypoints.put(structureKey, waypoint);
-                startRefreshTask();
+                placeWhenLoaded(structureLocation, structureKey, expectedGeneration, true);
             }
         }.runTask(plugin);
+    }
+
+    /**
+     * Places the waypoint once the chunks around its marker are loaded. Missing chunks are
+     * requested through the platform queue instead of being loaded on the server thread here.
+     */
+    private void placeWhenLoaded(Location structureLocation, String structureKey, long expectedGeneration,
+                                 boolean mayLoadChunks) {
+        if (expectedGeneration != generation || !isRunActive()) {
+            return;
+        }
+        List<long[]> missing = missingChunks(structureLocation);
+        if (!missing.isEmpty()) {
+            if (!mayLoadChunks || plugin.getPlatform() == null) {
+                return;
+            }
+            World world = structureLocation.getWorld();
+            CompletableFuture<?>[] loads = missing.stream()
+                    .map(chunk -> plugin.getPlatform().loadChunk(world, (int) chunk[0], (int) chunk[1]))
+                    .toArray(CompletableFuture<?>[]::new);
+            CompletableFuture.allOf(loads).whenComplete((ignored, error) -> plugin.getPlatform().executeSync(() -> {
+                if (error == null) {
+                    placeWhenLoaded(structureLocation, structureKey, expectedGeneration, false);
+                }
+            }));
+            return;
+        }
+
+        Waypoint oldWaypoint = waypoints.remove(structureKey);
+        if (oldWaypoint != null) {
+            restoreBlocks(oldWaypoint.blocks());
+        }
+        waypoints.put(structureKey, createWaypoint(structureLocation, structureKey, true));
+        startRefreshTask();
+    }
+
+    private boolean isRunActive() {
+        return plugin.getGameManager() == null || plugin.getGameManager().isRunning();
+    }
+
+    /** Chunks (x, z) around a marker that are not loaded; the search area of beacon footprints included. */
+    private List<long[]> missingChunks(Location structureLocation) {
+        World world = structureLocation.getWorld();
+        int markerX = structureLocation.getBlockX();
+        int markerZ = structureLocation.getBlockZ() + plugin.getConfigManager().getWaypointOffsetBlocks();
+        int reach = SAFE_BEACON_SEARCH_RADIUS + 1;
+        List<long[]> missing = new ArrayList<>();
+        for (int chunkX = (markerX - reach) >> 4; chunkX <= (markerX + reach) >> 4; chunkX++) {
+            for (int chunkZ = (markerZ - reach) >> 4; chunkZ <= (markerZ + reach) >> 4; chunkZ++) {
+                if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                    missing.add(new long[]{chunkX, chunkZ});
+                }
+            }
+        }
+        return missing;
     }
 
     /**
      * Removes all active waypoint blocks and stops the refresh task.
      */
     public void clearWaypoints() {
+        generation++;
         if (refreshTask != null) {
             refreshTask.cancel();
             refreshTask = null;
@@ -103,8 +164,12 @@ public class CasualModeStructureManager {
 
                 for (Map.Entry<String, Waypoint> entry : new ArrayList<>(waypoints.entrySet())) {
                     Waypoint oldWaypoint = entry.getValue();
+                    if (!missingChunks(oldWaypoint.structureLocation()).isEmpty()) {
+                        continue; // nobody is near; refresh once the area is loaded again
+                    }
                     restoreBlocks(oldWaypoint.blocks());
-                    waypoints.put(entry.getKey(), createWaypoint(oldWaypoint.structureLocation(), entry.getKey()));
+                    // Refreshes follow terrain changes silently; the sound plays only on creation.
+                    waypoints.put(entry.getKey(), createWaypoint(oldWaypoint.structureLocation(), entry.getKey(), false));
                 }
             }
         }.runTaskTimer(plugin,
@@ -112,14 +177,16 @@ public class CasualModeStructureManager {
                 plugin.getConfigManager().getWaypointUpdateIntervalTicks());
     }
 
-    private Waypoint createWaypoint(Location structureLocation, String structureKey) {
+    private Waypoint createWaypoint(Location structureLocation, String structureKey, boolean announce) {
         Location markerLocation = resolveMarkerLocation(structureLocation);
         List<MarkerBlock> markerBlocks = switch (plugin.getConfigManager().getWaypointType()) {
             case END_GATEWAY -> createEndGatewayWaypoint(markerLocation);
             case BEACON -> createBeaconWaypoint(markerLocation, structureKey);
         };
 
-        RewardUtil.playWaypointSound(markerLocation);
+        if (announce) {
+            RewardUtil.playWaypointSound(markerLocation);
+        }
         return new Waypoint(structureLocation.clone(), markerBlocks);
     }
 
@@ -203,7 +270,8 @@ public class CasualModeStructureManager {
     }
 
     private boolean canReplaceForWaypoint(Block block) {
-        return block.hasMetadata(WAYPOINT_METADATA) || SAFE_REPLACEABLE_BLOCKS.contains(block.getType());
+        // Blocks of another waypoint are never taken over; restoring both would leave debris.
+        return !block.hasMetadata(WAYPOINT_METADATA) && SAFE_REPLACEABLE_BLOCKS.contains(block.getType());
     }
 
     private List<MarkerBlock> createEndGatewayWaypoint(Location markerLoc) {
@@ -214,7 +282,13 @@ public class CasualModeStructureManager {
 
     private Block placeMarkerBlock(Location location, Material material, List<MarkerBlock> placedBlocks) {
         Block block = location.getBlock();
-        placedBlocks.add(new MarkerBlock(block.getLocation(), block.getType()));
+        if (block.hasMetadata(WAYPOINT_METADATA) || block.getState() instanceof TileState) {
+            return block; // belongs to another waypoint, or holds contents that a restore would lose
+        }
+        placedBlocks.add(new MarkerBlock(block.getLocation(), block.getBlockData()));
+        if (plugin.getWorldChangeJournal() != null) {
+            plugin.getWorldChangeJournal().record(block, material);
+        }
         block.setType(material, false);
         block.setMetadata(WAYPOINT_METADATA, new FixedMetadataValue(plugin, true));
         return block;
@@ -231,7 +305,10 @@ public class CasualModeStructureManager {
             if (block.hasMetadata(WAYPOINT_METADATA)) {
                 block.removeMetadata(WAYPOINT_METADATA, plugin);
             }
-            block.setType(markerBlock.previousType(), false);
+            block.setBlockData(markerBlock.previousData(), false);
+            if (plugin.getWorldChangeJournal() != null) {
+                plugin.getWorldChangeJournal().forget(location);
+            }
         }
     }
 
@@ -269,6 +346,6 @@ public class CasualModeStructureManager {
     private record Waypoint(Location structureLocation, List<MarkerBlock> blocks) {
     }
 
-    private record MarkerBlock(Location location, Material previousType) {
+    private record MarkerBlock(Location location, BlockData previousData) {
     }
 }

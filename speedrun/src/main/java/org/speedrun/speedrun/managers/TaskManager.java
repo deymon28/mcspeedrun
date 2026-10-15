@@ -2,6 +2,7 @@ package org.speedrun.speedrun.managers;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -38,6 +39,8 @@ public class TaskManager {
     private final Map<UUID, Map<Material, Integer>> cumulativePlayerContributions = new ConcurrentHashMap<>();
     private final Set<Material> allLogMaterials = new HashSet<>();
     private final Set<Material> allCookedFoodMaterials = new HashSet<>();
+    /** Empty stages already reported in the console, so reloads do not repeat the notice. */
+    private final Set<String> reportedEmptyStages = new HashSet<>();
 
     public TaskManager(Speedrun plugin) {
         this.plugin = plugin;
@@ -87,6 +90,13 @@ public class TaskManager {
                 }
             }
 
+            if (stageTasks.isEmpty()) {
+                // A stage without tasks would complete instantly and announce a meaningless split.
+                if (reportedEmptyStages.add(stageKey)) {
+                    plugin.getLogger().info("Stage '" + stageKey + "' has no tasks and is skipped.");
+                }
+                continue;
+            }
             String displayName = plugin.getConfigManager().getLangString(
                     "stages." + stageKey,
                     stageSection.getString("display-name", stageKey));
@@ -125,16 +135,26 @@ public class TaskManager {
         allTasks.forEach(task -> task.scale(playerCount, multiplier));
     }
 
-    public void skipStage() {
+    /**
+     * Completes the current stage for an administrator.
+     *
+     * @return false when there is no active run or no stage left, in which case nothing changes
+     */
+    public boolean skipStage() {
+        if (isProgressionComplete() || plugin.getGameManager() == null || !plugin.getGameManager().isRunning()) {
+            return false;
+        }
         if (plugin.getRecordsManager() != null) {
             plugin.getRecordsManager().markIneligible();
         }
         getTasksForCurrentProgressionStage().forEach(task -> task.forceComplete(plugin));
         advanceCompletedStages(true);
+        return true;
     }
 
     public void updateItemTasks() {
-        if (plugin.getGameManager().isPaused() || isProgressionComplete()) {
+        GameManager gameManager = plugin.getGameManager();
+        if (gameManager == null || !gameManager.isRunning() || gameManager.isPaused() || isProgressionComplete()) {
             return;
         }
 
@@ -150,23 +170,33 @@ public class TaskManager {
     }
 
     public void trackItemPickup(Player player, ItemStack item) {
-        if (item == null || plugin.getConfigManager().getTrackingMode() != ConfigManager.TrackingMode.CUMULATIVE) {
-            return;
+        if (item != null) {
+            trackItemCollected(player, item.getType(), item.getAmount());
         }
-        cumulativePlayerContributions.computeIfAbsent(player.getUniqueId(), ignored -> new HashMap<>())
-                .merge(item.getType(), item.getAmount(), Integer::sum);
     }
 
     public void trackItemCraft(Player player, ItemStack item) {
-        if (item == null || plugin.getConfigManager().getTrackingMode() != ConfigManager.TrackingMode.CUMULATIVE) {
+        if (item != null) {
+            trackItemCollected(player, item.getType(), item.getAmount());
+        }
+    }
+
+    /** Adds collected (picked up or crafted) items to a player's CUMULATIVE contribution. */
+    public void trackItemCollected(Player player, Material material, int amount) {
+        if (amount <= 0 || plugin.getConfigManager().getTrackingMode() != ConfigManager.TrackingMode.CUMULATIVE) {
             return;
         }
-        cumulativePlayerContributions.computeIfAbsent(player.getUniqueId(), ignored -> new HashMap<>())
-                .merge(item.getType(), item.getAmount(), Integer::sum);
+        cumulativePlayerContributions.computeIfAbsent(player.getUniqueId(), ignored -> new ConcurrentHashMap<>())
+                .merge(material, amount, Integer::sum);
     }
 
     public boolean onStructureFound(String structureKey, Player player) {
-        discoveredStructures.add(structureKey.toUpperCase(Locale.ROOT));
+        String normalized = structureKey.toUpperCase(Locale.ROOT);
+        discoveredStructures.add(normalized);
+        if (normalized.startsWith("NETHER_PORTAL_")) {
+            // Either side of a portal pair completes the generic STRUCTURE_NETHER_PORTAL task.
+            discoveredStructures.add("NETHER_PORTAL");
+        }
         boolean completedActiveTask = applyDiscoveredStructuresToProgressTrackedTasks(player);
         advanceCompletedStages(true);
         return completedActiveTask;
@@ -199,6 +229,80 @@ public class TaskManager {
 
     private String structureKeyFromTask(Task task) {
         return task.getKey().substring("STRUCTURE_".length()).toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Identifies the loaded stage and task setup. A saved run is only restored when the setup is
+     * unchanged, because stage indexes and task progress would not fit otherwise.
+     */
+    public String progressionSignature() {
+        StringBuilder signature = new StringBuilder();
+        for (StageDefinition stage : stages) {
+            signature.append(stage.key()).append('[');
+            stage.tasks().forEach(task -> signature.append(task.getKey()).append(','));
+            signature.append(']');
+        }
+        return signature.toString();
+    }
+
+    /** Writes stage and task progress for {@link RunStateManager}. */
+    void writeState(ConfigurationSection section) {
+        section.set("signature", progressionSignature());
+        section.set("current-stage", isProgressionComplete() ? "" : stages.get(currentStageIndex).key());
+        for (StageDefinition stage : stages) {
+            for (Task task : stage.tasks()) {
+                String path = "tasks." + stage.key() + "." + task.getKey();
+                section.set(path + ".progress", task.getProgress());
+                section.set(path + ".completed", task.isCompleted());
+            }
+        }
+        section.set("discovered", new ArrayList<>(discoveredStructures));
+        cumulativePlayerContributions.forEach((playerId, contributions) ->
+                contributions.forEach((material, amount) ->
+                        section.set("contributions." + playerId + "." + material.name(), amount)));
+    }
+
+    /** Restores progress written by {@link #writeState}; tasks must already be loaded. */
+    void restoreState(ConfigurationSection section) {
+        if (section == null) {
+            return;
+        }
+        for (StageDefinition stage : stages) {
+            for (Task task : stage.tasks()) {
+                String path = "tasks." + stage.key() + "." + task.getKey();
+                task.restoreProgress(section.getInt(path + ".progress"), section.getBoolean(path + ".completed"));
+            }
+        }
+        discoveredStructures.addAll(RunStateManager.strings(section, "discovered"));
+        ConfigurationSection contributions = section.getConfigurationSection("contributions");
+        if (contributions != null) {
+            for (String playerKey : contributions.getKeys(false)) {
+                ConfigurationSection perPlayer = contributions.getConfigurationSection(playerKey);
+                if (perPlayer == null) {
+                    continue;
+                }
+                try {
+                    UUID playerId = UUID.fromString(playerKey);
+                    for (String materialName : perPlayer.getKeys(false)) {
+                        Material material = Material.matchMaterial(materialName);
+                        if (material != null) {
+                            cumulativePlayerContributions.computeIfAbsent(playerId, ignored -> new ConcurrentHashMap<>())
+                                    .put(material, perPlayer.getInt(materialName));
+                        }
+                    }
+                } catch (IllegalArgumentException malformed) {
+                    // skip a damaged player entry
+                }
+            }
+        }
+        String current = section.getString("current-stage", "");
+        currentStageIndex = stages.size();
+        for (int index = 0; index < stages.size(); index++) {
+            if (stages.get(index).key().equals(current)) {
+                currentStageIndex = index;
+                break;
+            }
+        }
     }
 
     public List<Task> getAllTasks() {
@@ -293,7 +397,7 @@ public class TaskManager {
     }
 
     private boolean matchesTaskMaterial(Task task, Material material) {
-        return (task.getKey().equals("OAK_LOG") && allLogMaterials.contains(material))
+        return (task.getKey().equals("OAK_LOG") && isLog(material))
                 || (task.getKey().equals("BREAD") && allCookedFoodMaterials.contains(material))
                 || task.getKey().equals(material.name());
     }
@@ -361,6 +465,18 @@ public class TaskManager {
 
     private void playStructureTaskSound() {
         RewardUtil.playStructureTaskCompleteSound(null);
+    }
+
+    /** Every log, wood, stem, and hyphae type, including newer woods such as cherry and pale oak. */
+    private boolean isLog(Material material) {
+        if (allLogMaterials.contains(material)) {
+            return true;
+        }
+        try {
+            return Tag.LOGS.isTagged(material);
+        } catch (RuntimeException unavailable) {
+            return false; // no server registry (unit tests)
+        }
     }
 
     private void populateMaterialSets() {

@@ -91,6 +91,11 @@ public final class ConfigFileStore {
     }
 
     public static void writeAtomically(Path target, FileConfiguration config) throws IOException {
+        writeAtomically(target, config.saveToString());
+    }
+
+    /** Writes YAML text atomically; usable off the server thread with a snapshot string. */
+    public static void writeAtomically(Path target, String yaml) throws IOException {
         Path absolute = target.toAbsolutePath().normalize();
         if (Files.isSymbolicLink(absolute)) {
             throw new IOException("Refusing to replace a symbolic-link configuration file.");
@@ -99,7 +104,7 @@ public final class ConfigFileStore {
         Path temporary = Files.createTempFile(absolute.getParent(), ".speedrun-config-", ".tmp");
         try {
             copyPermissions(absolute, temporary);
-            byte[] bytes = config.saveToString().getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = yaml.getBytes(StandardCharsets.UTF_8);
             try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
                     StandardOpenOption.TRUNCATE_EXISTING)) {
                 ByteBuffer buffer = ByteBuffer.wrap(bytes);

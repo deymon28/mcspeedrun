@@ -26,9 +26,10 @@ automatically and the previous version is saved to `plugins/Speedrun/config-back
 | `settings.start-on-first-join` | `true` | Start the timer when the first player joins. If false, the timer starts when the server starts. |
 | `settings.reset_time_on_join` | `true` | When the first player join starts a run, also set the Overworld time to morning. |
 | `settings.pause-when-empty` | `false` | Pause the timer automatically while nobody is online and resume when a player returns. Runs paused manually with /run pause stay paused. |
+| `settings.resume-after-restart` | `true` | Keep an active run when the server stops, restarts, or crashes. The run comes back paused and continues when the first player joins; the downtime is not counted. It is only restored into the same world, game mode, and stage setup. |
 | `settings.allow-reassigning-locations` | `true` | Allow /run new <location> to move locations that were already found. If false, only empty locations can be set. |
 | `settings.village-search-timeout` | `600` | Seconds to find a village before the village target is dropped. 600 = 10 minutes. |
-| `settings.task-tracking-mode` | `"INVENTORY"` | How collected resources count towards tasks: INVENTORY  - items currently in online players' inventories. CUMULATIVE - every item picked up or crafted during the run, even if used later. |
+| `settings.task-tracking-mode` | `"INVENTORY"` | How collected resources count towards tasks: INVENTORY  - items currently in online players' inventories. CUMULATIVE - every item picked up or crafted during the run, even if used later. Items that a player dropped are not counted again when picked up. |
 | `settings.scale-resources-by-playercount.enabled` | `true` | Scale required resource amounts with the number of online players (only tasks with srbp: true). |
 | `settings.scale-resources-by-playercount.multiplier` | `0.5` | Required amount = base * (1 + (players - 1) * multiplier). 0.5 adds 50% per extra player. |
 | `settings.log-attempts` | `true` | Write a text and a JSON log for every attempt to plugins/Speedrun/logs. |
@@ -71,7 +72,7 @@ automatically and the previous version is saved to `plugins/Speedrun/config-back
 | `casual.enabled` | `true` | Master switch for CASUAL features when settings.gamemode is CASUAL. |
 | `casual.start-pre-scan.enabled` | `false` | Search for structures in the background when a CASUAL run starts. |
 | `casual.start-pre-scan.mode` | `"BALANCED"` | SAFE       - only chunks that are already loaded. BALANCED   - also loads a limited number of missing chunks (async on Paper). AGGRESSIVE - larger chunk budget, also scans the Nether. LOCATE     - uses the server's structure locate function in small steps. |
-| `casual.start-pre-scan.radius` | `1000` | Maximum distance in blocks from spawn/players for background scanning. |
+| `casual.start-pre-scan.radius` | `1000` | Maximum distance in blocks from spawn/players for background scanning (1-1024). |
 | `casual.start-pre-scan.loaded-chunk-radius` | `10` | Radius in chunks around each player that is scanned when chunks are already loaded. |
 | `casual.start-pre-scan.include-lava-pool` | `true` | Also look for lava pools during the pre-scan. |
 | `casual.start-pre-scan.allow-sync-chunk-loading` | `false` | Allow BALANCED/AGGRESSIVE to load missing chunks on servers without asynchronous chunk loading (Spigot/CraftBukkit). Loads are limited to one chunk per tick but may still cost TPS. |
@@ -143,7 +144,8 @@ automatically and the previous version is saved to `plugins/Speedrun/config-back
 ## Stages and tasks (`progression`)
 
 Every key under `progression` except `settings` is a stage. Stages are completed in the
-alphabetical order of their keys.
+alphabetical order of their keys. A stage without tasks is skipped (it would otherwise complete
+instantly and announce a meaningless split).
 
 | Stage field | Description |
 | --- | --- |
@@ -153,8 +155,10 @@ alphabetical order of their keys.
 
 Task keys are Minecraft item names (for example `IRON_INGOT`) or structure keys:
 `STRUCTURE_LAVA_POOL`, `STRUCTURE_VILLAGE`, `STRUCTURE_NETHER_PORTAL`, `STRUCTURE_FORTRESS`,
-`STRUCTURE_BASTION`, `STRUCTURE_END_PORTAL`. `OAK_LOG` counts every log and wood type, `BREAD`
-counts every cooked food. `srbp: true` scales the amount with the number of online players.
+`STRUCTURE_BASTION`, `STRUCTURE_END_PORTAL`. `STRUCTURE_NETHER_PORTAL` completes when either side
+of a portal is found; `STRUCTURE_NETHER_PORTAL_OVERWORLD` and `STRUCTURE_NETHER_PORTAL_NETHER`
+require that side. `OAK_LOG` counts every log, wood, stem, and hyphae type (including cherry,
+mangrove, and pale oak), `BREAD` counts every cooked food. `srbp: true` scales the amount with the number of online players.
 
 ## Managed values
 

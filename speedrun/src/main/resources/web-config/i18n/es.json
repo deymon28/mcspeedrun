@@ -61,6 +61,9 @@
     "conflict": "La configuración se modificó en otro lugar (otra pestaña, una edición manual o /run reload). Recarga para ver los valores actuales; tus cambios sin guardar se conservan.",
     "reloadKeepEdits": "Recargar y conservar mis cambios",
     "requestFailed": "La solicitud falló: {message}",
+    "invalidNumber": "Introduce un número.",
+    "menu": "Menú",
+    "sections": "Secciones",
     "networkError": "No se pudo contactar con el servidor. ¿Está en ejecución?",
     "yes": "Sí",
     "no": "No",
@@ -269,6 +272,10 @@
     "settings.pause-when-empty": {
       "label": "Pausar cuando el servidor está vacío",
       "help": "Detiene el temporizador mientras no haya nadie en línea y lo reanuda cuando vuelve un jugador."
+    },
+    "settings.resume-after-restart": {
+      "label": "Continuar partidas tras un reinicio",
+      "help": "Conserva la partida activa cuando el servidor se detiene o falla. Vuelve en pausa y continúa cuando entra el primer jugador; el tiempo de inactividad no cuenta."
     },
     "settings.start-on-first-join": {
       "label": "Iniciar cuando entra el primer jugador",

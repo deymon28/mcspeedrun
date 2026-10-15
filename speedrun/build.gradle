@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'org.speedrun'
-version = '26.3-4.0.0-BETA'
+version = '26.3-4.1.0-BETA'
 
 // Minecraft release the plugin is built and tested against.
 def targetMinecraftVersion = '26.3'
@@ -121,7 +121,7 @@ processResources {
             apiVersion: minimumApiVersion
     ]
     inputs.properties props
-    filteringCharset 'UTF-8'
+    filteringCharset = 'UTF-8'
     filesMatching(['plugin.yml', 'config.yml']) {
         expand props
     }
